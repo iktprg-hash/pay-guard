@@ -12,7 +12,8 @@ const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 const withSerwist = withSerwistInit({
   swSrc: "src/sw.ts",
   swDest: "public/sw.js",
-  disable: process.env.NODE_ENV === "development",
+  disable:
+    process.env.NODE_ENV === "development" || process.env.VERCEL === "1",
   register: false,
   reloadOnOnline: true,
   additionalPrecacheEntries: [{ url: "/~offline", revision: "1" }],

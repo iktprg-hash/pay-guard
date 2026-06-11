@@ -8,10 +8,9 @@ describe("PWA configuration", () => {
     "utf8"
   );
 
-  it("disables Serwist service worker in development", () => {
-    expect(nextConfig).toContain(
-      "disable: process.env.NODE_ENV === \"development\""
-    );
+  it("disables Serwist service worker in development and on Vercel", () => {
+    expect(nextConfig).toContain('process.env.NODE_ENV === "development"');
+    expect(nextConfig).toContain('process.env.VERCEL === "1"');
   });
 
   it("registers SW manually from client component", () => {
