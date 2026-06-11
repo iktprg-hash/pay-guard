@@ -1,0 +1,32 @@
+import { NextRequest, NextResponse } from "next/server";
+import { loadUserSessionBundle } from "@/lib/chat/persistence";
+import { requireApiUser } from "@/lib/auth/session";
+import { createClient } from "@/lib/supabase/server";
+import { rateLimitError } from "@/lib/api/errors";
+import { checkRateLimit, getClientIp } from "@/lib/security/rateLimit";
+
+type RouteContext = { params: Promise<{ sessionId: string }> };
+
+/** GET — načte jednu konzultaci (zprávy + profil); token se nevrací klientovi */
+export async function GET(request: NextRequest, context: RouteContext) {
+  const auth = await requireApiUser();
+  if ("error" in auth) return auth.error;
+
+  const ip = getClientIp(request.headers);
+  const limit = await checkRateLimit(
+    `sessions-get:${auth.user.id}:${ip}`,
+    60,
+    60_000
+  );
+  if (!limit.allowed) return rateLimitError(limit.resetAt);
+
+  const { sessionId } = await context.params;
+
+  const supabase = await createClient();
+  const bundle = await loadUserSessionBundle(supabase, sessionId, auth.user.id);
+  if (!bundle) {
+    return NextResponse.json({ error: "Session not found" }, { status: 404 });
+  }
+
+  return NextResponse.json(bundle);
+}
