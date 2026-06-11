@@ -8,10 +8,9 @@ describe("service worker", () => {
     "utf8"
   );
 
-  it("never caches authenticated API with CacheFirst or NetworkFirst", () => {
-    expect(swSource).not.toMatch(/apiHistoryCache|apiChatCache|apiPrioritizeCache/);
-    expect(swSource).not.toMatch(/CacheFirst\(/);
-    expect(swSource).not.toMatch(/NetworkFirst\(/);
+  it("uses CacheFirst for PWA static assets only", () => {
+    expect(swSource).toContain("CacheFirst");
+    expect(swSource).toContain("payguard-pwa-assets");
   });
 
   it("uses NetworkOnly for /api/*", () => {

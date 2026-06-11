@@ -12,6 +12,8 @@ const splashes = [
   { name: "apple-splash-1170-2532.png", width: 1170, height: 2532 },
   { name: "apple-splash-1284-2778.png", width: 1284, height: 2778 },
   { name: "apple-splash-1179-2556.png", width: 1179, height: 2556 },
+  { name: "apple-splash-1290-2796.png", width: 1290, height: 2796 },
+  { name: "apple-splash-1536-2048.png", width: 1536, height: 2048 },
 ];
 
 await mkdir(splashDir, { recursive: true });

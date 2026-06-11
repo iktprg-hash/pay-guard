@@ -187,6 +187,11 @@
     "offline": {
       "title": "Jste offline",
       "subtitle": "Jste offline, ale vaše poslední data jsou k dispozici.",
+      "bannerTitle": "Jste offline — data jsou dostupná lokálně",
+      "bannerSubtitle": "Poslední doporučení a konverzace můžete prohlížet bez internetu.",
+      "showData": "Zobrazit data",
+      "hideData": "Skrýt",
+      "lastSessionPreview": "Náhled poslední konverzace",
       "lastRecommendation": "Poslední doporučení",
       "noRecommendation": "Zatím nemáte uložené doporučení. Po připojení k internetu získejte nové.",
       "viewSession": "Otevřít poslední konverzaci",

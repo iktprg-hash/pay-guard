@@ -7,13 +7,6 @@ import { NetworkProvider } from "@/components/pwa/NetworkProvider";
 import { RegisterServiceWorker } from "@/components/pwa/RegisterServiceWorker";
 import { PwaInstallProvider } from "@/components/pwa/PwaInstallProvider";
 
-/** Client-only PWA UI — vyhnout se SSR chybám při prerenderu */
-const OfflineShell = dynamic(
-  () =>
-    import("@/components/pwa/OfflineShell").then((m) => m.OfflineShell),
-  { ssr: false }
-);
-
 const InstallPromptBanner = dynamic(
   () =>
     import("@/components/pwa/InstallPrompt").then((m) => m.InstallPromptBanner),
@@ -30,7 +23,6 @@ export function PwaProviders({ children }: { children: React.ReactNode }) {
       <PwaInstallProvider>
         <RegisterServiceWorker />
         {children}
-        <OfflineShell />
         <InstallPromptBanner />
       </PwaInstallProvider>
     </NetworkProvider>

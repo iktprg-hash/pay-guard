@@ -21,6 +21,7 @@ import {
   type ServerSessionSummary,
 } from "@/lib/chat/sync";
 import { saveOfflineSession } from "@/lib/offline/storage";
+import { loadSessionCacheFirst } from "@/lib/offline/cache-first";
 import type { ChatMessage, FinancialProfile } from "@/lib/types/financial";
 
 interface UseChatHistoryOptions {
@@ -172,7 +173,23 @@ export function useChatHistory({
         };
       }
 
-      if (!isAuthenticated || !navigator.onLine) return null;
+      // Cache-first offline: IDB session backup, then localStorage
+      if (!navigator.onLine) {
+        const cached = await loadSessionCacheFirst(
+          locale as "cs" | "ru" | "en",
+          targetSessionId
+        );
+        if (cached) {
+          return {
+            messages: cached.messages,
+            profile: cached.profile,
+            sessionId: cached.sessionId,
+          };
+        }
+        return null;
+      }
+
+      if (!isAuthenticated) return null;
 
       try {
         if (targetSessionId) {

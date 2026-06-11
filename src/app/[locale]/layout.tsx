@@ -101,7 +101,9 @@ export default async function LocaleLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full`}
     >
       <head>
-        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <link rel="manifest" href={`/${locale}/manifest.webmanifest`} />
+        <meta name="theme-color" content={PWA_THEME_COLOR} />
+        <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content={PWA_APP_NAME} />
         <link rel="apple-touch-icon" href="/icons/icon-180x180.png" />

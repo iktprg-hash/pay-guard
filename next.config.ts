@@ -12,11 +12,19 @@ const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 const withSerwist = withSerwistInit({
   swSrc: "src/sw.ts",
   swDest: "public/sw.js",
-  disable:
-    process.env.NODE_ENV === "development" || process.env.VERCEL === "1",
+  // Dev: no SW (fast refresh). Production (incl. Vercel): full PWA precache.
+  disable: process.env.NODE_ENV === "development",
   register: false,
   reloadOnOnline: true,
-  additionalPrecacheEntries: [{ url: "/~offline", revision: "1" }],
+  additionalPrecacheEntries: [
+    { url: "/~offline", revision: null },
+    { url: "/cs", revision: null },
+    { url: "/ru", revision: null },
+    { url: "/en", revision: null },
+    { url: "/icons/icon-192x192.png", revision: null },
+    { url: "/icons/icon-512x512.png", revision: null },
+    { url: "/icons/icon-maskable-512x512.png", revision: null },
+  ],
 });
 
 const nextConfig: NextConfig = {

@@ -187,6 +187,11 @@
     "offline": {
       "title": "You are offline",
       "subtitle": "You are offline, but your latest data is still available.",
+      "bannerTitle": "You're offline — data available locally",
+      "bannerSubtitle": "View your last recommendations and conversation without a connection.",
+      "showData": "Show data",
+      "hideData": "Hide",
+      "lastSessionPreview": "Last conversation preview",
       "lastRecommendation": "Last recommendation",
       "noRecommendation": "No saved recommendation yet. Get a new one when you are back online.",
       "viewSession": "Open last conversation",

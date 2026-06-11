@@ -16,6 +16,25 @@ export type PwaLocale = keyof typeof PWA_DESCRIPTIONS;
 /** Po kolika doporučeních zobrazit install prompt */
 export const INSTALL_PROMPT_AFTER_RECOMMENDATIONS = 2;
 
+/** Lokalizované názvy pro manifest shortcuts */
+export const PWA_SHORTCUT_LABELS = {
+  cs: {
+    chat: "Chat",
+    manual: "Ruční zadání",
+    consultations: "Konzultace",
+  },
+  ru: {
+    chat: "Чат",
+    manual: "Ручной ввод",
+    consultations: "Консультации",
+  },
+  en: {
+    chat: "Chat",
+    manual: "Manual entry",
+    consultations: "Consultations",
+  },
+} as const;
+
 /** iOS startup images (width x height @ scale) */
 export const IOS_SPLASH_SCREENS = [
   {
@@ -33,9 +52,21 @@ export const IOS_SPLASH_SCREENS = [
     media:
       "(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3)",
   },
+  {
+    href: "/splash/apple-splash-1290-2796.png",
+    media:
+      "(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3)",
+  },
+  {
+    href: "/splash/apple-splash-1536-2048.png",
+    media:
+      "(device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2)",
+  },
 ] as const;
 
 export function buildManifest(locale: PwaLocale) {
+  const labels = PWA_SHORTCUT_LABELS[locale];
+
   return {
     id: `pay-guard-${locale}`,
     name: PWA_APP_NAME,
@@ -44,12 +75,34 @@ export function buildManifest(locale: PwaLocale) {
     start_url: `/${locale}`,
     scope: "/",
     display: "standalone" as const,
+    display_override: ["standalone", "minimal-ui", "browser"] as const,
     orientation: "portrait" as const,
     theme_color: PWA_THEME_COLOR,
     background_color: PWA_BACKGROUND_COLOR,
     lang: locale,
-    categories: ["finance", "productivity"],
+    categories: ["finance", "productivity", "utilities"],
     dir: "ltr" as const,
+    prefer_related_applications: false,
+    shortcuts: [
+      {
+        name: labels.chat,
+        short_name: labels.chat,
+        url: `/${locale}`,
+        icons: [{ src: "/icons/icon-192x192.png", sizes: "192x192" }],
+      },
+      {
+        name: labels.manual,
+        short_name: labels.manual,
+        url: `/${locale}/manual`,
+        icons: [{ src: "/icons/icon-192x192.png", sizes: "192x192" }],
+      },
+      {
+        name: labels.consultations,
+        short_name: labels.consultations,
+        url: `/${locale}/consultations`,
+        icons: [{ src: "/icons/icon-192x192.png", sizes: "192x192" }],
+      },
+    ],
     icons: [
       {
         src: "/icons/icon-72x72.png",

@@ -28,4 +28,17 @@ test.describe("Pay Guard smoke", () => {
     expect(res.headers()["x-content-type-options"]).toBe("nosniff");
     expect(res.headers()["content-security-policy"]).toContain("default-src 'self'");
   });
+
+  test("locale manifest is served with PWA fields", async ({ request }) => {
+    const res = await request.get("/cs/manifest.webmanifest");
+    expect(res.status()).toBe(200);
+    const body = (await res.json()) as {
+      display?: string;
+      start_url?: string;
+      shortcuts?: unknown[];
+    };
+    expect(body.display).toBe("standalone");
+    expect(body.start_url).toBe("/cs");
+    expect(body.shortcuts?.length).toBeGreaterThanOrEqual(1);
+  });
 });
