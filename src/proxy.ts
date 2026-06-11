@@ -9,6 +9,13 @@ import {
 
 const intlMiddleware = createIntlMiddleware(routing);
 
+/** Skip session refresh for diagnostics */
+const PROXY_BYPASS_PREFIXES = ["/api/health"] as const;
+
+function shouldBypassProxy(pathname: string): boolean {
+  return PROXY_BYPASS_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
+
 const PUBLIC_PAGE_SUFFIXES = [
   "/login",
   "/register",
@@ -65,7 +72,13 @@ function isProtectedPage(pathname: string): boolean {
 
 export default async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
-  const { supabaseResponse, user } = await updateSession(request);
+
+  if (shouldBypassProxy(pathname)) {
+    return NextResponse.next({ request });
+  }
+
+  try {
+    const { supabaseResponse, user } = await updateSession(request);
 
   // ── API ──
   if (pathname.startsWith("/api/")) {
@@ -116,6 +129,10 @@ export default async function proxy(request: NextRequest) {
   // ── i18n routing ──
   const intlResponse = intlMiddleware(request);
   return mergeResponseCookies(supabaseResponse, intlResponse);
+  } catch (error) {
+    console.error("[proxy] unhandled error:", error);
+    return NextResponse.next({ request });
+  }
 }
 
 export const config = {

@@ -1,9 +1,20 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+function stripQuotes(value: string | undefined): string {
+  const v = (value ?? "").trim();
+  if (
+    (v.startsWith('"') && v.endsWith('"')) ||
+    (v.startsWith("'") && v.endsWith("'"))
+  ) {
+    return v.slice(1, -1);
+  }
+  return v;
+}
+
 function isSupabaseConfigured(): boolean {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const url = stripQuotes(process.env.NEXT_PUBLIC_SUPABASE_URL);
+  const key = stripQuotes(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
   return Boolean(url && key && !url.includes("your-project"));
 }
 
@@ -20,8 +31,8 @@ export async function updateSession(request: NextRequest) {
 
   try {
     const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      stripQuotes(process.env.NEXT_PUBLIC_SUPABASE_URL)!,
+      stripQuotes(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)!,
       {
         cookies: {
           getAll() {

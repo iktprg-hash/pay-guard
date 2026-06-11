@@ -107,6 +107,11 @@ try {
   if (msg.includes("401") || msg.includes("Unauthorized")) {
     console.log("   → Token je neplatný. Zkopírujte znovu UPSTASH_REDIS_REST_TOKEN.");
   }
+  if (msg.includes("NOPERM") || msg.includes("no permissions")) {
+    console.log(
+      "   → Token je read-only. V Upstash Console → REST API použijte hlavní token (Read-Write), ne Read-Only."
+    );
+  }
   ok = false;
 }
 
