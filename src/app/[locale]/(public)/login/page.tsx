@@ -1,6 +1,8 @@
 import { Suspense } from "react";
 import { setRequestLocale } from "next-intl/server";
 import { LoginForm } from "@/components/auth/login-form";
+import { GuestOnlyShell } from "@/components/auth/guest-only-shell";
+import type { Locale } from "@/i18n/routing";
 
 export default async function LoginPage({
   params,
@@ -11,8 +13,10 @@ export default async function LoginPage({
   setRequestLocale(locale);
 
   return (
-    <Suspense>
-      <LoginForm />
-    </Suspense>
+    <GuestOnlyShell locale={locale as Locale}>
+      <Suspense>
+        <LoginForm />
+      </Suspense>
+    </GuestOnlyShell>
   );
 }

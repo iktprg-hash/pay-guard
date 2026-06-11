@@ -1,14 +1,14 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { NextRequest, NextResponse } from "next/server";
 
-const requireApiUser = vi.fn();
+const requireProApiUser = vi.fn();
 const listUserSessions = vi.fn();
 const createUserSession = vi.fn();
 const loadUserSessionBundle = vi.fn();
 const checkRateLimit = vi.fn();
 
-vi.mock("@/lib/auth/session", () => ({
-  requireApiUser: () => requireApiUser(),
+vi.mock("@/lib/auth/require-pro", () => ({
+  requireProApiUser: () => requireProApiUser(),
 }));
 
 vi.mock("@/lib/chat/persistence", () => ({
@@ -36,12 +36,12 @@ beforeEach(() => {
     remaining: 10,
     resetAt: Date.now() + 60_000,
   });
-  requireApiUser.mockResolvedValue({ user: userA });
+  requireProApiUser.mockResolvedValue({ user: userA });
 });
 
 describe("GET /api/sessions", () => {
   it("returns 401 when unauthenticated", async () => {
-    requireApiUser.mockResolvedValue({
+    requireProApiUser.mockResolvedValue({
       error: NextResponse.json({ error: "Authentication required" }, { status: 401 }),
     });
 
@@ -50,6 +50,21 @@ describe("GET /api/sessions", () => {
       new NextRequest("http://127.0.0.1:3000/api/sessions")
     );
     expect(res.status).toBe(401);
+  });
+
+  it("returns 403 when user is not Pro", async () => {
+    requireProApiUser.mockResolvedValue({
+      error: NextResponse.json(
+        { error: "Pro subscription required", code: "pro_required" },
+        { status: 403 }
+      ),
+    });
+
+    const { GET } = await import("./route");
+    const res = await GET(
+      new NextRequest("http://127.0.0.1:3000/api/sessions")
+    );
+    expect(res.status).toBe(403);
   });
 
   it("list response does not expose sessionToken", async () => {

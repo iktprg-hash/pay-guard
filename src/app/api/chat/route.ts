@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { chatWithGrok, GrokUnavailableError } from "@/lib/grok/client";
+import { chatWithGrok, GrokUnavailableError, GrokRequestError } from "@/lib/grok/client";
 import { mergeProfileUpdate } from "@/lib/grok/prompts";
 import { requireApiUser } from "@/lib/auth/session";
 import {
@@ -48,6 +48,10 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof GrokUnavailableError) {
       return serviceUnavailable("Chat service is not configured");
+    }
+    if (error instanceof GrokRequestError) {
+      console.error("[api/chat] grok status:", error.status);
+      return NextResponse.json({ error: "Chat request failed" }, { status: 502 });
     }
     console.error("[api/chat]", error);
     return NextResponse.json({ error: "Chat request failed" }, { status: 500 });

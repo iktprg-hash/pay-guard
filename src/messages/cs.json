@@ -71,7 +71,8 @@
     "level1": "Vysoký",
     "level2": "Střední",
     "level3": "Nízký",
-    "exportPdf": "Stáhnout PDF"
+    "exportPdf": "Stáhnout PDF",
+    "exportPdfPro": "PDF — Pro"
   },
   "manual": {
     "title": "Ruční zadání",

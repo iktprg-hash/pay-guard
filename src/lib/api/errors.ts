@@ -33,3 +33,10 @@ export function unauthorizedError(message = "Unauthorized") {
 export function serviceUnavailable(message: string) {
   return NextResponse.json({ error: message }, { status: 503 });
 }
+
+export function proRequiredError() {
+  return NextResponse.json(
+    { error: "Pro subscription required", code: "pro_required" },
+    { status: 403 }
+  );
+}

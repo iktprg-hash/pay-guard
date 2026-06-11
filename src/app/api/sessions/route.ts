@@ -4,7 +4,7 @@ import {
   createUserSession,
   listUserSessions,
 } from "@/lib/chat/persistence";
-import { requireApiUser } from "@/lib/auth/session";
+import { requireProApiUser } from "@/lib/auth/require-pro";
 import { createClient } from "@/lib/supabase/server";
 import {
   rateLimitError,
@@ -18,7 +18,7 @@ const createSchema = z.object({
 
 /** GET — seznam konzultací uživatele */
 export async function GET(request: NextRequest) {
-  const auth = await requireApiUser();
+  const auth = await requireProApiUser();
   if ("error" in auth) return auth.error;
 
   const ip = getClientIp(request.headers);
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
 
 /** POST — vytvoří novou finanční relaci */
 export async function POST(request: NextRequest) {
-  const auth = await requireApiUser();
+  const auth = await requireProApiUser();
   if ("error" in auth) return auth.error;
 
   const ip = getClientIp(request.headers);

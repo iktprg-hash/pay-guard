@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { AlertTriangle, CheckCircle2, Download } from "lucide-react";
 import { useLocale } from "next-intl";
+import Link from "next/link";
 import { downloadPriorityReport } from "@/lib/export/pdfReport";
 import { Button } from "@/components/ui/button";
 import type { Locale } from "@/i18n/routing";
@@ -15,6 +16,7 @@ import {
   resolvePriorityLevel,
 } from "@/lib/financial/priorityLevel";
 import type { PrioritizationResult } from "@/lib/types/financial";
+import { useSubscriptionTier } from "@/hooks/use-subscription-tier";
 
 interface RecommendationCardProps {
   result: PrioritizationResult;
@@ -32,6 +34,7 @@ export function RecommendationCard({ result, locale = "cs-CZ" }: RecommendationC
   const t = useTranslations("recommendation");
   const tCat = useTranslations("categories");
   const appLocale = useLocale() as Locale;
+  const { pro } = useSubscriptionTier();
 
   return (
     <Card className="border-primary/20 bg-primary/5">
@@ -42,15 +45,26 @@ export function RecommendationCard({ result, locale = "cs-CZ" }: RecommendationC
         </CardTitle>
         <div className="flex items-start justify-between gap-2">
           <p className="text-sm font-medium text-foreground">{result.summary}</p>
-          <Button
-            variant="outline"
-            size="sm"
-            className="shrink-0 gap-1.5 text-xs"
-            onClick={() => downloadPriorityReport(result, appLocale)}
-          >
-            <Download className="h-3.5 w-3.5" />
-            {t("exportPdf")}
-          </Button>
+          {pro ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0 gap-1.5 text-xs"
+              onClick={() => downloadPriorityReport(result, appLocale)}
+            >
+              <Download className="h-3.5 w-3.5" />
+              {t("exportPdf")}
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0 gap-1.5 text-xs"
+              asChild
+            >
+              <Link href={`/${appLocale}/pricing`}>{t("exportPdfPro")}</Link>
+            </Button>
+          )}
         </div>
         {result.lifeBuffer > 0 && (
           <p className="text-xs text-muted-foreground">

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { loadUserSessionBundle } from "@/lib/chat/persistence";
-import { requireApiUser } from "@/lib/auth/session";
+import { requireProApiUser } from "@/lib/auth/require-pro";
 import { createClient } from "@/lib/supabase/server";
 import { rateLimitError } from "@/lib/api/errors";
 import { checkRateLimit, getClientIp } from "@/lib/security/rateLimit";
@@ -9,7 +9,7 @@ type RouteContext = { params: Promise<{ sessionId: string }> };
 
 /** GET — načte jednu konzultaci (zprávy + profil); token se nevrací klientovi */
 export async function GET(request: NextRequest, context: RouteContext) {
-  const auth = await requireApiUser();
+  const auth = await requireProApiUser();
   if ("error" in auth) return auth.error;
 
   const ip = getClientIp(request.headers);

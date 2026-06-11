@@ -5,7 +5,7 @@ import {
   saveSessionToSupabase,
 } from "@/lib/chat/persistence";
 import type { StoredMessage } from "@/lib/chat/storage";
-import { requireApiUser } from "@/lib/auth/session";
+import { requireProApiUser } from "@/lib/auth/require-pro";
 import { createClient } from "@/lib/supabase/server";
 import {
   rateLimitError,
@@ -21,7 +21,7 @@ import {
 
 /** Uloží celou historii konverzace */
 export async function POST(request: NextRequest) {
-  const auth = await requireApiUser();
+  const auth = await requireProApiUser();
   if ("error" in auth) return auth.error;
 
   const ip = getClientIp(request.headers);
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
 
 /** Načte historii — ?latest=1 nebo ?sessionId= (auth + ownership) */
 export async function GET(request: NextRequest) {
-  const auth = await requireApiUser();
+  const auth = await requireProApiUser();
   if ("error" in auth) return auth.error;
 
   const ip = getClientIp(request.headers);

@@ -71,7 +71,8 @@
     "level1": "High",
     "level2": "Medium",
     "level3": "Low",
-    "exportPdf": "Download PDF"
+    "exportPdf": "Download PDF",
+    "exportPdfPro": "PDF — Pro"
   },
   "manual": {
     "title": "Manual input",

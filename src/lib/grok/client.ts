@@ -34,6 +34,16 @@ export class GrokUnavailableError extends Error {
   }
 }
 
+export class GrokRequestError extends Error {
+  readonly status: number;
+
+  constructor(status: number, message = "Grok API request failed") {
+    super(message);
+    this.name = "GrokRequestError";
+    this.status = status;
+  }
+}
+
 /**
  * Volá xAI Grok API pro konverzační odpověď.
  * Mock odpovědi pouze v dev bez API klíče — v produkci 503.
@@ -82,7 +92,11 @@ export async function chatWithGrok(
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Grok API error: ${response.status} — ${errorText}`);
+    console.error(
+      `[grok] API error ${response.status}:`,
+      errorText.slice(0, 300)
+    );
+    throw new GrokRequestError(response.status);
   }
 
   const data = await response.json();

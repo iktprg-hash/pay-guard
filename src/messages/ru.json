@@ -71,7 +71,8 @@
     "level1": "Высокий",
     "level2": "Средний",
     "level3": "Низкий",
-    "exportPdf": "Скачать PDF"
+    "exportPdf": "Скачать PDF",
+    "exportPdfPro": "PDF — Pro"
   },
   "manual": {
     "title": "Ручной ввод",

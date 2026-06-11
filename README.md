@@ -91,7 +91,8 @@ src/
 │   │   ├── sessions/      # Seznam konzultací
 │   │   └── session/claim/ # Propojení anonymní relace
 │   └── auth/confirm/      # E-mail / PKCE potvrzení
-├── proxy.ts               # Auth gate + i18n
+├── (protected)/           # Server-side auth layout
+├── (public)/              # Login, register, pricing
 ├── components/            # UI, auth, chat, PWA
 ├── lib/
 │   ├── auth/              # Session, redirect, rate limit
