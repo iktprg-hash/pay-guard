@@ -6,6 +6,7 @@ import { Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { hasGrokConsent, setGrokConsent } from "@/lib/grok/consent";
+import { PageLoader } from "@/components/ui/page-loader";
 
 interface GrokConsentGateProps {
   children: React.ReactNode;
@@ -13,6 +14,7 @@ interface GrokConsentGateProps {
 
 export function GrokConsentGate({ children }: GrokConsentGateProps) {
   const t = useTranslations("chat.consent");
+  const tCommon = useTranslations("common");
   const [ready, setReady] = useState(false);
   const [accepted, setAccepted] = useState(false);
 
@@ -21,7 +23,9 @@ export function GrokConsentGate({ children }: GrokConsentGateProps) {
     setReady(true);
   }, []);
 
-  if (!ready) return null;
+  if (!ready) {
+    return <PageLoader label={tCommon("loading")} />;
+  }
 
   if (accepted) return <>{children}</>;
 

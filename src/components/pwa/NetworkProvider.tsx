@@ -6,9 +6,12 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
+import { useTranslations } from "next-intl";
+import { useToast } from "@/components/ui/toast-provider";
 
 interface NetworkContextValue {
   isOnline: boolean;
@@ -25,14 +28,23 @@ export function useNetworkStatus() {
 }
 
 export function NetworkProvider({ children }: { children: ReactNode }) {
+  const t = useTranslations("toast");
+  const { push } = useToast();
   const [isOnline, setIsOnline] = useState(true);
   const [wasOffline, setWasOffline] = useState(false);
+  const mounted = useRef(false);
 
   useEffect(() => {
     const sync = () => {
       const online = navigator.onLine;
-      setIsOnline(online);
-      if (!online) setWasOffline(true);
+      setIsOnline((prev) => {
+        if (mounted.current && online !== prev) {
+          push(online ? t("online") : t("offline"), online ? "success" : "default");
+        }
+        return online;
+      });
+      if (!navigator.onLine) setWasOffline(true);
+      mounted.current = true;
     };
 
     sync();
@@ -42,7 +54,7 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
       window.removeEventListener("online", sync);
       window.removeEventListener("offline", sync);
     };
-  }, []);
+  }, [push, t]);
 
   const value = useMemo(
     () => ({ isOnline, wasOffline }),

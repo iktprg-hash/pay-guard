@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
-import { MessageSquare, Plus, Sparkles } from "lucide-react";
+import { AlertTriangle, MessageSquare, Plus, Sparkles } from "lucide-react";
 import { useAuth } from "@/components/providers/auth-provider";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,6 +14,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { PageLoader } from "@/components/ui/page-loader";
+import { toast } from "@/components/ui/toast-provider";
 import {
   listLocalSessions,
   type LocalSessionMeta,
@@ -39,26 +41,41 @@ function formatDate(iso: string, locale: Locale): string {
 
 export function SessionList() {
   const t = useTranslations("consultations");
+  const tToast = useTranslations("toast");
+  const tErrors = useTranslations("errors");
   const locale = useLocale() as Locale;
   const { user, loading: authLoading } = useAuth();
   const [sessions, setSessions] = useState<LocalSessionMeta[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   const loadSessions = useCallback(async () => {
     setLoading(true);
+    setError(false);
     try {
       if (user && navigator.onLine) {
-        await syncUserSessionsOnLogin(locale);
+        try {
+          await syncUserSessionsOnLogin(locale);
+        } catch {
+          toast(tToast("syncFailed"), "error");
+        }
         const server = await fetchServerSessions();
         const local = await listLocalSessions(locale);
         setSessions(mergeSessionLists(server, local));
       } else {
         setSessions(await listLocalSessions(locale));
       }
+    } catch {
+      setError(true);
+      try {
+        setSessions(await listLocalSessions(locale));
+      } catch {
+        setSessions([]);
+      }
     } finally {
       setLoading(false);
     }
-  }, [user, locale]);
+  }, [user, locale, tToast]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -87,7 +104,17 @@ export function SessionList() {
       )}
 
       {loading ? (
-        <p className="text-sm text-muted-foreground">{t("loading")}</p>
+        <PageLoader label={t("loading")} />
+      ) : error && sessions.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center gap-4 py-12 text-center">
+            <AlertTriangle className="h-10 w-10 text-destructive/70" aria-hidden />
+            <p className="text-sm text-muted-foreground">{t("loadError")}</p>
+            <Button variant="secondary" onClick={() => void loadSessions()}>
+              {tErrors("retry")}
+            </Button>
+          </CardContent>
+        </Card>
       ) : sessions.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-4 py-12 text-center">

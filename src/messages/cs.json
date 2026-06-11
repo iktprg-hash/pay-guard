@@ -4,6 +4,31 @@
     "tagline": "Chytrý pomocník pro prioritizaci plateb",
     "description": "Pomáháme vám rozhodnout, kam poslat omezené peníze, když je závazků hodně."
   },
+  "common": {
+    "skipToContent": "Přeskočit na obsah",
+    "menu": "Otevřít menu",
+    "close": "Zavřít menu",
+    "mainNav": "Hlavní navigace",
+    "loading": "Načítám…",
+    "language": "Jazyk aplikace",
+    "closeNotification": "Zavřít upozornění"
+  },
+  "toast": {
+    "signedOut": "Byli jste odhlášeni",
+    "pdfExported": "PDF bylo staženo",
+    "pdfExportFailed": "PDF se nepodařilo stáhnout",
+    "syncFailed": "Synchronizace se nezdařila — zobrazují se lokální data",
+    "offline": "Jste offline",
+    "online": "Připojení obnoveno"
+  },
+  "errors": {
+    "title": "Něco se pokazilo",
+    "description": "Aplikaci se nepodařilo načíst. Zkuste stránku obnovit.",
+    "retry": "Obnovit stránku",
+    "notFound": "Stránka nenalezena",
+    "notFoundHint": "Odkaz neexistuje nebo byl přesunut.",
+    "backHome": "Zpět na Pay Guard"
+  },
   "nav": {
     "chat": "Chat",
     "consultations": "Konzultace",
@@ -13,7 +38,7 @@
     "pro": "Pro"
   },
   "chat": {
-    "welcome": "Ahoj! Jsem Pay Guard — váš pomocník s prioritami plateb.\n\nPovídejte mi o své situaci. Můžete psát nebo mluvit do mikrofonu. Zeptám se vás postupně na závazky, příjem a kolik peněz máte k dispozici.",
+    "welcome": "Ahoj! Jsem Pay Guard — váš pomocník s prioritami plateb.\n\nPopište mi svou situaci. Můžete psát nebo mluvit do mikrofonu. Zeptám se vás postupně na závazky, příjem a kolik peněz máte k dispozici.",
     "subtitle": "Konverzace s Pay Guard",
     "placeholder": "Napište zprávu…",
     "send": "Odeslat",
@@ -53,7 +78,8 @@
     "startFirst": "Začít první konzultaci",
     "continue": "Pokračovat",
     "untitled": "Konzultace",
-    "loading": "Načítám…",
+    "loading": "Načítám konzultace…",
+    "loadError": "Konverzace se nepodařilo načíst. Zkuste to znovu.",
     "anonymousHint": "Bez přihlášení jsou konzultace uložené jen v tomto prohlížeči. Po přihlášení se synchronizují s cloudem.",
     "messages": "{count, plural, one {# zpráva} few {# zprávy} other {# zpráv}}"
   },
@@ -93,7 +119,10 @@
     "criticalNote": "Poznámka (např. vystěhování)",
     "category": "Kategorie",
     "submit": "Vypočítat priority",
-    "remove": "Odebrat"
+    "remove": "Odebrat",
+    "error": "Výpočet se nezdařil. Zkuste to prosím znovu.",
+    "calculating": "Počítám priority…",
+    "criticalNotePlaceholder": "např. vystěhování 20. 6."
   },
   "categories": {
     "housing": "Bydlení",
@@ -123,10 +152,11 @@
       "Prioritní podpora"
     ],
     "upgrade": "Přejít na Pro",
-    "currentPlan": "Váš plán"
+    "currentPlan": "Váš plán",
+    "comingSoon": "brzy"
   },
   "footer": {
-    "disclaimer": "Pay Guard nenahrazuje finančního poradce ani právníka. Doporučení jsou orientační."
+    "disclaimer": "Pay Guard nenahrazuje finančního poradce, právníka ani insolvenčního správce. Doporučení slouží pouze k orientaci."
   },
   "auth": {
     "loginTitle": "Přihlášení",

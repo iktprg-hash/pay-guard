@@ -63,7 +63,7 @@ export default async function PricingPage({
               ))}
             </ul>
             <Button className="mt-6 w-full" disabled>
-              {t("upgrade")} — brzy
+              {t("upgrade")} — {t("comingSoon")}
             </Button>
           </CardContent>
         </Card>

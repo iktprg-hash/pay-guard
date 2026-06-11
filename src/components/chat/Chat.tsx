@@ -20,6 +20,7 @@ import { persistRecommendationOffline } from "@/lib/pwa/persistRecommendation";
 import { runPriorityEngine } from "@/services/priorityEngine";
 import { GrokConsentGate } from "./GrokConsentGate";
 import { OfflineRecommendationCard } from "@/components/pwa/OfflineRecommendationCard";
+import { ChatSkeleton } from "@/components/ui/page-loader";
 import type { ChatMessage, PrioritizationResult } from "@/lib/types/financial";
 import type { Locale } from "@/i18n/routing";
 
@@ -289,7 +290,9 @@ export function Chat() {
         aria-relevant="additions"
         aria-atomic="false"
       >
-        {isEmpty && !isLoading ? (
+        {!hydrated ? (
+          <ChatSkeleton />
+        ) : isEmpty && !isLoading ? (
           <>
             <OfflineRecommendationCard locale={locale} />
             <ChatWelcome onSuggestion={sendMessage} disabled={isLoading} />

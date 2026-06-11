@@ -9,7 +9,13 @@ interface TypingIndicatorProps {
 
 export function TypingIndicator({ label }: TypingIndicatorProps) {
   return (
-    <div className="group w-full">
+    <div
+      className="group w-full"
+      role="status"
+      aria-busy="true"
+      aria-live="polite"
+      aria-label={label}
+    >
       <div className="mx-auto flex max-w-3xl gap-4 px-4 py-6">
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
           <Shield className="h-4 w-4 text-primary" />

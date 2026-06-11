@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RecommendationCard } from "@/components/chat/recommendation-card";
 import { OfflineRecommendationCard } from "@/components/pwa/OfflineRecommendationCard";
+import { Spinner } from "@/components/ui/page-loader";
 import { persistRecommendationOffline } from "@/lib/pwa/persistRecommendation";
 import { runPriorityEngine } from "@/services/priorityEngine";
 import type { Debt, DebtCategory, FinancialProfile, PrioritizationResult } from "@/lib/types/financial";
@@ -82,7 +83,7 @@ export function ManualForm() {
         });
         const json = await res.json();
         if (!res.ok) {
-          setError(json.error ?? "Request failed");
+          setError(json.error ?? t("error"));
           return;
         }
         data = json;
@@ -91,7 +92,7 @@ export function ManualForm() {
       await persistRecommendationOffline(locale, profile, data, "manual");
       setResult(data);
     } catch {
-      setError("Request failed");
+      setError(t("error"));
     } finally {
       setLoading(false);
     }
@@ -241,7 +242,7 @@ export function ManualForm() {
                 <Input
                   value={debt.criticalNote ?? ""}
                   onChange={(e) => updateDebt(debt.id, "criticalNote", e.target.value)}
-                  placeholder="např. vystěhování 20.6."
+                  placeholder={t("criticalNotePlaceholder")}
                 />
               </div>
               {profile.debts.length > 1 && (
@@ -262,11 +263,13 @@ export function ManualForm() {
       </div>
 
       <Button type="submit" size="lg" className="w-full" disabled={loading}>
-        {loading ? "…" : t("submit")}
+        {loading ? <Spinner label={t("calculating")} /> : t("submit")}
       </Button>
 
       {error && (
-        <p className="text-center text-sm text-destructive">{error}</p>
+        <p className="text-center text-sm text-destructive" role="alert">
+          {error}
+        </p>
       )}
 
       {result && (

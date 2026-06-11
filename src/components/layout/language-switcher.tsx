@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useLocale } from "next-intl";
+import { useTranslations } from "next-intl";
 import { routing, type Locale } from "@/i18n/routing";
 
 const labels: Record<Locale, string> = {
@@ -12,6 +13,7 @@ const labels: Record<Locale, string> = {
 
 export function LanguageSwitcher() {
   const locale = useLocale() as Locale;
+  const t = useTranslations("common");
   const pathname = usePathname();
   const router = useRouter();
 
@@ -26,7 +28,7 @@ export function LanguageSwitcher() {
       value={locale}
       onChange={(e) => switchLocale(e.target.value as Locale)}
       className="h-8 rounded-md border border-input bg-background px-2 text-xs"
-      aria-label="Language"
+      aria-label={t("language")}
     >
       {routing.locales.map((loc) => (
         <option key={loc} value={loc}>

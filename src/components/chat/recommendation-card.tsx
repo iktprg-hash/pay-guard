@@ -17,6 +17,7 @@ import {
 } from "@/lib/financial/priorityLevel";
 import type { PrioritizationResult } from "@/lib/types/financial";
 import { useSubscriptionTier } from "@/hooks/use-subscription-tier";
+import { toast } from "@/components/ui/toast-provider";
 
 interface RecommendationCardProps {
   result: PrioritizationResult;
@@ -32,6 +33,7 @@ const LEVEL_VARIANT: Record<number, "default" | "warning" | "secondary" | "outli
 
 export function RecommendationCard({ result, locale = "cs-CZ" }: RecommendationCardProps) {
   const t = useTranslations("recommendation");
+  const tToast = useTranslations("toast");
   const tCat = useTranslations("categories");
   const appLocale = useLocale() as Locale;
   const { pro } = useSubscriptionTier();
@@ -50,7 +52,11 @@ export function RecommendationCard({ result, locale = "cs-CZ" }: RecommendationC
               variant="outline"
               size="sm"
               className="shrink-0 gap-1.5 text-xs"
-              onClick={() => downloadPriorityReport(result, appLocale)}
+              onClick={() => {
+                void downloadPriorityReport(result, appLocale)
+                  .then(() => toast(tToast("pdfExported"), "success"))
+                  .catch(() => toast(tToast("pdfExportFailed"), "error"));
+              }}
             >
               <Download className="h-3.5 w-3.5" />
               {t("exportPdf")}

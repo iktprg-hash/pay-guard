@@ -4,6 +4,31 @@
     "tagline": "Smart payment prioritization assistant",
     "description": "Helps you decide where to send limited funds when you have many obligations."
   },
+  "common": {
+    "skipToContent": "Skip to content",
+    "menu": "Open menu",
+    "close": "Close menu",
+    "mainNav": "Main navigation",
+    "loading": "Loading…",
+    "language": "App language",
+    "closeNotification": "Dismiss notification"
+  },
+  "toast": {
+    "signedOut": "You have been signed out",
+    "pdfExported": "PDF downloaded",
+    "pdfExportFailed": "Could not download PDF",
+    "syncFailed": "Sync failed — showing local data",
+    "offline": "You are offline",
+    "online": "Connection restored"
+  },
+  "errors": {
+    "title": "Something went wrong",
+    "description": "The app failed to load. Try refreshing the page.",
+    "retry": "Refresh page",
+    "notFound": "Page not found",
+    "notFoundHint": "This link does not exist or has moved.",
+    "backHome": "Back to Pay Guard"
+  },
   "nav": {
     "chat": "Chat",
     "consultations": "Consultations",
@@ -53,7 +78,8 @@
     "startFirst": "Start your first consultation",
     "continue": "Continue",
     "untitled": "Consultation",
-    "loading": "Loading…",
+    "loading": "Loading consultations…",
+    "loadError": "Could not load conversations. Please try again.",
     "anonymousHint": "Without signing in, consultations are stored only in this browser. They sync to the cloud after login.",
     "messages": "{count, plural, one {# message} other {# messages}}"
   },
@@ -93,7 +119,10 @@
     "criticalNote": "Note (e.g. eviction)",
     "category": "Category",
     "submit": "Calculate priorities",
-    "remove": "Remove"
+    "remove": "Remove",
+    "error": "Calculation failed. Please try again.",
+    "calculating": "Calculating priorities…",
+    "criticalNotePlaceholder": "e.g. eviction on Jun 20"
   },
   "categories": {
     "housing": "Housing",
@@ -123,7 +152,8 @@
       "Priority support"
     ],
     "upgrade": "Upgrade to Pro",
-    "currentPlan": "Your plan"
+    "currentPlan": "Your plan",
+    "comingSoon": "coming soon"
   },
   "footer": {
     "disclaimer": "Pay Guard does not replace a financial or legal advisor. Recommendations are indicative."
