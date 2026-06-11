@@ -16,11 +16,11 @@ export async function POST(request: NextRequest) {
   const limit = await checkRateLimit(`prioritize:${auth.user.id}:${ip}`, 60, 60_000);
   if (!limit.allowed) return rateLimitError(limit.resetAt);
 
-  try {
-    const body = await request.json();
-    const parsed = prioritizeRequestSchema.safeParse(body);
-    if (!parsed.success) return validationError(parsed.error);
+  const body = await request.json().catch(() => null);
+  const parsed = prioritizeRequestSchema.safeParse(body);
+  if (!parsed.success) return validationError(parsed.error);
 
+  try {
     const { profile, locale } = parsed.data;
     const result = runPriorityEngine(normalizeProfile(profile), locale);
 

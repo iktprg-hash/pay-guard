@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
   if (!limit.allowed) return rateLimitError(limit.resetAt);
 
   try {
-    const body = await request.json();
+    const body = await request.json().catch(() => null);
     const parsed = historyPostSchema.safeParse(body);
     if (!parsed.success) return validationError(parsed.error);
 

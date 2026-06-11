@@ -14,6 +14,8 @@ import { createClient } from "@/lib/supabase/client";
 import { getOrCreateSessionCredentials } from "@/lib/chat/storage";
 import { syncUserSessionsOnLogin } from "@/lib/chat/client-sync";
 import { wipeLocalPii } from "@/lib/security/wipe-local-pii";
+import { toast } from "@/components/ui/toast-provider";
+import { getToastCopy } from "@/lib/pwa/static-messages";
 import type { Locale } from "@/i18n/routing";
 import type { User } from "@supabase/supabase-js";
 
@@ -35,21 +37,27 @@ export function useAuth() {
 
 async function claimAnonymousSession(): Promise<void> {
   const { sessionId, sessionToken } = await getOrCreateSessionCredentials();
-  await fetch("/api/session/claim", {
+  const res = await fetch("/api/session/claim", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
     body: JSON.stringify({ sessionId, sessionToken }),
-  }).catch(() => {});
+  });
+  if (!res.ok) {
+    throw new Error(`session claim failed (${res.status})`);
+  }
 }
 
-async function syncLocale(userId: string, locale: Locale): Promise<void> {
-  await fetch("/api/auth/sync-profile", {
+async function syncLocale(locale: Locale): Promise<void> {
+  const res = await fetch("/api/auth/sync-profile", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
     body: JSON.stringify({ locale }),
-  }).catch(() => {});
+  });
+  if (!res.ok) {
+    throw new Error(`locale sync failed (${res.status})`);
+  }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -72,9 +80,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(nextUser);
 
       if (event === "SIGNED_IN" && nextUser) {
-        await claimAnonymousSession();
-        await syncUserSessionsOnLogin(locale);
-        await syncLocale(nextUser.id, locale);
+        try {
+          await claimAnonymousSession();
+        } catch (err) {
+          console.warn("[auth] session claim failed", err);
+        }
+
+        try {
+          await syncUserSessionsOnLogin(locale);
+        } catch (err) {
+          console.warn("[auth] cloud session sync failed", err);
+          toast(getToastCopy(locale).syncFailed, "error");
+        }
+
+        try {
+          await syncLocale(locale);
+        } catch (err) {
+          console.warn("[auth] locale sync failed", err);
+        }
       }
     });
 
@@ -82,13 +105,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [locale]);
 
   const signOut = useCallback(async () => {
-    await fetch("/api/auth/logout", {
-      method: "POST",
-      credentials: "include",
-    }).catch(() => {});
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch (err) {
+      console.warn("[auth] logout API failed", err);
+    }
 
     const supabase = createClient();
-    await supabase.auth.signOut().catch(() => {});
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.warn("[auth] supabase signOut failed", err);
+    }
+
     await wipeLocalPii();
     setUser(null);
     window.location.href = `/${locale}/login`;

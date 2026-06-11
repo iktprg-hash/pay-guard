@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Shield } from "lucide-react";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { resolveAuthNext } from "@/lib/auth/redirect";
+import type { AuthErrorCode } from "@/lib/auth/errors";
 import { getAuthConfirmCopy } from "@/lib/pwa/static-messages";
 import type { Locale } from "@/i18n/routing";
 
@@ -23,9 +24,9 @@ export function AuthConfirm() {
     const next = searchParams.get("next");
     const strings = getAuthConfirmCopy(locale);
 
-    const fail = (reason: string) => {
+    const fail = (code: AuthErrorCode) => {
       router.replace(
-        `/${locale}/login?error=auth&reason=${encodeURIComponent(reason)}`
+        `/${locale}/login?error=auth&reason=${encodeURIComponent(code)}`
       );
     };
 
@@ -45,7 +46,7 @@ export function AuthConfirm() {
           setMessage(strings.confirmCompletingSignIn);
           body = { code };
         } else {
-          fail("Missing auth code");
+          fail("auth_failed");
           return;
         }
 
@@ -57,14 +58,17 @@ export function AuthConfirm() {
         });
 
         if (!res.ok) {
-          const data = (await res.json()) as { error?: string; code?: string };
-          fail(data.error ?? data.code ?? "Auth failed");
+          const data = (await res.json()) as {
+            error?: string;
+            code?: AuthErrorCode;
+          };
+          fail(data.code ?? "auth_failed");
           return;
         }
 
         succeed();
-      } catch (err) {
-        fail(err instanceof Error ? err.message : "Auth failed");
+      } catch {
+        fail("auth_failed");
       }
     }
 

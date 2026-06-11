@@ -31,7 +31,7 @@ function friendlyAuthError(
   if (decoded.includes("PKCE") || decoded.includes("code verifier")) {
     return t("errors.pkceHint");
   }
-  return decoded;
+  return mapAuthCodeToMessage(decoded as AuthErrorCode, t);
 }
 
 export function LoginForm() {

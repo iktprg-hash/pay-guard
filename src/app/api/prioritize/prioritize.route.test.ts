@@ -1,8 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 const requireApiUser = vi.fn();
-const chatWithGrok = vi.fn();
+const runPriorityEngine = vi.fn();
 
 vi.mock("@/lib/auth/session", () => ({
   requireApiUser: () => requireApiUser(),
@@ -13,70 +13,72 @@ vi.mock("@/lib/security/rateLimit", () => ({
   getClientIp: vi.fn().mockReturnValue("127.0.0.1"),
 }));
 
-vi.mock("@/lib/grok/client", () => ({
-  chatWithGrok: (...args: unknown[]) => chatWithGrok(...args),
-  GrokUnavailableError: class GrokUnavailableError extends Error {},
+vi.mock("@/services/priorityEngine", () => ({
+  runPriorityEngine: (...args: unknown[]) => runPriorityEngine(...args),
 }));
 
 beforeEach(() => {
   vi.clearAllMocks();
   requireApiUser.mockResolvedValue({ user: { id: "user-1" } });
-  chatWithGrok.mockResolvedValue({
-    message: "Hi",
-    profileUpdate: null,
-    stage: "greeting",
+  runPriorityEngine.mockReturnValue({
+    summary: "ok",
+    recommendations: [],
+    warnings: [],
+    remainingFunds: 0,
+    lifeBuffer: 0,
+    lifeBufferPercent: 0,
   });
 });
 
-describe("POST /api/chat grok consent", () => {
-  it("requires grokConsent: true in body", async () => {
+describe("POST /api/prioritize", () => {
+  it("returns 401 when unauthenticated", async () => {
+    requireApiUser.mockResolvedValue({
+      error: NextResponse.json({ error: "Authentication required" }, { status: 401 }),
+    });
+
     const { POST } = await import("./route");
     const res = await POST(
-      new NextRequest("http://127.0.0.1:3000/api/chat", {
+      new NextRequest("http://127.0.0.1:3000/api/prioritize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages: [{ role: "user", content: "Hello" }],
           profile: { availableFunds: 1000, debts: [] },
           locale: "cs",
         }),
       })
     );
 
-    expect(res.status).toBe(400);
-    expect(chatWithGrok).not.toHaveBeenCalled();
+    expect(res.status).toBe(401);
   });
 
   it("returns 400 for malformed JSON", async () => {
     const { POST } = await import("./route");
     const res = await POST(
-      new NextRequest("http://127.0.0.1:3000/api/chat", {
+      new NextRequest("http://127.0.0.1:3000/api/prioritize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: "{bad-json",
+        body: "{not-json",
       })
     );
 
     expect(res.status).toBe(400);
-    expect(chatWithGrok).not.toHaveBeenCalled();
+    expect(runPriorityEngine).not.toHaveBeenCalled();
   });
 
-  it("accepts chat when grokConsent is true", async () => {
+  it("runs engine for valid payload", async () => {
     const { POST } = await import("./route");
     const res = await POST(
-      new NextRequest("http://127.0.0.1:3000/api/chat", {
+      new NextRequest("http://127.0.0.1:3000/api/prioritize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages: [{ role: "user", content: "Hello" }],
           profile: { availableFunds: 1000, debts: [] },
-          locale: "cs",
-          grokConsent: true,
+          locale: "ru",
         }),
       })
     );
 
     expect(res.status).toBe(200);
-    expect(chatWithGrok).toHaveBeenCalled();
+    expect(runPriorityEngine).toHaveBeenCalled();
   });
 });

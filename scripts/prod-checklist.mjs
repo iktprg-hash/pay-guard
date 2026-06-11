@@ -8,6 +8,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getProjectRef, loadEnvLocal } from "./load-env-local.mjs";
+import { pgSslConfig } from "./pg-ssl.mjs";
 import { verifyMigrations } from "./verify-migrations.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -76,7 +77,7 @@ let migrationsVerified = false;
 if (dbUrl && !dbUrl.includes("[PASSWORD]")) {
   try {
     const { Client } = await import("pg");
-    const client = new Client({ connectionString: dbUrl, ssl: { rejectUnauthorized: false } });
+    const client = new Client({ connectionString: dbUrl, ssl: pgSslConfig(dbUrl) });
     await client.connect();
     const { rows } = await client.query(`
       select column_name from information_schema.columns

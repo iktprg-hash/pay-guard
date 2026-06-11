@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
   );
   if (limited) return limited;
 
-  const body = await request.json();
+  const body = await request.json().catch(() => null);
   const parsed = bodySchema.safeParse(body);
   if (!parsed.success) return validationError(parsed.error);
 

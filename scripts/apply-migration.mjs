@@ -18,6 +18,7 @@ import {
   getProjectRef,
   loadEnvLocal,
 } from "./load-env-local.mjs";
+import { pgSslConfig } from "./pg-ssl.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..");
@@ -62,7 +63,10 @@ async function applyViaPg(file, sql) {
   if (!url) return false;
 
   const { default: pg } = await import("pg");
-  const client = new pg.Client({ connectionString: url, ssl: { rejectUnauthorized: false } });
+  const client = new pg.Client({
+    connectionString: url,
+    ssl: pgSslConfig(url),
+  });
   await client.connect();
   try {
     await client.query(sql);
