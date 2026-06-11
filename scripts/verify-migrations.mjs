@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Verify Supabase migrations 001–004 via service role (no DATABASE_URL needed).
+ * Verify Supabase migrations 001–005 via service role (no DATABASE_URL needed).
  * Usage: npm run db:verify
  */
 import { dirname, join } from "node:path";
@@ -49,6 +49,9 @@ async function verifyMigrations() {
     { id: "002", label: "session_token column", table: "financial_sessions", columns: "session_token" },
     { id: "004", label: "updated_at column", table: "financial_sessions", columns: "updated_at" },
     { id: "004", label: "chat_messages.metadata", table: "chat_messages", columns: "metadata" },
+    { id: "005", label: "debts.creditor_name", table: "debts", columns: "creditor_name" },
+    { id: "005", label: "debts.user_id", table: "debts", columns: "user_id" },
+    { id: "005", label: "debts.priority_level", table: "debts", columns: "priority_level" },
   ];
 
   const checks = await Promise.all(
@@ -88,7 +91,7 @@ async function verifyMigrations() {
 
 async function main() {
   console.log("╔══════════════════════════════════════════════════╗");
-  console.log("║  Pay Guard — migration verify (001–004)          ║");
+  console.log("║  Pay Guard — migration verify (001–005)          ║");
   console.log("╚══════════════════════════════════════════════════╝\n");
 
   const result = await verifyMigrations();

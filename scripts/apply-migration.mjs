@@ -99,7 +99,8 @@ Copy URI: Connection string → Session pooler → port 6543
 
 Or run: npm run db:hint
 
-Alternative: paste supabase/migrations/003_auth_profile.sql in SQL Editor → Run
+Alternative: paste supabase/migrations/005_normalize_debts.sql in SQL Editor → Run
+   https://supabase.com/dashboard/project/${ref ?? "YOUR_REF"}/sql/new
 `);
     process.exit(1);
   }

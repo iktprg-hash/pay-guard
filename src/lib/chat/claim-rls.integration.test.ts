@@ -55,6 +55,7 @@ describe("claim + migration 002 RLS integration", () => {
     expect(claimFn).toContain("validateSessionToken");
     expect(claimFn).toContain("const admin = requireServiceClient()");
     expect(claimFn).toContain('.is("user_id", null)');
+    expect(claimFn).toContain("assignDebtsToUser");
   });
 
   it("claim API route delegates without importing user createClient", () => {

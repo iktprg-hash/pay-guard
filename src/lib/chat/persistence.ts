@@ -3,6 +3,12 @@ import { registerSession, validateSessionToken } from "@/lib/security/session";
 import { requireServiceClient } from "@/lib/supabase/service-health";
 import { generateSessionToken } from "@/lib/security/token";
 import type { StoredMessage } from "@/lib/chat/storage";
+import {
+  assignDebtsToUser,
+  loadSessionDebts,
+  sessionProfilePayload,
+  syncSessionDebts,
+} from "@/lib/debts/repository";
 import type {
   FinancialProfile,
   PrioritizationResult,
@@ -15,7 +21,8 @@ function isSupabaseConfigured(): boolean {
 }
 
 function profileFromRow(
-  profileData: FinancialProfile & { locale?: string } | null | undefined
+  profileData: FinancialProfile & { locale?: string } | null | undefined,
+  debts: FinancialProfile["debts"]
 ): FinancialProfile {
   const p = profileData as FinancialProfile | undefined;
   return {
@@ -23,7 +30,7 @@ function profileFromRow(
     monthlyIncome: p?.monthlyIncome,
     monthlyExpenses: p?.monthlyExpenses,
     incomeStability: p?.incomeStability,
-    debts: p?.debts ?? [],
+    debts,
   };
 }
 
@@ -134,6 +141,8 @@ export async function claimSessionForUser(
       .update({ user_id: userId })
       .eq("session_id", sessionId);
 
+    await assignDebtsToUser(admin, sessionId, userId);
+
     return true;
   } catch {
     return false;
@@ -156,7 +165,8 @@ export async function createUserSession(
       id: sessionId,
       session_token: sessionToken,
       user_id: userId,
-      profile_data: { locale, debts: [], availableFunds: 0 },
+      profile_data: { locale, availableFunds: 0 },
+      available_funds: 0,
       updated_at: now,
     });
 
@@ -284,7 +294,7 @@ export async function saveSessionToSupabase(
       monthly_income: profile.monthlyIncome ?? null,
       monthly_expenses: profile.monthlyExpenses ?? null,
       income_stability: profile.incomeStability ?? null,
-      profile_data: { ...profile, locale },
+      profile_data: sessionProfilePayload(profile, locale),
       recommendation: recommendation ?? null,
       updated_at: now,
     };
@@ -297,6 +307,14 @@ export async function saveSessionToSupabase(
       .upsert(row, { onConflict: "id" });
 
     if (sessionError) return false;
+
+    const debtsSynced = await syncSessionDebts(
+      supabase,
+      sessionId,
+      userId,
+      profile.debts
+    );
+    if (!debtsSynced) return false;
 
     const recent = messages.slice(-100);
     const rows = recent
@@ -427,6 +445,10 @@ export async function loadUserSessionBundle(
       locale?: string;
     };
     const locale = profileData?.locale ?? "cs";
+    let debts = await loadSessionDebts(supabase, sessionId);
+    if (debts.length === 0 && profileData?.debts?.length) {
+      debts = profileData.debts;
+    }
     const withReco = attachRecommendation(
       messages ?? [],
       session.recommendation as PrioritizationResult | null
@@ -435,7 +457,7 @@ export async function loadUserSessionBundle(
     return {
       sessionId: session.id,
       messages: withReco,
-      profile: profileFromRow(profileData),
+      profile: profileFromRow(profileData, debts),
       locale,
       updatedAt: session.updated_at ?? session.created_at,
       preview: sessionPreview(withReco, locale),
