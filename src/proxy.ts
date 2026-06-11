@@ -34,6 +34,7 @@ const PUBLIC_API_PREFIXES = [
   "/api/auth/verify-otp",
   "/api/auth/confirm",
   "/api/auth/forgot-password",
+  "/api/health",
   "/api/manifest",
 ] as const;
 
