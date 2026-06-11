@@ -5,6 +5,19 @@ export const PWA_BACKGROUND_COLOR = "#0a0a0f";
 export const PWA_APP_NAME = "Pay Guard";
 export const PWA_SHORT_NAME = "PayGuard";
 
+/** Localized manifest labels */
+export const PWA_NAMES = {
+  cs: "Pay Guard",
+  ru: "Pay Guard",
+  en: "Pay Guard",
+} as const;
+
+export const PWA_SHORT_NAMES = {
+  cs: "PayGuard",
+  ru: "PayGuard",
+  en: "PayGuard",
+} as const;
+
 export const PWA_DESCRIPTIONS = {
   cs: "Chytrý pomocník pro prioritizaci plateb v České republice.",
   ru: "Умный помощник по приоритизации платежей для жителей Чехии.",
@@ -69,10 +82,10 @@ export function buildManifest(locale: PwaLocale) {
 
   return {
     id: `pay-guard-${locale}`,
-    name: PWA_APP_NAME,
-    short_name: PWA_SHORT_NAME,
+    name: PWA_NAMES[locale],
+    short_name: PWA_SHORT_NAMES[locale],
     description: PWA_DESCRIPTIONS[locale],
-    start_url: `/${locale}`,
+    start_url: `/${locale}?source=pwa`,
     scope: "/",
     display: "standalone" as const,
     display_override: ["standalone", "minimal-ui", "browser"] as const,

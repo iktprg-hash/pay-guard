@@ -38,7 +38,7 @@ test.describe("Pay Guard smoke", () => {
       shortcuts?: unknown[];
     };
     expect(body.display).toBe("standalone");
-    expect(body.start_url).toBe("/cs");
+    expect(body.start_url).toBe("/cs?source=pwa");
     expect(body.shortcuts?.length).toBeGreaterThanOrEqual(1);
   });
 });

@@ -28,7 +28,9 @@ export function OfflineBanner() {
   } | null>(null);
 
   const loadCached = useCallback(async () => {
-    setData(await loadOfflineBundleCacheFirst(locale));
+    const bundle = await loadOfflineBundleCacheFirst(locale);
+    setData(bundle);
+    return bundle;
   }, [locale]);
 
   useEffect(() => {
@@ -36,7 +38,9 @@ export function OfflineBanner() {
       setExpanded(false);
       return;
     }
-    void loadCached();
+    void loadCached().then((bundle) => {
+      if (bundle.recommendation) setExpanded(true);
+    });
   }, [isOnline, loadCached]);
 
   if (isOnline) return null;

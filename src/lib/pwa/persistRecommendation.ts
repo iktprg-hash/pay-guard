@@ -1,5 +1,6 @@
 import type { FinancialProfile, PrioritizationResult } from "@/lib/types/financial";
 import { saveOfflineRecommendation } from "@/lib/offline/storage";
+import { emitRecommendationSaved } from "@/lib/pwa/events";
 import type { Locale } from "@/i18n/routing";
 
 /** Uloží doporučení do IndexedDB pro offline režim a install prompt */
@@ -16,4 +17,5 @@ export async function persistRecommendationOffline(
     savedAt: new Date().toISOString(),
     source,
   });
+  emitRecommendationSaved();
 }

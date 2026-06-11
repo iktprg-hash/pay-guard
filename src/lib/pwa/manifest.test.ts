@@ -6,7 +6,7 @@ describe("buildManifest", () => {
     for (const locale of ["cs", "ru", "en"] as const) {
       const manifest = buildManifest(locale);
       expect(manifest.display).toBe("standalone");
-      expect(manifest.start_url).toBe(`/${locale}`);
+      expect(manifest.start_url).toBe(`/${locale}?source=pwa`);
       expect(manifest.lang).toBe(locale);
       expect(manifest.shortcuts?.length).toBeGreaterThanOrEqual(3);
       expect(

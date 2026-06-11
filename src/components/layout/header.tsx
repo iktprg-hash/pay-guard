@@ -6,8 +6,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LanguageSwitcher } from "./language-switcher";
-import { InstallAppButton } from "@/components/pwa/InstallPrompt";
-import { NetworkStatusBadge } from "@/components/pwa/NetworkStatusBadge";
+import { Badge } from "@/components/ui/badge";
 
 export function Header() {
   const t = useTranslations();
@@ -43,9 +42,10 @@ export function Header() {
           ))}
         </nav>
 
-        <div className="flex items-center gap-2 sm:gap-3">
-          <NetworkStatusBadge />
-          <InstallAppButton variant="outline" size="sm" />
+        <div className="flex items-center gap-3">
+          <Badge variant="outline" className="hidden sm:inline-flex">
+            {t("nav.pro")}
+          </Badge>
           <LanguageSwitcher />
         </div>
       </div>

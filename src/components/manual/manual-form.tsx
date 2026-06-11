@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RecommendationCard } from "@/components/chat/recommendation-card";
+import { OfflineRecommendationCard } from "@/components/pwa/OfflineRecommendationCard";
 import { persistRecommendationOffline } from "@/lib/pwa/persistRecommendation";
 import { runPriorityEngine } from "@/services/priorityEngine";
 import type { Debt, DebtCategory, FinancialProfile, PrioritizationResult } from "@/lib/types/financial";
@@ -98,6 +99,7 @@ export function ManualForm() {
 
   return (
     <form onSubmit={handleSubmit} className="mx-auto max-w-2xl space-y-6">
+      <OfflineRecommendationCard locale={locale} />
       <Card>
         <CardHeader>
           <CardTitle>{t("title")}</CardTitle>

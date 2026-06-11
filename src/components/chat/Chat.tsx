@@ -19,6 +19,7 @@ import { mergeProfileUpdate } from "@/lib/grok/prompts";
 import { persistRecommendationOffline } from "@/lib/pwa/persistRecommendation";
 import { runPriorityEngine } from "@/services/priorityEngine";
 import { GrokConsentGate } from "./GrokConsentGate";
+import { OfflineRecommendationCard } from "@/components/pwa/OfflineRecommendationCard";
 import type { ChatMessage, PrioritizationResult } from "@/lib/types/financial";
 import type { Locale } from "@/i18n/routing";
 
@@ -289,7 +290,10 @@ export function Chat() {
         aria-atomic="false"
       >
         {isEmpty && !isLoading ? (
-          <ChatWelcome onSuggestion={sendMessage} disabled={isLoading} />
+          <>
+            <OfflineRecommendationCard locale={locale} />
+            <ChatWelcome onSuggestion={sendMessage} disabled={isLoading} />
+          </>
         ) : (
           <>
             {messages.map((msg) => (
