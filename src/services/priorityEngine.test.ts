@@ -7,11 +7,13 @@ import { describe, it, expect } from "vitest";
 import {
   analyzeDebt,
   calculateLifeBufferPercent,
+  resolveLifeBufferPercent,
   runPriorityEngine,
   daysBetween,
   isExecutionRisk,
   nearestDeadlineDays,
   hasMultipleDeadlines,
+  PRIORITY_CONSTANTS,
 } from "./priorityEngine";
 import type { Debt, FinancialProfile } from "@/lib/types/financial";
 
@@ -118,6 +120,35 @@ describe("analyzeDebt — úrovně priority", () => {
     );
     expect(a.level).toBe(3);
   });
+
+  it("kreditní karta se splatností za 2 dny → úroveň 1 (ne 0)", () => {
+    const a = analyzeDebt(
+      debt({
+        id: "5b",
+        creditor: "Visa",
+        amount: 8000,
+        category: "credit_card",
+        dueDate: "2026-06-13",
+      }),
+      TODAY
+    );
+    expect(a.level).toBe(1);
+    expect(a.urgencyScore).toBeGreaterThanOrEqual(0);
+  });
+
+  it("půjčka po splatnosti → úroveň 1 (ne 0 bez esenciální kategorie)", () => {
+    const a = analyzeDebt(
+      debt({
+        id: "5c",
+        creditor: "Bank",
+        amount: 12000,
+        category: "loans",
+        dueDate: "2026-06-01",
+      }),
+      TODAY
+    );
+    expect(a.level).toBe(1);
+  });
 });
 
 describe("edge cases — exekuce a více termínů", () => {
@@ -130,6 +161,19 @@ describe("edge cases — exekuce a více termínů", () => {
           amount: 5000,
           criticalNote: "Soudní exekuce na účet",
         })
+      )
+    ).toBe(true);
+  });
+
+  it("kategorie fines a taxes jsou vždy execution risk", () => {
+    expect(
+      isExecutionRisk(
+        debt({ id: "f", creditor: "Úřad", amount: 2000, category: "fines" })
+      )
+    ).toBe(true);
+    expect(
+      isExecutionRisk(
+        debt({ id: "t", creditor: "Finanční úřad", amount: 3000, category: "taxes" })
       )
     ).toBe(true);
   });
@@ -220,6 +264,84 @@ describe("edge cases — exekuce a více termínů", () => {
 describe("daysBetween", () => {
   it("počítá dny dopředu", () => {
     expect(daysBetween(TODAY, new Date("2026-06-14"))).toBe(3);
+  });
+});
+
+describe("resolveLifeBufferPercent", () => {
+  it("sníží buffer při kritickém dluhu a nízkých prostředcích", () => {
+    expect(
+      resolveLifeBufferPercent("stable", {
+        hasLevel0Debt: true,
+        availableFunds: 10_000,
+      })
+    ).toBe(PRIORITY_CONSTANTS.BUFFER_CRITICAL_LOW_STABLE);
+  });
+
+  it("zachová standardní buffer bez kritických dluhů", () => {
+    expect(
+      resolveLifeBufferPercent("stable", {
+        hasLevel0Debt: false,
+        availableFunds: 10_000,
+      })
+    ).toBe(0.2);
+  });
+
+  it("zachová standardní buffer i s kritickým dluhem při vyšších prostředcích", () => {
+    expect(
+      resolveLifeBufferPercent("stable", {
+        hasLevel0Debt: true,
+        availableFunds: 20_000,
+      })
+    ).toBe(0.2);
+  });
+});
+
+describe("runPriorityEngine — dynamický buffer a sanitizace", () => {
+  it("sníží buffer na 10 % při kritickém dluhu a 10 000 Kč", () => {
+    const result = runPriorityEngine(
+      profile(
+        10_000,
+        [
+          debt({
+            id: "rent",
+            creditor: "Nájem",
+            amount: 15_000,
+            category: "housing",
+            criticalDate: "2026-06-12",
+          }),
+        ],
+        "stable"
+      ),
+      "cs",
+      TODAY
+    );
+
+    expect(result.lifeBufferPercent).toBe(0.1);
+    expect(result.lifeBuffer).toBe(1000);
+    expect(result.warnings.some((w) => w.includes("snížena") || w.includes("10"))).toBe(
+      true
+    );
+  });
+
+  it("sanitizuje NaN a záporné částky", () => {
+    const result = runPriorityEngine(
+      {
+        availableFunds: Number.NaN,
+        debts: [
+          {
+            id: "1",
+            creditor: "Test",
+            amount: -500,
+            category: "other",
+          },
+        ],
+      },
+      "cs",
+      TODAY
+    );
+
+    expect(result.recommendations).toHaveLength(0);
+    expect(result.warnings.length).toBeGreaterThan(0);
   });
 });
 

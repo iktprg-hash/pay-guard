@@ -1,14 +1,40 @@
 /**
  * Pay Guard — Priority Engine
- * ===========================
- * Deterministický algoritmus prioritizace plateb (bez AI).
+ * =============================================================================
  *
- * Principy:
- * 1. Čtyři úrovně priority (0 = kritický … 3 = nízký)
- * 2. Povinný životní buffer 20–35 % z volných prostředků
- * 3. Kritické termíny (vystěhování, exekuce) mají přednost
- * 4. Proporcionální rozdělení peněz v rámci úrovně
- * 5. Srozumitelná vysvětlení každého rozhodnutí
+ * Deterministický algoritmus prioritizace plateb (bez AI, bez side-effectů).
+ *
+ * @module services/priorityEngine
+ * @version production — 2026-06-11
+ *
+ * ## Chování (shrnutí)
+ *
+ * | Úroveň | Význam   | Typické spouštěče                                    |
+ * |--------|----------|------------------------------------------------------|
+ * | 0      | Kritický | Exekuce, esenciál po splatnosti, blízký krit. termín |
+ * | 1      | Vysoký   | Splatnost ≤7 dní, prodlení u běžných dluhů           |
+ * | 2      | Střední  | Splatnost ≤30 dní, esenciál bez data                 |
+ * | 3      | Nízký    | Ostatní                                              |
+ *
+ * Life buffer: 20–35 % (dle stability) nebo 10–15 % při kritickém dluhu a
+ * `availableFunds < 15 000`. Alokace: min. splátky (0–1) → proporcionálně 0→3.
+ *
+ * ## Historie vylepšení
+ *
+ * - **2026-06** — úroveň 0 jen pro esenciální/exekuční termíny; dynamický buffer;
+ *   cap alokace 50 000 Kč; fines/taxes = execution risk; sanitizace vstupu.
+ * - **2026-06-11 (finální polish)** — `as const satisfies` konstanty; jeden průchod
+ *   pro varování; mapa stavů místo opakovaného `find`; DRY buffer procenta;
+ *   rozšířená JSDoc; bez redundantní sanitizace v alokaci.
+ * - **2026-06-11 (finální optimalizace)** — `levelPools` se počítají přímo při
+ *   alokaci (bez druhého průchodu); zjednodušené `msgSummary`; export typu
+ *   `PriorityConstants`.
+ *
+ * ## Exportované API
+ *
+ * `runPriorityEngine`, `analyzeDebt`, `buildExplanation`, `isExecutionRisk`,
+ * `calculateLifeBufferPercent`, `resolveLifeBufferPercent`, `daysBetween`,
+ * `nearestDeadlineDays`, `hasMultipleDeadlines`, `PRIORITY_CONSTANTS`
  */
 
 import {
@@ -29,61 +55,182 @@ export type Locale = "cs" | "ru" | "en";
 
 // ─── Konstanty ───────────────────────────────────────────────────────────────
 
-/** Váha kategorie pro výpočet naléhavosti */
-const CATEGORY_WEIGHT: Record<DebtCategory, number> = {
-  housing: 1.0,
-  utilities: 0.9,
-  taxes: 0.95,
-  fines: 0.9,
-  medical: 0.75,
-  loans: 0.6,
-  credit_card: 0.45,
-  other: 0.35,
+type PriorityConstantsShape = {
+  readonly CATEGORY_WEIGHT: Record<DebtCategory, number>;
+  readonly LEVEL_WEIGHT: Record<PriorityLevel, number>;
+  readonly ESSENTIAL_CATEGORIES: readonly DebtCategory[];
+  readonly AUTO_EXECUTION_CATEGORIES: readonly DebtCategory[];
+  readonly EXECUTION_KEYWORDS: RegExp;
+  readonly BUFFER_STABLE: number;
+  readonly BUFFER_VARIABLE: number;
+  readonly BUFFER_UNCERTAIN: number;
+  readonly BUFFER_DEFAULT: number;
+  readonly BUFFER_CRITICAL_LOW_STABLE: number;
+  readonly BUFFER_CRITICAL_LOW_VARIABLE: number;
+  readonly BUFFER_CRITICAL_LOW_UNCERTAIN: number;
+  readonly BUFFER_CRITICAL_LOW_DEFAULT: number;
+  readonly LOW_FUNDS_CRITICAL_BUFFER_THRESHOLD: number;
+  readonly ALLOCATION_DEBT_CAP: number;
+  readonly MIN_ALLOCATION_WEIGHT: number;
 };
 
-/** Základní váha úrovně pro proporcionální dělení */
-const LEVEL_WEIGHT: Record<PriorityLevel, number> = {
-  0: 100,
-  1: 75,
-  2: 50,
-  3: 25,
-};
+/** Immutable konfigurace Priority Engine — jediný zdroj pravdy pro váhy a prahy. */
+export const PRIORITY_CONSTANTS = {
+  CATEGORY_WEIGHT: {
+    housing: 1.0,
+    utilities: 0.9,
+    taxes: 0.95,
+    fines: 0.9,
+    medical: 0.75,
+    loans: 0.6,
+    credit_card: 0.45,
+    other: 0.35,
+  },
+  LEVEL_WEIGHT: { 0: 100, 1: 75, 2: 50, 3: 25 },
+  ESSENTIAL_CATEGORIES: ["housing", "utilities", "taxes", "fines"],
+  AUTO_EXECUTION_CATEGORIES: ["fines", "taxes"],
+  EXECUTION_KEYWORDS:
+    /exeku|výkon\s+rozsudku|soudní\s+exekutor|executor|enforcement|выселен|исполнител|фссп|судебн.*пристав|пристав|арест\s+сч|принудительн|взыскан/i,
+  BUFFER_STABLE: 0.2,
+  BUFFER_VARIABLE: 0.28,
+  BUFFER_UNCERTAIN: 0.35,
+  BUFFER_DEFAULT: 0.25,
+  BUFFER_CRITICAL_LOW_STABLE: 0.1,
+  BUFFER_CRITICAL_LOW_VARIABLE: 0.12,
+  BUFFER_CRITICAL_LOW_UNCERTAIN: 0.15,
+  BUFFER_CRITICAL_LOW_DEFAULT: 0.12,
+  LOW_FUNDS_CRITICAL_BUFFER_THRESHOLD: 15_000,
+  ALLOCATION_DEBT_CAP: 50_000,
+  MIN_ALLOCATION_WEIGHT: 5,
+} as const satisfies PriorityConstantsShape;
 
-/** Esenciální kategorie — vyšší riziko při prodlení */
-const ESSENTIAL_CATEGORIES: DebtCategory[] = [
-  "housing",
-  "utilities",
-  "taxes",
-  "fines",
-];
+/** Typ odvozený z {@link PRIORITY_CONSTANTS} — plná typová bezpečnost konfigurace. */
+export type PriorityConstants = typeof PRIORITY_CONSTANTS;
 
-/** Klíčová slova: exekuce (CZ) / исполнительное производство, ФССП (RU) */
-const EXECUTION_KEYWORDS =
-  /exeku|výkon\s+rozsudku|soudní\s+exekutor|executor|enforcement|выселен|исполнител|фссп|судебн.*пристав|пристав|арест\s+сч|принудительн|взыскан/i;
+const { EXECUTION_KEYWORDS } = PRIORITY_CONSTANTS;
+
+const ESSENTIAL_CATEGORY_SET: ReadonlySet<DebtCategory> = new Set(
+  PRIORITY_CONSTANTS.ESSENTIAL_CATEGORIES
+);
+
+const AUTO_EXECUTION_CATEGORY_SET: ReadonlySet<DebtCategory> = new Set(
+  PRIORITY_CONSTANTS.AUTO_EXECUTION_CATEGORIES
+);
+
+const PRIORITY_LEVELS: readonly PriorityLevel[] = [0, 1, 2, 3];
+
+const MS_PER_DAY = 86_400_000;
+
+// ─── Sanitizace ──────────────────────────────────────────────────────────────
+
+/**
+ * Normalizuje číselnou částku: odmítne `null`, NaN, Infinity a záporné hodnoty.
+ * Vrací nezáporné konečné číslo (0 jako fallback).
+ */
+function sanitizeAmount(value: number | null | undefined): number {
+  if (value == null || !Number.isFinite(value)) return 0;
+  return Math.max(0, value);
+}
+
+/**
+ * Normalizuje úrokovou sazbu — pouze konečná nezáporná čísla, jinak `undefined`.
+ */
+function sanitizeRate(value: number | undefined): number | undefined {
+  if (value === undefined || !Number.isFinite(value)) return undefined;
+  return Math.max(0, value);
+}
+
+/**
+ * Vrátí bezpečně sanitizovaný finanční profil pro engine.
+ *
+ * Volá se jednou na začátku `runPriorityEngine`. Všechny částky v dlužích
+ * (`amount`, `minimumPayment`) a `availableFunds` jsou garantovaně ≥ 0 a konečné.
+ * Neplatný profil (chybí pole) se normalizuje na prázdný seznam dluhů a 0 Kč.
+ */
+function sanitizeProfile(profile: FinancialProfile): FinancialProfile {
+  const debts = Array.isArray(profile.debts) ? profile.debts : [];
+
+  return {
+    ...profile,
+    availableFunds: sanitizeAmount(profile.availableFunds),
+    monthlyIncome:
+      profile.monthlyIncome !== undefined
+        ? sanitizeAmount(profile.monthlyIncome)
+        : profile.monthlyIncome,
+    debts: debts.map((debt) => ({
+      ...debt,
+      amount: sanitizeAmount(debt.amount),
+      minimumPayment:
+        debt.minimumPayment !== undefined
+          ? sanitizeAmount(debt.minimumPayment)
+          : debt.minimumPayment,
+      interestRate: sanitizeRate(debt.interestRate),
+    })),
+  };
+}
+
+function isEssentialCategory(category: DebtCategory): boolean {
+  return ESSENTIAL_CATEGORY_SET.has(category);
+}
+
+function bufferPercentForStability(
+  stability: IncomeStability | undefined,
+  criticalLow: boolean
+): number {
+  switch (stability) {
+    case "stable":
+      return criticalLow
+        ? PRIORITY_CONSTANTS.BUFFER_CRITICAL_LOW_STABLE
+        : PRIORITY_CONSTANTS.BUFFER_STABLE;
+    case "variable":
+      return criticalLow
+        ? PRIORITY_CONSTANTS.BUFFER_CRITICAL_LOW_VARIABLE
+        : PRIORITY_CONSTANTS.BUFFER_VARIABLE;
+    case "uncertain":
+      return criticalLow
+        ? PRIORITY_CONSTANTS.BUFFER_CRITICAL_LOW_UNCERTAIN
+        : PRIORITY_CONSTANTS.BUFFER_UNCERTAIN;
+    default:
+      return criticalLow
+        ? PRIORITY_CONSTANTS.BUFFER_CRITICAL_LOW_DEFAULT
+        : PRIORITY_CONSTANTS.BUFFER_DEFAULT;
+  }
+}
+
+function needsReducedBuffer(
+  hasLevel0Debt: boolean,
+  availableFunds: number
+): boolean {
+  return (
+    hasLevel0Debt &&
+    availableFunds < PRIORITY_CONSTANTS.LOW_FUNDS_CRITICAL_BUFFER_THRESHOLD
+  );
+}
 
 // ─── Pomocné funkce ────────────────────────────────────────────────────────
 
 /**
- * Detekuje riziko exekuce z poznámky nebo kategorie pokut.
- * Edge case: exekuce má vždy prioritu 0.
+ * Detekuje riziko exekuce / enforcement.
+ * Kategorie `fines` a `taxes` jsou vždy execution risk; dále text v poznámkách.
  */
 export function isExecutionRisk(debt: Debt): boolean {
+  if (AUTO_EXECUTION_CATEGORY_SET.has(debt.category)) {
+    return true;
+  }
+
   const text = [debt.criticalNote, debt.notes, debt.creditor]
     .filter(Boolean)
     .join(" ");
   return EXECUTION_KEYWORDS.test(text);
 }
 
-/**
- * Vrátí nejbližší termín v dnech (min ze splatnosti a kritického data).
- * Edge case: více termínů u jednoho dluhu.
- */
+/** Vrátí nejbližší termín v dnech (minimum ze splatnosti a kritického data). */
 export function nearestDeadlineDays(
   daysToDue: number | null,
   daysToCritical: number | null
 ): number | null {
   const candidates = [daysToDue, daysToCritical].filter(
-    (d): d is number => d !== null
+    (d): d is number => d !== null && Number.isFinite(d)
   );
   if (candidates.length === 0) return null;
   return Math.min(...candidates);
@@ -97,13 +244,13 @@ export function hasMultipleDeadlines(
   return daysToDue !== null && daysToCritical !== null;
 }
 
-/** Počet celých dní od `from` do `to` (kladné = budoucnost) */
+/** Počet celých dní od `from` do `to` (kladné = budoucnost). */
 export function daysBetween(from: Date, to: Date): number {
   const ms = to.getTime() - from.getTime();
-  return Math.ceil(ms / (1000 * 60 * 60 * 24));
+  if (!Number.isFinite(ms)) return 0;
+  return Math.ceil(ms / MS_PER_DAY);
 }
 
-/** Bezpečný parse ISO data */
 function parseDate(iso?: string): Date | null {
   if (!iso) return null;
   const d = new Date(iso);
@@ -111,28 +258,40 @@ function parseDate(iso?: string): Date | null {
 }
 
 /**
- * Vypočítá procento životního bufferu podle stability příjmu.
+ * Vypočítá procento životního bufferu podle stability příjmu (standardní režim).
  * stable → 20 %, variable → 28 %, uncertain → 35 %, neznámé → 25 %
  */
 export function calculateLifeBufferPercent(
   stability?: IncomeStability
 ): number {
-  switch (stability) {
-    case "stable":
-      return 0.2;
-    case "variable":
-      return 0.28;
-    case "uncertain":
-      return 0.35;
-    default:
-      return 0.25;
-  }
+  return bufferPercentForStability(stability, false);
 }
 
+/**
+ * Finální procento life bufferu včetně sníženého režimu (10–15 %).
+ *
+ * Snížený buffer platí, pokud existuje dluh úrovně 0 a sanitizované
+ * `availableFunds` jsou pod `LOW_FUNDS_CRITICAL_BUFFER_THRESHOLD`.
+ *
+ * @param stability — stabilita příjmu z profilu
+ * @param options.hasLevel0Debt — alespoň jeden dluh úrovně 0 po analýze
+ * @param options.availableFunds — sanitizované volné prostředky (`safeProfile.availableFunds`)
+ */
+export function resolveLifeBufferPercent(
+  stability: IncomeStability | undefined,
+  options: { hasLevel0Debt: boolean; availableFunds: number }
+): number {
+  const funds = sanitizeAmount(options.availableFunds);
+  return bufferPercentForStability(
+    stability,
+    options.hasLevel0Debt &&
+      funds < PRIORITY_CONSTANTS.LOW_FUNDS_CRITICAL_BUFFER_THRESHOLD
+  );
+}
 
 // ─── Určení úrovně priority ────────────────────────────────────────────────
 
-interface DebtAnalysis {
+export interface DebtAnalysis {
   debt: Debt;
   level: PriorityLevel;
   urgencyScore: number;
@@ -144,10 +303,8 @@ interface DebtAnalysis {
 /**
  * Přiřadí úroveň priority 0–3 a skóre naléhavosti jednomu dluhu.
  *
- * Úroveň 0 (Kritický): po splatnosti esenciálů, kritický termín ≤3 dny
- * Úroveň 1 (Vysoký):   splatnost ≤7 dní, kritický termín ≤14 dní, po splatnosti
- * Úroveň 2 (Střední):  splatnost ≤30 dní, esenciální bez data
- * Úroveň 3 (Nízký):    vše ostatní
+ * **Úroveň 0:** execution risk; esenciál po splatnosti; kritický termín ≤0 / ≤3 dny;
+ * nejbližší termín ≤0 / ≤3 dny pouze u esenciálů nebo execution risk.
  */
 export function analyzeDebt(debt: Debt, today: Date = new Date()): DebtAnalysis {
   const due = parseDate(debt.dueDate);
@@ -160,30 +317,27 @@ export function analyzeDebt(debt: Debt, today: Date = new Date()): DebtAnalysis 
   let level: PriorityLevel = 3;
 
   const execution = isExecutionRisk(debt);
+  const essential = isEssentialCategory(debt.category);
   const multipleDeadlines = hasMultipleDeadlines(daysToDue, daysToCritical);
   const nearest = nearestDeadlineDays(daysToDue, daysToCritical);
 
   if (multipleDeadlines) factors.push("multiple_deadlines");
   if (execution) factors.push("execution_risk");
 
-  // ── Úroveň 0: Kritický ──
-  const criticalImminent =
-    daysToCritical !== null && daysToCritical <= 3;
+  const criticalImminent = daysToCritical !== null && daysToCritical <= 3;
   const criticalPassed = daysToCritical !== null && daysToCritical <= 0;
-  const essentialOverdue =
-    daysToDue !== null &&
-    daysToDue < 0 &&
-    ESSENTIAL_CATEGORIES.includes(debt.category);
+  const essentialOverdue = daysToDue !== null && daysToDue < 0 && essential;
   const nearestImminent = nearest !== null && nearest <= 3;
   const nearestPassed = nearest !== null && nearest <= 0;
+  const nearestEscalatesToZero =
+    (nearestImminent || nearestPassed) && (essential || execution);
 
   if (
     execution ||
     criticalPassed ||
     criticalImminent ||
     essentialOverdue ||
-    nearestImminent ||
-    nearestPassed
+    nearestEscalatesToZero
   ) {
     level = 0;
     if (execution) factors.push("execution");
@@ -192,9 +346,7 @@ export function analyzeDebt(debt: Debt, today: Date = new Date()): DebtAnalysis 
     if (essentialOverdue) factors.push("essential_overdue");
     if (nearestImminent && !criticalImminent) factors.push("nearest_imminent");
     if (nearestPassed && !criticalPassed) factors.push("nearest_passed");
-  }
-  // ── Úroveň 1: Vysoký ──
-  else if (
+  } else if (
     (daysToDue !== null && daysToDue <= 7) ||
     (daysToCritical !== null && daysToCritical <= 14) ||
     (daysToDue !== null && daysToDue < 0) ||
@@ -205,25 +357,21 @@ export function analyzeDebt(debt: Debt, today: Date = new Date()): DebtAnalysis 
     if (daysToCritical !== null && daysToCritical <= 14)
       factors.push("critical_soon");
     if (daysToDue !== null && daysToDue < 0) factors.push("overdue");
-  }
-  // ── Úroveň 2: Střední ──
-  else if (
+  } else if (
     (daysToDue !== null && daysToDue <= 30) ||
-    (ESSENTIAL_CATEGORIES.includes(debt.category) && !due && !critical)
+    (essential && !due && !critical)
   ) {
     level = 2;
     if (daysToDue !== null && daysToDue <= 30) factors.push("due_month");
-    if (ESSENTIAL_CATEGORIES.includes(debt.category))
-      factors.push("essential");
-  }
-  // ── Úroveň 3: Nízký (default) ──
-  else {
+    if (essential) factors.push("essential");
+  } else {
     level = 3;
     factors.push("low_urgency");
   }
 
-  // Skóre naléhavosti pro řazení a proporcionální váhu
-  let urgencyScore = LEVEL_WEIGHT[level] * CATEGORY_WEIGHT[debt.category];
+  let urgencyScore =
+    PRIORITY_CONSTANTS.LEVEL_WEIGHT[level] *
+    PRIORITY_CONSTANTS.CATEGORY_WEIGHT[debt.category];
 
   if (daysToCritical !== null) {
     if (daysToCritical <= 0) urgencyScore += 80;
@@ -238,21 +386,23 @@ export function analyzeDebt(debt: Debt, today: Date = new Date()): DebtAnalysis 
     else if (daysToDue <= 14) urgencyScore += 15;
   }
 
-  if (debt.interestRate && debt.interestRate > 15) urgencyScore += 10;
+  if (debt.interestRate !== undefined && debt.interestRate > 15) {
+    urgencyScore += 10;
+  }
 
-  // Edge: exekuce — maximální boost
   if (execution) urgencyScore += 100;
 
-  // Edge: více termínů — boost podle nejbližšího
   if (multipleDeadlines && nearest !== null) {
     if (nearest <= 3) urgencyScore += 30;
     else if (nearest <= 7) urgencyScore += 15;
   }
 
+  urgencyScore = Math.max(0, urgencyScore);
+
   return { debt, level, urgencyScore, daysToDue, daysToCritical, factors };
 }
 
-// ─── Lokalizace ──────────────────────────────────────────────────────────────
+// ─── Lokalizace vysvětlení ─────────────────────────────────────────────────
 
 const LEVEL_LABELS: Record<PriorityLevel, Record<Locale, string>> = {
   0: { cs: "Kritický", ru: "Критический", en: "Critical" },
@@ -272,103 +422,134 @@ const CATEGORY_LABELS: Record<DebtCategory, Record<Locale, string>> = {
   other: { cs: "ostatní", ru: "прочее", en: "other" },
 };
 
-/** Sestaví lidsky čitelné vysvětlení rozhodnutí */
+function appendLevelHeader(
+  parts: string[],
+  analysis: DebtAnalysis,
+  locale: Locale
+): void {
+  const levelLabel = LEVEL_LABELS[analysis.level][locale];
+  const catLabel = CATEGORY_LABELS[analysis.debt.category][locale];
+
+  if (locale === "cs") {
+    parts.push(`Úroveň ${analysis.level} (${levelLabel}) — kategorie: ${catLabel}.`);
+  } else if (locale === "ru") {
+    parts.push(`Уровень ${analysis.level} (${levelLabel}) — категория: ${catLabel}.`);
+  } else {
+    parts.push(`Level ${analysis.level} (${levelLabel}) — category: ${catLabel}.`);
+  }
+}
+
+function appendDeadlineInfo(
+  parts: string[],
+  analysis: DebtAnalysis,
+  locale: Locale
+): void {
+  const { debt, daysToDue, daysToCritical } = analysis;
+
+  if (debt.criticalNote && debt.criticalDate) {
+    if (locale === "cs") {
+      parts.push(`${debt.criticalNote} (termín ${debt.criticalDate}).`);
+    } else if (locale === "ru") {
+      parts.push(`${debt.criticalNote} (срок ${debt.criticalDate}).`);
+    } else {
+      parts.push(`${debt.criticalNote} (deadline ${debt.criticalDate}).`);
+    }
+    return;
+  }
+
+  if (daysToCritical !== null && daysToCritical <= 7) {
+    if (locale === "cs") {
+      parts.push(`Kritický termín za ${daysToCritical} dní.`);
+    } else if (locale === "ru") {
+      parts.push(`Критический срок через ${daysToCritical} дн.`);
+    } else {
+      parts.push(`Critical deadline in ${daysToCritical} days.`);
+    }
+  }
+
+  if (daysToDue !== null && daysToDue < 0) {
+    if (locale === "cs") parts.push("Závazek je po splatnosti.");
+    else if (locale === "ru") parts.push("Обязательство просрочено.");
+    else parts.push("Payment is overdue.");
+  } else if (daysToDue !== null && daysToDue <= 7) {
+    if (locale === "cs") parts.push(`Splatnost za ${daysToDue} dní.`);
+    else if (locale === "ru") parts.push(`Срок через ${daysToDue} дн.`);
+    else parts.push(`Due in ${daysToDue} days.`);
+  }
+}
+
+function appendFactorNotes(
+  parts: string[],
+  analysis: DebtAnalysis,
+  locale: Locale
+): void {
+  const { factors } = analysis;
+
+  if (factors.includes("essential")) {
+    if (locale === "cs") {
+      parts.push("Esenciální výdaj — riziko vypnutí služeb nebo právních důsledků.");
+    } else if (locale === "ru") {
+      parts.push(
+        "Обязательный расход — риск отключения услуг или юридических последствий."
+      );
+    } else {
+      parts.push("Essential expense — risk of service cutoff or legal consequences.");
+    }
+  }
+
+  if (factors.includes("execution") || factors.includes("execution_risk")) {
+    if (locale === "cs") {
+      parts.push("Riziko exekuce — nejvyšší právní priorita.");
+    } else if (locale === "ru") {
+      parts.push("Риск исполнительного производства или ФССП — наивысший приоритет.");
+    } else {
+      parts.push("Enforcement risk — highest legal priority.");
+    }
+  }
+
+  if (factors.includes("multiple_deadlines")) {
+    if (locale === "cs") parts.push("Více termínů — rozhodujeme podle nejbližšího.");
+    else if (locale === "ru") parts.push("Несколько сроков — ориентируемся на ближайший.");
+    else parts.push("Multiple deadlines — using the nearest date.");
+  }
+}
+
+function appendAllocationNote(
+  parts: string[],
+  allocated: number,
+  sharePercent: number,
+  locale: Locale
+): void {
+  if (locale === "cs") {
+    parts.push(
+      `Alokováno ${formatMoney(allocated, locale)} (${sharePercent.toFixed(0)} % disponibilní částky pro tuto úroveň).`
+    );
+  } else if (locale === "ru") {
+    parts.push(
+      `Выделено ${formatMoney(allocated, locale)} (${sharePercent.toFixed(0)} % пула этого уровня).`
+    );
+  } else {
+    parts.push(
+      `Allocated ${formatMoney(allocated, locale)} (${sharePercent.toFixed(0)}% of level pool).`
+    );
+  }
+}
+
+/** Sestaví lidsky čitelné vysvětlení rozhodnutí pro daný dluh a alokaci. */
 export function buildExplanation(
   analysis: DebtAnalysis,
   allocated: number,
   sharePercent: number,
   locale: Locale
 ): string {
-  const { debt, level, daysToDue, daysToCritical, factors } = analysis;
   const parts: string[] = [];
-
-  const levelLabel = LEVEL_LABELS[level][locale];
-  const catLabel = CATEGORY_LABELS[debt.category][locale];
-
-  if (locale === "cs") {
-    parts.push(`Úroveň ${level} (${levelLabel}) — kategorie: ${catLabel}.`);
-
-    if (debt.criticalNote && debt.criticalDate) {
-      parts.push(`${debt.criticalNote} (termín ${debt.criticalDate}).`);
-    } else if (daysToCritical !== null && daysToCritical <= 7) {
-      parts.push(`Kritický termín za ${daysToCritical} dní.`);
-    }
-
-    if (daysToDue !== null && daysToDue < 0) {
-      parts.push("Závazek je po splatnosti.");
-    } else if (daysToDue !== null && daysToDue <= 7) {
-      parts.push(`Splatnost za ${daysToDue} dní.`);
-    }
-
-    if (factors.includes("essential")) {
-      parts.push("Esenciální výdaj — riziko vypnutí služeb nebo právních důsledků.");
-    }
-    if (factors.includes("execution") || factors.includes("execution_risk")) {
-      parts.push("Riziko exekuce — nejvyšší právní priorita.");
-    }
-    if (factors.includes("multiple_deadlines")) {
-      parts.push("Více termínů — rozhodujeme podle nejbližšího.");
-    }
-
-    parts.push(
-      `Alokováno ${formatMoney(allocated, locale)} (${sharePercent.toFixed(0)} % disponibilní částky pro tuto úroveň).`
-    );
-  } else if (locale === "ru") {
-    parts.push(`Уровень ${level} (${levelLabel}) — категория: ${catLabel}.`);
-
-    if (debt.criticalNote && debt.criticalDate) {
-      parts.push(`${debt.criticalNote} (срок ${debt.criticalDate}).`);
-    } else if (daysToCritical !== null && daysToCritical <= 7) {
-      parts.push(`Критический срок через ${daysToCritical} дн.`);
-    }
-
-    if (daysToDue !== null && daysToDue < 0) {
-      parts.push("Обязательство просрочено.");
-    } else if (daysToDue !== null && daysToDue <= 7) {
-      parts.push(`Срок через ${daysToDue} дн.`);
-    }
-
-    if (factors.includes("essential")) {
-      parts.push(
-        "Обязательный расход — риск отключения услуг или юридических последствий."
-      );
-    }
-    if (factors.includes("execution") || factors.includes("execution_risk")) {
-      parts.push(
-        "Риск исполнительного производства или ФССП — наивысший приоритет."
-      );
-    }
-    if (factors.includes("multiple_deadlines")) {
-      parts.push("Несколько сроков — ориентируемся на ближайший.");
-    }
-
-    parts.push(
-      `Выделено ${formatMoney(allocated, locale)} (${sharePercent.toFixed(0)} % пула этого уровня).`
-    );
-  } else {
-    parts.push(`Level ${level} (${levelLabel}) — category: ${catLabel}.`);
-
-    if (debt.criticalNote && debt.criticalDate) {
-      parts.push(`${debt.criticalNote} (deadline ${debt.criticalDate}).`);
-    } else if (daysToCritical !== null && daysToCritical <= 7) {
-      parts.push(`Critical deadline in ${daysToCritical} days.`);
-    }
-
-    if (daysToDue !== null && daysToDue < 0) {
-      parts.push("Payment is overdue.");
-    } else if (daysToDue !== null && daysToDue <= 7) {
-      parts.push(`Due in ${daysToDue} days.`);
-    }
-
-    parts.push(
-      `Allocated ${formatMoney(allocated, locale)} (${sharePercent.toFixed(0)}% of level pool).`
-    );
-  }
-
+  appendLevelHeader(parts, analysis, locale);
+  appendDeadlineInfo(parts, analysis, locale);
+  appendFactorNotes(parts, analysis, locale);
+  appendAllocationNote(parts, allocated, sharePercent, locale);
   return parts.join(" ");
 }
 
-/** Krátký důvod pro UI kartu */
 function buildShortReason(analysis: DebtAnalysis, locale: Locale): string {
   const label = LEVEL_LABELS[analysis.level][locale];
   const cat = CATEGORY_LABELS[analysis.debt.category][locale];
@@ -384,58 +565,81 @@ interface AllocationState {
   debtId: string;
   analysis: DebtAnalysis;
   paid: number;
+  /** Zbývající dlužná částka — sanitizovaná jednou při vytvoření stavu */
   stillOwed: number;
 }
 
+/** Vytvoří počáteční stavy alokace z analýz (částky již sanitizované v profilu). */
+function buildAllocationStates(analyses: DebtAnalysis[]): AllocationState[] {
+  return analyses.map((analysis) => ({
+    debtId: analysis.debt.id,
+    analysis,
+    paid: 0,
+    stillOwed: analysis.debt.amount,
+  }));
+}
+
 /**
- * Proporcionálně rozdělí `pool` mezi dluhy stejné (nebo vyšší) priority.
- * Váha = urgencyScore × zbývající částka.
+ * Vypočítá váhu dluhu pro proporcionální alokaci.
+ *
+ * @param urgencyScore — skóre naléhavosti z {@link analyzeDebt} (≥ 0)
+ * @param stillOwed — sanitizovaný zbytek dluhu z {@link AllocationState}
+ * @returns váha ≥ `MIN_ALLOCATION_WEIGHT`
+ */
+function allocationWeight(urgencyScore: number, stillOwed: number): number {
+  const score = Math.max(0, urgencyScore);
+  const cappedOwed = Math.min(stillOwed, PRIORITY_CONSTANTS.ALLOCATION_DEBT_CAP);
+  const owedFactor = Math.max(cappedOwed, 1);
+  const raw = score * owedFactor;
+  return Math.max(PRIORITY_CONSTANTS.MIN_ALLOCATION_WEIGHT, raw);
+}
+
+/**
+ * Proporcionálně rozdělí `pool` mezi dluhy stejné priority.
+ * Předpokládá, že `items[].stillOwed` je již sanitizované.
  */
 function allocateProportionally(
-  items: AllocationState[],
+  items: readonly AllocationState[],
   pool: number
 ): Map<string, number> {
   const result = new Map<string, number>();
-  if (pool <= 0 || items.length === 0) return result;
+  const safePool = sanitizeAmount(pool);
 
-  let remaining = pool;
+  if (safePool <= 0 || items.length === 0) return result;
 
-  // Váhy pro proporcionální dělení
+  let remaining = safePool;
+
   const weights = items.map((item) => ({
     id: item.debtId,
-    weight: item.analysis.urgencyScore * Math.max(item.stillOwed, 1),
+    weight: allocationWeight(item.analysis.urgencyScore, item.stillOwed),
     cap: item.stillOwed,
   }));
 
-  const totalWeight = weights.reduce((s, w) => s + w.weight, 0);
-  if (totalWeight === 0) return result;
+  const totalWeight = weights.reduce((sum, w) => sum + w.weight, 0);
+  if (totalWeight <= 0 || !Number.isFinite(totalWeight)) return result;
 
-  // První průchod — proporcionální částky
-  const rawAllocations = weights.map((w) => ({
-    id: w.id,
-    raw: (w.weight / totalWeight) * pool,
-    cap: w.cap,
-  }));
+  for (const weight of weights) {
+    const rawShare = (weight.weight / totalWeight) * safePool;
+    const amount = roundMoney(Math.min(rawShare, weight.cap, remaining));
 
-  // Zaokrouhlení s respektem k limitům
-  for (const alloc of rawAllocations) {
-    const amount = roundMoney(Math.min(alloc.raw, alloc.cap, remaining));
     if (amount > 0) {
-      result.set(alloc.id, (result.get(alloc.id) ?? 0) + amount);
+      result.set(weight.id, (result.get(weight.id) ?? 0) + amount);
       remaining -= amount;
     }
   }
 
-  // Druhý průchod — rozdělí zbytek (zaokrouhlovací rozdíl) dle priority
   if (remaining > 0) {
-    const sorted = [...items].sort(
+    const byUrgency = [...items].sort(
       (a, b) => b.analysis.urgencyScore - a.analysis.urgencyScore
     );
-    for (const item of sorted) {
+
+    for (const item of byUrgency) {
       if (remaining <= 0) break;
+
       const current = result.get(item.debtId) ?? 0;
       const canAdd = item.stillOwed - current;
       if (canAdd <= 0) continue;
+
       const add = Math.min(canAdd, remaining);
       result.set(item.debtId, current + add);
       remaining -= add;
@@ -445,113 +649,108 @@ function allocateProportionally(
   return result;
 }
 
-// ─── Hlavní engine ─────────────────────────────────────────────────────────
+function applyAllocationToState(
+  state: AllocationState,
+  amount: number,
+  allocations: Map<string, number>,
+  levelPools: Map<PriorityLevel, number>
+): number {
+  if (amount <= 0) return 0;
 
-/**
- * Spustí Priority Engine a vrátí kompletní doporučení plateb.
- *
- * @param profile  Finanční profil uživatele
- * @param locale   Jazyk vysvětlení (cs | ru | en)
- * @param today    Referenční datum (testovatelné)
- */
-export function runPriorityEngine(
-  profile: FinancialProfile,
-  locale: Locale = "cs",
-  today: Date = new Date()
-): PrioritizationResult {
-  const warnings: string[] = [];
-  const available = Math.max(0, profile.availableFunds);
+  const applied = Math.min(amount, state.stillOwed);
+  if (applied <= 0) return 0;
 
-  // ── 1. Životní buffer ──
-  const bufferPercent = calculateLifeBufferPercent(profile.incomeStability);
-  const lifeBuffer = roundMoney(available * bufferPercent);
-  let spendable = Math.max(0, available - lifeBuffer);
+  allocations.set(state.debtId, (allocations.get(state.debtId) ?? 0) + applied);
+  state.paid += applied;
+  state.stillOwed -= applied;
 
-  if (profile.debts.length === 0) {
-    return emptyResult(available, lifeBuffer, bufferPercent, locale);
-  }
+  const level = state.analysis.level;
+  levelPools.set(level, (levelPools.get(level) ?? 0) + applied);
 
-  if (available <= 0) {
-    warnings.push(msgNoFunds(locale));
-    return {
-      recommendations: [],
-      totalAllocated: 0,
-      remainingFunds: 0,
-      lifeBuffer: 0,
-      lifeBufferPercent: bufferPercent,
-      spendableFunds: 0,
-      summary: msgNoFunds(locale),
-      warnings,
-    };
-  }
+  return applied;
+}
 
-  // Informace o bufferu
-  warnings.push(msgLifeBuffer(lifeBuffer, bufferPercent, locale));
+/** Mapa stavů alokace podle ID dluhu — O(1) lookup místo opakovaného `find`. */
+function indexStatesById(
+  states: readonly AllocationState[]
+): Map<string, AllocationState> {
+  return new Map(states.map((state) => [state.debtId, state]));
+}
 
-  // ── 2. Analýza všech dluhů ──
-  const analyses = profile.debts.map((d) => analyzeDebt(d, today));
-
-  // ── 3. Fáze A: Minimální splátky u úrovní 0–1 ──
-  const allocations = new Map<string, number>();
-  const states: AllocationState[] = analyses.map((a) => ({
-    debtId: a.debt.id,
-    analysis: a,
-    paid: 0,
-    stillOwed: a.debt.amount,
-  }));
+/** Fáze: minimální splátky u úrovní 0 a 1. */
+function applyMinimumPayments(
+  states: AllocationState[],
+  allocations: Map<string, number>,
+  levelPools: Map<PriorityLevel, number>,
+  spendable: number
+): number {
+  let remaining = spendable;
 
   for (const state of states) {
-    if (spendable <= 0) break;
+    if (remaining <= 0) break;
     if (state.analysis.level > 1) continue;
 
-    const min = state.analysis.debt.minimumPayment;
-    if (!min || min <= 0) continue;
+    const minimum = state.analysis.debt.minimumPayment ?? 0;
+    if (minimum <= 0) continue;
 
-    const pay = Math.min(min, state.stillOwed, spendable);
-    if (pay > 0) {
-      allocations.set(state.debtId, (allocations.get(state.debtId) ?? 0) + pay);
-      state.paid += pay;
-      state.stillOwed -= pay;
-      spendable -= pay;
-    }
+    const pay = Math.min(minimum, state.stillOwed, remaining);
+    remaining -= applyAllocationToState(state, pay, allocations, levelPools);
   }
 
-  // ── 4. Fáze B: Proporcionální dělení po úrovních 0 → 3 ──
-  for (const level of [0, 1, 2, 3] as PriorityLevel[]) {
-    if (spendable <= 0) break;
+  return remaining;
+}
+
+/** Fáze: proporcionální dělení po úrovních 0 → 3. Aktualizuje `levelPools` při alokaci. */
+function applyProportionalByLevel(
+  states: AllocationState[],
+  stateById: Map<string, AllocationState>,
+  allocations: Map<string, number>,
+  levelPools: Map<PriorityLevel, number>,
+  spendable: number
+): number {
+  let remaining = spendable;
+
+  for (const level of PRIORITY_LEVELS) {
+    if (remaining <= 0) break;
 
     const levelItems = states.filter(
       (s) => s.analysis.level === level && s.stillOwed > 0
     );
     if (levelItems.length === 0) continue;
 
-    const totalOwed = levelItems.reduce((s, i) => s + i.stillOwed, 0);
-    const pool = Math.min(spendable, totalOwed);
-
+    const totalOwed = levelItems.reduce((sum, item) => sum + item.stillOwed, 0);
+    const pool = Math.min(remaining, totalOwed);
     const levelAlloc = allocateProportionally(levelItems, pool);
 
     for (const [debtId, amount] of levelAlloc) {
-      allocations.set(debtId, (allocations.get(debtId) ?? 0) + amount);
-      const state = states.find((s) => s.debtId === debtId)!;
-      state.paid += amount;
-      state.stillOwed -= amount;
-      spendable -= amount;
+      const state = stateById.get(debtId);
+      if (!state) continue;
+      remaining -= applyAllocationToState(state, amount, allocations, levelPools);
     }
   }
 
-  // ── 5. Sestavení doporučení ──
+  return remaining;
+}
+
+/**
+ * Sestaví seřazená doporučení plateb s lokalizovaným vysvětlením.
+ *
+ * @param levelPools — součty alokací podle úrovně (počítané při alokaci)
+ */
+function buildRecommendations(
+  states: AllocationState[],
+  allocations: Map<string, number>,
+  levelPools: ReadonlyMap<PriorityLevel, number>,
+  locale: Locale
+): PaymentRecommendation[] {
   const recommendations: PaymentRecommendation[] = [];
 
   for (const state of states) {
     const allocated = allocations.get(state.debtId) ?? 0;
     if (allocated <= 0) continue;
 
-    const levelPool = states
-      .filter((s) => s.analysis.level === state.analysis.level)
-      .reduce((s, i) => s + (allocations.get(i.debtId) ?? 0), 0);
-
-    const sharePercent =
-      levelPool > 0 ? (allocated / levelPool) * 100 : 100;
+    const levelPool = levelPools.get(state.analysis.level) ?? allocated;
+    const sharePercent = levelPool > 0 ? (allocated / levelPool) * 100 : 100;
 
     recommendations.push({
       debtId: state.debtId,
@@ -571,57 +770,202 @@ export function runPriorityEngine(
   }
 
   recommendations.sort((a, b) => {
-    if (a.priorityLevel !== b.priorityLevel) return a.priorityLevel - b.priorityLevel;
+    if (a.priorityLevel !== b.priorityLevel) {
+      return a.priorityLevel - b.priorityLevel;
+    }
     return b.priority - a.priority;
   });
 
-  const totalAllocated = recommendations.reduce(
-    (s, r) => s + r.recommendedAmount,
-    0
-  );
+  return recommendations;
+}
 
-  const unpaid = states.filter((s) => s.stillOwed > 0);
-  if (unpaid.length > 0) {
-    warnings.push(msgUnpaid(unpaid.length, locale));
+interface WarningScan {
+  unpaidCount: number;
+  criticalUnpaidCount: number;
+  hasUnderpaidExecutionRisk: boolean;
+}
+
+/** Jeden průchod stavů pro všechna varování kromě buffer zpráv. */
+function scanStatesForWarnings(
+  states: readonly AllocationState[],
+  allocations: ReadonlyMap<string, number>
+): WarningScan {
+  let unpaidCount = 0;
+  let criticalUnpaidCount = 0;
+  let hasUnderpaidExecutionRisk = false;
+
+  for (const state of states) {
+    if (state.stillOwed <= 0) continue;
+
+    unpaidCount += 1;
+    if (state.analysis.level === 0) criticalUnpaidCount += 1;
+
+    if (
+      !hasUnderpaidExecutionRisk &&
+      isExecutionRisk(state.analysis.debt)
+    ) {
+      const paid = allocations.get(state.debtId) ?? 0;
+      if (paid < state.analysis.debt.amount * 0.5) {
+        hasUnderpaidExecutionRisk = true;
+      }
+    }
   }
 
-  // Edge: více kritických dluhů najednou
-  const criticalUnpaid = states.filter(
-    (s) => s.analysis.level === 0 && s.stillOwed > 0
-  );
-  if (criticalUnpaid.length >= 2) {
-    warnings.push(msgMultipleCritical(criticalUnpaid.length, locale));
+  return { unpaidCount, criticalUnpaidCount, hasUnderpaidExecutionRisk };
+}
+
+function collectWarnings(
+  scan: WarningScan,
+  ctx: {
+    locale: Locale;
+    availableFunds: number;
+    lifeBuffer: number;
+    totalAllocated: number;
+    recommendationCount: number;
+  }
+): string[] {
+  const warnings: string[] = [];
+  const { locale, availableFunds, lifeBuffer, totalAllocated, recommendationCount } =
+    ctx;
+  const { unpaidCount, criticalUnpaidCount, hasUnderpaidExecutionRisk } = scan;
+
+  if (unpaidCount > 0) {
+    warnings.push(msgUnpaid(unpaidCount, locale));
   }
 
-  // Edge: exekuce nezaplacena v plné výši
-  const executionUnpaid = states.filter(
-    (s) =>
-      isExecutionRisk(s.analysis.debt) &&
-      s.stillOwed > 0 &&
-      (allocations.get(s.debtId) ?? 0) < s.analysis.debt.amount * 0.5
-  );
-  if (executionUnpaid.length > 0) {
+  if (criticalUnpaidCount >= 2) {
+    warnings.push(msgMultipleCritical(criticalUnpaidCount, locale));
+  }
+
+  if (hasUnderpaidExecutionRisk) {
     warnings.push(msgExecutionRisk(locale));
   }
 
+  if (recommendationCount > 0 && lifeBuffer > 0) {
+    warnings.push(msgBufferPreserved(lifeBuffer, locale));
+  }
+
+  if (totalAllocated >= availableFunds * 0.95 && unpaidCount > 0) {
+    warnings.push(msgFundsTight(locale));
+  }
+
+  return warnings;
+}
+
+// ─── Hlavní engine ─────────────────────────────────────────────────────────
+
+/**
+ * Spustí Priority Engine a vrátí kompletní doporučení plateb.
+ *
+ * @param profile — finanční profil uživatele (sanitizuje se na vstupu)
+ * @param locale — jazyk vysvětlení (cs | ru | en)
+ * @param today — referenční datum (testovatelné)
+ */
+export function runPriorityEngine(
+  profile: FinancialProfile,
+  locale: Locale = "cs",
+  today: Date = new Date()
+): PrioritizationResult {
+  // ── Fáze 1: sanitizace vstupu ──
+  const safeProfile = sanitizeProfile(profile);
+  const availableFunds = safeProfile.availableFunds;
+
+  // ── Fáze 2: prázdný profil ──
+  if (safeProfile.debts.length === 0) {
+    const bufferPercent = calculateLifeBufferPercent(safeProfile.incomeStability);
+    const lifeBuffer = roundMoney(availableFunds * bufferPercent);
+    return emptyResult(availableFunds, lifeBuffer, bufferPercent, locale);
+  }
+
+  // ── Fáze 3: nulové prostředky ──
+  if (availableFunds <= 0) {
+    return zeroFundsResult(locale);
+  }
+
+  // ── Fáze 4: analýza dluhů (po sanitizaci profilu) ──
+  const analyses = safeProfile.debts.map((debt) => analyzeDebt(debt, today));
+  const hasLevel0Debt = analyses.some((analysis) => analysis.level === 0);
+
+  // ── Fáze 5: life buffer ──
+  const bufferPercent = resolveLifeBufferPercent(safeProfile.incomeStability, {
+    hasLevel0Debt,
+    availableFunds: safeProfile.availableFunds,
+  });
+  const lifeBuffer = roundMoney(availableFunds * bufferPercent);
+  const spendableStart = Math.max(0, availableFunds - lifeBuffer);
+
+  const bufferWarnings = needsReducedBuffer(hasLevel0Debt, availableFunds)
+      ? [msgReducedBuffer(lifeBuffer, bufferPercent, locale)]
+      : [msgLifeBuffer(lifeBuffer, bufferPercent, locale)];
+
+  // ── Fáze 6: alokace ──
+  const states = buildAllocationStates(analyses);
+  const stateById = indexStatesById(states);
+  const allocations = new Map<string, number>();
+  const levelPools = new Map<PriorityLevel, number>();
+
+  const spendableAfterMin = applyMinimumPayments(
+    states,
+    allocations,
+    levelPools,
+    spendableStart
+  );
+  applyProportionalByLevel(
+    states,
+    stateById,
+    allocations,
+    levelPools,
+    spendableAfterMin
+  );
+
+  // ── Fáze 7: doporučení ──
+  const recommendations = buildRecommendations(
+    states,
+    allocations,
+    levelPools,
+    locale
+  );
+  const totalAllocated = sumRecommendationAmounts(recommendations);
+
+  // ── Fáze 8: varování a souhrn ──
+  const warningScan = scanStatesForWarnings(states, allocations);
+  const warnings = [
+    ...bufferWarnings,
+    ...collectWarnings(warningScan, {
+      locale,
+      availableFunds,
+      lifeBuffer,
+      totalAllocated,
+      recommendationCount: recommendations.length,
+    }),
+  ];
+
   const top = recommendations[0];
   const summary = top
-    ? msgSummary(top, lifeBuffer, locale)
+    ? msgSummary(top, lifeBuffer, recommendations, locale)
     : msgNoAllocation(locale);
 
   return {
     recommendations,
     totalAllocated,
-    remainingFunds: roundMoney(available - totalAllocated),
+    remainingFunds: roundMoney(Math.max(0, availableFunds - totalAllocated)),
     lifeBuffer,
     lifeBufferPercent: bufferPercent,
-    spendableFunds: roundMoney(available - lifeBuffer),
+    spendableFunds: roundMoney(Math.max(0, availableFunds - lifeBuffer)),
     summary,
     warnings,
   };
 }
 
 // ─── Lokalizované zprávy ───────────────────────────────────────────────────
+
+function sumRecommendationAmounts(
+  recommendations: readonly PaymentRecommendation[]
+): number {
+  return roundMoney(
+    recommendations.reduce((sum, rec) => sum + rec.recommendedAmount, 0)
+  );
+}
 
 function emptyResult(
   available: number,
@@ -648,6 +992,21 @@ function emptyResult(
   };
 }
 
+function zeroFundsResult(locale: Locale): PrioritizationResult {
+  const warnings = [msgNoFunds(locale), msgNoFundsDetail(locale)];
+
+  return {
+    recommendations: [],
+    totalAllocated: 0,
+    remainingFunds: 0,
+    lifeBuffer: 0,
+    lifeBufferPercent: 0,
+    spendableFunds: 0,
+    summary: msgNoFunds(locale),
+    warnings,
+  };
+}
+
 function msgLifeBuffer(
   amount: number,
   percent: number,
@@ -655,44 +1014,89 @@ function msgLifeBuffer(
 ): string {
   const pct = Math.round(percent * 100);
   if (locale === "cs")
-    return `Rezerva na životní náklady: ${formatMoney(amount, locale)} (${pct} %).`;
+    return `Rezerva na životní náklady: ${formatMoney(amount, locale)} (${pct} % z volných prostředků).`;
   if (locale === "ru")
-    return `Резерв на жизнь: ${formatMoney(amount, locale)} (${pct} %).`;
-  return `Life buffer reserved: ${formatMoney(amount, locale)} (${pct}%).`;
+    return `Резерв на жизнь: ${formatMoney(amount, locale)} (${pct} % от свободных средств).`;
+  return `Life buffer reserved: ${formatMoney(amount, locale)} (${pct}% of available funds).`;
+}
+
+function msgReducedBuffer(
+  amount: number,
+  percent: number,
+  locale: Locale
+): string {
+  const pct = Math.round(percent * 100);
+  if (locale === "cs")
+    return `⚠ Kritické závazky a nízké prostředky — rezerva snížena na ${formatMoney(amount, locale)} (${pct} %, standardně 20–35 %).`;
+  if (locale === "ru")
+    return `⚠ Критические долги и мало средств — резерв снижен до ${formatMoney(amount, locale)} (${pct} %, обычно 20–35 %).`;
+  return `⚠ Critical debts with low funds — buffer reduced to ${formatMoney(amount, locale)} (${pct}%, normally 20–35%).`;
 }
 
 function msgNoFunds(locale: Locale): string {
   if (locale === "cs")
-    return "Nemáte volné prostředky. Zvažte oddlužení nebo odklad splátek.";
+    return "Nemáte volné prostředky k rozdělení.";
   if (locale === "ru")
-    return "Нет свободных средств. Рассмотрите реструктуризацию долгов или отсрочку платежей.";
-  return "No available funds. Consider debt restructuring.";
+    return "Нет свободных средств для распределения.";
+  return "No available funds to allocate.";
+}
+
+function msgNoFundsDetail(locale: Locale): string {
+  if (locale === "cs")
+    return "Doporučení: jednejte s věřiteli o splátkovém kalendáři nebo odkladu, případně vyhledejte poradenství v oblasti oddlužení.";
+  if (locale === "ru")
+    return "Рекомендация: договоритесь с кредиторами о графике платежей или отсрочке, при необходимости обратитесь за консультацией по реструктуризации долгов.";
+  return "Recommendation: negotiate a payment schedule or deferral with creditors, or seek debt counselling.";
 }
 
 function msgUnpaid(count: number, locale: Locale): string {
   if (locale === "cs")
-    return `${count} závazek(ů) tentokrát nepokryjeme — chybí prostředky i po rezervě.`;
+    return `⚠ ${count} závazek(ů) zůstává nepokrytých — prostředky nestačí ani po rezervě.`;
   if (locale === "ru")
-    return `${count} обязательств не покрыть — не хватает средств.`;
-  return `${count} obligation(s) cannot be covered this time.`;
+    return `⚠ ${count} обязательств остаётся непокрытыми — средств не хватает даже после резерва.`;
+  return `⚠ ${count} obligation(s) remain uncovered — insufficient funds after buffer.`;
+}
+
+function msgBufferPreserved(amount: number, locale: Locale): string {
+  if (locale === "cs")
+    return `Rezerva ${formatMoney(amount, locale)} je chráněna pro jídlo, dopravu a nezbytné výdaje.`;
+  if (locale === "ru")
+    return `Резерв ${formatMoney(amount, locale)} защищён на еду, транспорт и базовые расходы.`;
+  return `Buffer of ${formatMoney(amount, locale)} is protected for food, transport, and essentials.`;
+}
+
+function msgFundsTight(locale: Locale): string {
+  if (locale === "cs")
+    return "⚠ Volné prostředky jsou téměř vyčerpány — zvažte snížení neesenciálních výdajů.";
+  if (locale === "ru")
+    return "⚠ Свободные средства почти исчерпаны — рассмотрите сокращение необязательных расходов.";
+  return "⚠ Available funds are nearly exhausted — consider cutting non-essential spending.";
 }
 
 function msgSummary(
   top: PaymentRecommendation,
-  buffer: number,
+  lifeBuffer: number,
+  recommendations: readonly PaymentRecommendation[],
   locale: Locale
 ): string {
-  if (locale === "cs")
-    return `Nejdříve zaplaťte ${top.creditor} — ${formatMoney(top.recommendedAmount, locale)} (úroveň ${top.priorityLevel}). Rezerva ${formatMoney(buffer, locale)} zůstává na jídlo a dopravu.`;
-  if (locale === "ru")
-    return `Сначала оплатите ${top.creditor} — ${formatMoney(top.recommendedAmount, locale)} (уровень ${top.priorityLevel}). Резерв ${formatMoney(buffer, locale)} остаётся на еду и транспорт.`;
-  return `Pay ${top.creditor} first — ${formatMoney(top.recommendedAmount, locale)} (level ${top.priorityLevel}). Buffer of ${formatMoney(buffer, locale)} kept for essentials.`;
+  const paymentCount = recommendations.length;
+  const totalAllocated = sumRecommendationAmounts(recommendations);
+
+  if (locale === "cs") {
+    return `Priorita: ${top.creditor} — ${formatMoney(top.recommendedAmount, locale)} (úroveň ${top.priorityLevel}). Celkem ${paymentCount} plateb, alokováno ${formatMoney(totalAllocated, locale)}. Rezerva ${formatMoney(lifeBuffer, locale)} zůstává na život.`;
+  }
+  if (locale === "ru") {
+    return `Приоритет: ${top.creditor} — ${formatMoney(top.recommendedAmount, locale)} (уровень ${top.priorityLevel}). Всего ${paymentCount} платежей, выделено ${formatMoney(totalAllocated, locale)}. Резерв ${formatMoney(lifeBuffer, locale)} остаётся на жизнь.`;
+  }
+  return `Priority: ${top.creditor} — ${formatMoney(top.recommendedAmount, locale)} (level ${top.priorityLevel}). ${paymentCount} payment(s), ${formatMoney(totalAllocated, locale)} allocated. Buffer ${formatMoney(lifeBuffer, locale)} kept for living costs.`;
 }
 
 function msgNoAllocation(locale: Locale): string {
-  if (locale === "cs") return "Nepodařilo se vytvořit doporučení.";
-  if (locale === "ru") return "Не удалось сформировать рекомендацию.";
-  return "Could not generate recommendation.";
+  if (locale === "cs")
+    return "Nepodařilo se vytvořit doporučení — zkontrolujte částky a termíny závazků.";
+  if (locale === "ru")
+    return "Не удалось сформировать рекомендацию — проверьте суммы и сроки обязательств.";
+  return "Could not generate recommendation — check debt amounts and deadlines.";
 }
 
 function msgMultipleCritical(count: number, locale: Locale): string {
@@ -705,8 +1109,8 @@ function msgMultipleCritical(count: number, locale: Locale): string {
 
 function msgExecutionRisk(locale: Locale): string {
   if (locale === "cs")
-    return "⚠ Exekuce nebo soudní výkon — doporučujeme právní konzultaci a prioritu této platby.";
+    return "⚠ Exekuce, daně nebo pokuty — doporučujeme právní konzultaci a prioritu této platby.";
   if (locale === "ru")
-    return "⚠ Исполнительное производство или ФССП — рекомендуем юридическую консультацию и приоритет этого платежа.";
-  return "⚠ Enforcement action risk — seek legal advice and prioritize this payment.";
+    return "⚠ Исполнительное производство, налоги или штрафы — рекомендуем юридическую консультацию и приоритет этого платежа.";
+  return "⚠ Enforcement, taxes or fines — seek legal advice and prioritize this payment.";
 }
