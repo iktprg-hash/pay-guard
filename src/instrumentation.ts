@@ -3,8 +3,9 @@ export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
   if (process.env.NODE_ENV !== "production") return;
 
-  const { assertServiceRoleOnStartup } = await import(
+  const { assertServiceRoleOnStartup, assertUpstashOnStartup } = await import(
     "@/lib/supabase/service-health"
   );
   assertServiceRoleOnStartup();
+  assertUpstashOnStartup();
 }

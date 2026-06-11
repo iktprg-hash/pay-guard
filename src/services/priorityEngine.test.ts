@@ -561,3 +561,140 @@ describe("runPriorityEngine", () => {
     }
   });
 });
+
+describe("Priority Engine — additional CZ scenarios", () => {
+  it("assigns level 0 to utilities with imminent critical disconnection deadline", () => {
+    const analysis = analyzeDebt(
+      debt({
+        id: "plyn",
+        creditor: "Pražská plynárenská",
+        amount: 5200,
+        category: "utilities",
+        criticalDate: "2026-06-13",
+        criticalNote: "Hrozí odpojení plynu",
+      }),
+      TODAY
+    );
+
+    expect(analysis.level).toBe(0);
+    expect(analysis.factors).toContain("critical_imminent");
+  });
+
+  it("applies minimum payments first for level 1 debts before lower levels", () => {
+    const result = runPriorityEngine(
+      profile(
+        15_000,
+        [
+          debt({
+            id: "karta",
+            creditor: "Visa Classic — ČSOB",
+            amount: 6_000,
+            category: "credit_card",
+            dueDate: "2026-12-01",
+          }),
+          debt({
+            id: "pujcka",
+            creditor: "Air Bank — osobní úvěr",
+            amount: 18_000,
+            category: "loans",
+            dueDate: "2026-06-16",
+            minimumPayment: 2_500,
+          }),
+        ],
+        "stable"
+      ),
+      "cs",
+      TODAY
+    );
+
+    const pujcka = result.recommendations.find((r) => r.debtId === "pujcka");
+    expect(pujcka?.recommendedAmount).toBeGreaterThanOrEqual(2_500);
+    expect(pujcka?.priorityLevel).toBe(1);
+  });
+
+  it("allocates partial amount when funds are below minimum payment", () => {
+    const result = runPriorityEngine(
+      profile(
+        8_000,
+        [
+          debt({
+            id: "pujcka",
+            creditor: "Moneta — splátka úvěru",
+            amount: 9_000,
+            category: "loans",
+            dueDate: "2026-06-14",
+            minimumPayment: 9_000,
+          }),
+        ],
+        "stable"
+      ),
+      "cs",
+      TODAY
+    );
+
+    expect(result.spendableFunds).toBe(6_400);
+    expect(result.recommendations[0]?.recommendedAmount).toBe(6_400);
+  });
+
+  it("warns when execution-risk debt receives less than 50% payment", () => {
+    const result = runPriorityEngine(
+      profile(
+        12_000,
+        [
+          debt({
+            id: "exekuce",
+            creditor: "Městský úřad — exekuční pokuta",
+            amount: 25_000,
+            category: "fines",
+            dueDate: "2026-06-20",
+          }),
+        ],
+        "stable"
+      ),
+      "cs",
+      TODAY
+    );
+
+    expect(result.recommendations[0]?.recommendedAmount).toBeLessThan(12_500);
+    expect(result.warnings.some((w) => w.includes("Exekuce"))).toBe(true);
+  });
+
+  it("handles mixed critical, high, medium, and low priority debts", () => {
+    const result = runPriorityEngine(
+      profile(
+        30_000,
+        [
+          debt({
+            id: "najem",
+            creditor: "Nájem — Brno střed",
+            amount: 13_500,
+            category: "housing",
+            criticalDate: "2026-06-12",
+          }),
+          debt({
+            id: "ele",
+            creditor: "ČEZ — elektřina",
+            amount: 3_800,
+            category: "utilities",
+            dueDate: "2026-06-16",
+          }),
+          debt({
+            id: "karta",
+            creditor: "Visa — ČSOB",
+            amount: 15_000,
+            category: "credit_card",
+            dueDate: "2026-12-01",
+          }),
+        ],
+        "stable"
+      ),
+      "cs",
+      TODAY
+    );
+
+    expect(result.recommendations[0]?.priorityLevel).toBe(0);
+    expect(result.recommendations[0]?.creditor).toContain("Nájem");
+    expect(result.totalAllocated).toBeGreaterThan(0);
+    expect(result.summary).toMatch(/Priorita/i);
+  });
+});

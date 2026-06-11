@@ -145,7 +145,6 @@ export function Chat() {
             messages: history,
             profile: profileRef.current,
             locale,
-            grokConsent: true as const,
           }),
         });
 

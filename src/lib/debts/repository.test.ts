@@ -89,11 +89,14 @@ describe("debts repository", () => {
       supabase as never,
       "session-1",
       "user-1",
-      [debtWithUuid]
+      [debtWithUuid],
+      "RUB"
     );
 
     expect(ok).toBe(true);
     expect(upsert).toHaveBeenCalledOnce();
+    const upsertArg = upsert.mock.calls[0]?.[0] as Array<{ currency: string }>;
+    expect(upsertArg[0]?.currency).toBe("RUB");
     expect(deleteIn).toHaveBeenCalledWith("id", ["old-debt-id"]);
   });
 });

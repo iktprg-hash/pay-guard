@@ -58,6 +58,7 @@ const requiredMigs = [
   "004_session_sync.sql",
   "005_normalize_debts.sql",
   "006_protect_subscription_tier.sql",
+  "007_grok_consent.sql",
 ];
 
 if (!existsSync(migDir)) {

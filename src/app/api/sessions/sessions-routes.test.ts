@@ -154,4 +154,15 @@ describe("GET /api/sessions/[sessionId]", () => {
     expect(body.sessionId).toBe(sessionA);
     expect(body).not.toHaveProperty("sessionToken");
   });
+
+  it("returns 400 for invalid sessionId UUID", async () => {
+    const { GET } = await import("./[sessionId]/route");
+    const res = await GET(
+      new NextRequest("http://127.0.0.1:3000/api/sessions/not-a-valid-uuid"),
+      { params: Promise.resolve({ sessionId: "not-a-valid-uuid" }) }
+    );
+
+    expect(res.status).toBe(400);
+    expect(loadUserSessionBundle).not.toHaveBeenCalled();
+  });
 });

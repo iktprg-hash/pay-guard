@@ -72,6 +72,11 @@ function isUpstashConfigured(): boolean {
   );
 }
 
+/** Whether Upstash Redis rate limiting is active (production + env vars). */
+export function isUpstashRateLimitConfigured(): boolean {
+  return isUpstashConfigured();
+}
+
 function getUpstashLimiter(limit: number, windowMs: number): Ratelimit {
   const cacheKey = `${limit}:${windowMs}`;
   let limiter = limiterCache.get(cacheKey);

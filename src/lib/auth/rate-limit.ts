@@ -6,7 +6,7 @@ type RateLimitRule = { limit: number; windowMs: number };
 
 const isDev = process.env.NODE_ENV === "development";
 const skipRateLimit =
-  isDev || process.env.AUTH_SKIP_RATE_LIMIT === "1";
+  isDev && process.env.AUTH_SKIP_RATE_LIMIT === "1";
 
 async function checkKeys(keys: string[], rule: RateLimitRule) {
   for (const key of keys) {

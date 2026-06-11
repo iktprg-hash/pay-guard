@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { loadUserSessionBundle } from "@/lib/chat/persistence";
 import { requireProApiUser } from "@/lib/auth/require-pro";
 import { createClient } from "@/lib/supabase/server";
-import { rateLimitError } from "@/lib/api/errors";
+import { rateLimitError, validationError } from "@/lib/api/errors";
 import { checkRateLimit, getClientIp } from "@/lib/security/rateLimit";
+import { sessionIdSchema } from "@/lib/validation/schemas";
 
 type RouteContext = { params: Promise<{ sessionId: string }> };
 
@@ -20,7 +21,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
   );
   if (!limit.allowed) return rateLimitError(limit.resetAt);
 
-  const { sessionId } = await context.params;
+  const { sessionId: rawSessionId } = await context.params;
+  const parsedId = sessionIdSchema.safeParse(rawSessionId);
+  if (!parsedId.success) return validationError(parsedId.error);
+
+  const sessionId = parsedId.data;
 
   const supabase = await createClient();
   const bundle = await loadUserSessionBundle(supabase, sessionId, auth.user.id);

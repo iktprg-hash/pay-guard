@@ -50,7 +50,6 @@ export const chatRequestSchema = z.object({
   locale: z.enum(LOCALES).default("cs"),
   sessionId: sessionIdSchema.optional(),
   sessionToken: sessionTokenSchema.optional(),
-  grokConsent: z.literal(true),
 });
 
 export const prioritizeRequestSchema = z.object({

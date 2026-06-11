@@ -16,4 +16,10 @@ describe("buildManifest", () => {
       ).toBe(true);
     }
   });
+
+  it("uses market-neutral English PWA description", () => {
+    const manifest = buildManifest("en");
+    expect(manifest.description).not.toMatch(/Czech residents/i);
+    expect(manifest.description).toMatch(/payment/i);
+  });
 });

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { chatWithGrok, GrokUnavailableError, GrokRequestError } from "@/lib/grok/client";
 import { mergeProfileUpdate } from "@/lib/grok/prompts";
 import { requireApiUser } from "@/lib/auth/session";
+import { getUserGrokConsent } from "@/lib/auth/grok-consent";
 import {
   rateLimitError,
   serviceUnavailable,
@@ -29,7 +30,8 @@ export async function POST(request: NextRequest) {
 
     const { messages, profile, locale } = parsed.data;
 
-    if (!parsed.data.grokConsent) {
+    const hasConsent = await getUserGrokConsent(auth.user.id);
+    if (!hasConsent) {
       return unauthorizedError("Grok data processing consent required");
     }
 

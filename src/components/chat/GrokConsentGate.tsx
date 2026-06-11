@@ -5,7 +5,13 @@ import { useTranslations } from "next-intl";
 import { Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { hasGrokConsent, setGrokConsent } from "@/lib/grok/consent";
+import {
+  acceptGrokConsentOnServer,
+  fetchServerGrokConsent,
+  hasGrokConsent,
+  setGrokConsent,
+} from "@/lib/grok/consent";
+import { useAuth } from "@/components/providers/auth-provider";
 import { PageLoader } from "@/components/ui/page-loader";
 
 interface GrokConsentGateProps {
@@ -15,15 +21,36 @@ interface GrokConsentGateProps {
 export function GrokConsentGate({ children }: GrokConsentGateProps) {
   const t = useTranslations("chat.consent");
   const tCommon = useTranslations("common");
+  const { user, loading: authLoading } = useAuth();
   const [ready, setReady] = useState(false);
   const [accepted, setAccepted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    setAccepted(hasGrokConsent());
-    setReady(true);
-  }, []);
+    if (authLoading) return;
 
-  if (!ready) {
+    void (async () => {
+      if (!user) {
+        setReady(true);
+        return;
+      }
+
+      const serverConsent = await fetchServerGrokConsent();
+      if (serverConsent === true) {
+        setGrokConsent();
+        setAccepted(true);
+      } else if (hasGrokConsent()) {
+        const migrated = await acceptGrokConsentOnServer();
+        if (migrated) {
+          setAccepted(true);
+        }
+      }
+
+      setReady(true);
+    })();
+  }, [user, authLoading]);
+
+  if (!ready || authLoading) {
     return <PageLoader label={tCommon("loading")} />;
   }
 
@@ -54,9 +81,17 @@ export function GrokConsentGate({ children }: GrokConsentGateProps) {
             <p className="text-xs text-muted-foreground">{t("details")}</p>
             <Button
               className="w-full"
+              disabled={submitting}
               onClick={() => {
-                setGrokConsent();
-                setAccepted(true);
+                void (async () => {
+                  setSubmitting(true);
+                  const ok = await acceptGrokConsentOnServer();
+                  if (ok) {
+                    setGrokConsent();
+                    setAccepted(true);
+                  }
+                  setSubmitting(false);
+                })();
               }}
             >
               {t("accept")}

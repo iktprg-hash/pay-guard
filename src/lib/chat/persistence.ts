@@ -13,6 +13,8 @@ import type {
   FinancialProfile,
   PrioritizationResult,
 } from "@/lib/types/financial";
+import { getCurrency } from "@/lib/financial/locale-config";
+import type { Locale } from "@/i18n/routing";
 
 function isSupabaseConfigured(): boolean {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -312,7 +314,8 @@ export async function saveSessionToSupabase(
       supabase,
       sessionId,
       userId,
-      profile.debts
+      profile.debts,
+      getCurrency(locale as Locale)
     );
     if (!debtsSynced) return false;
 

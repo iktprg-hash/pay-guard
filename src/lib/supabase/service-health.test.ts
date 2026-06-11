@@ -37,4 +37,27 @@ describe("service-health", () => {
     const { requireServiceClient } = await import("@/lib/supabase/service-health");
     expect(requireServiceClient()).toBeNull();
   });
+
+  it("assertServiceRoleOnStartup throws in production when missing", async () => {
+    process.env.NODE_ENV = "production";
+    createServiceClient.mockReturnValue(null);
+
+    const { assertServiceRoleOnStartup, ServiceRoleMissingError } = await import(
+      "@/lib/supabase/service-health"
+    );
+
+    expect(() => assertServiceRoleOnStartup()).toThrow(ServiceRoleMissingError);
+  });
+
+  it("assertUpstashOnStartup throws in production when Upstash env is missing", async () => {
+    process.env.NODE_ENV = "production";
+    delete process.env.UPSTASH_REDIS_REST_URL;
+    delete process.env.UPSTASH_REDIS_REST_TOKEN;
+
+    const { assertUpstashOnStartup, UpstashMissingError } = await import(
+      "@/lib/supabase/service-health"
+    );
+
+    expect(() => assertUpstashOnStartup()).toThrow(UpstashMissingError);
+  });
 });

@@ -89,19 +89,8 @@ describe("chatRequestSchema", () => {
         messages: [{ role: "user", content: "Hello" }],
         profile: { availableFunds: 1000, debts: [] },
         locale: "cs",
-        grokConsent: true,
       }).success
     ).toBe(true);
-  });
-
-  it("requires grokConsent", () => {
-    expect(
-      chatRequestSchema.safeParse({
-        messages: [{ role: "user", content: "Hello" }],
-        profile: { availableFunds: 1000, debts: [] },
-        locale: "cs",
-      }).success
-    ).toBe(false);
   });
 
   it("rejects empty messages", () => {
