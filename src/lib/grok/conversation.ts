@@ -27,12 +27,12 @@ const STAGE_HINTS: Record<
   },
   debts_overview: {
     cs: "Zeptej se na všechny závazky — nájem, energie, půjčky, pokuty. Požádej o věřitele a částku u každého.",
-    ru: "Спроси обо всех обязательствах — аренда, коммуналка, кредиты, штрафы. Попроси кредитора и сумму.",
+    ru: "Спроси обо всех обязательствах — аренда, ЖКХ, кредиты, микрозаймы, штрафы, приставы. Попроси кредитора и сумму в рублях.",
     en: "Ask about all obligations — rent, utilities, loans, fines. Request creditor and amount for each.",
   },
   debt_details: {
     cs: "Upřesni u závazků splatnost a kritické termíny (např. vystěhování, exekuce). Ptej se na jeden dluh najednou.",
-    ru: "Уточни сроки и критические даты (выселение, исполнительное производство). Спрашивай по одному долгу.",
+    ru: "Уточни сроки и критические даты (выселение, ФССП, отключение услуг). Спрашивай по одному долгу.",
     en: "Clarify due dates and critical deadlines (eviction, enforcement). Ask about one debt at a time.",
   },
   income: {
@@ -130,11 +130,45 @@ export function buildStageContext(
 ): string {
   const state = buildConversationState(profile, locale);
 
+  const frame = {
+    cs: {
+      phase: "FÁZE",
+      greeting: "FÁZE: greeting",
+      task: "ÚKOL",
+      missing: "CHYBĚJÍCÍ ÚDAJE",
+      none: "žádné",
+      next: "DALŠÍ OTÁZKA (polož ji přirozeně v odpovědi)",
+    },
+    ru: {
+      phase: "ЭТАП",
+      greeting: "ЭТАП: greeting",
+      task: "ЗАДАЧА",
+      missing: "НЕ ХВАТАЕТ ДАННЫХ",
+      none: "ничего",
+      next: "СЛЕДУЮЩИЙ ВОПРОС (задай естественно в ответе)",
+    },
+    en: {
+      phase: "STAGE",
+      greeting: "STAGE: greeting",
+      task: "TASK",
+      missing: "MISSING FIELDS",
+      none: "none",
+      next: "NEXT QUESTION (ask naturally in your reply)",
+    },
+  }[locale];
+
+  const phaseLine =
+    locale === "ru"
+      ? `${frame.phase} РАЗГОВОРА`
+      : locale === "en"
+        ? frame.phase
+        : `${frame.phase} KONVERZACE`;
+
   if (messageCount <= 1) {
-    return `FÁZE: greeting\nÚKOL: ${STAGE_HINTS.greeting[locale]}`;
+    return `${frame.greeting}\n${frame.task}: ${STAGE_HINTS.greeting[locale]}`;
   }
 
-  return `FÁZE KONVERZACE: ${state.stage}
-CHYBĚJÍCÍ ÚDAJE: ${state.missingFields.length ? state.missingFields.join(", ") : "žádné"}
-DALŠÍ OTÁZKA (polož ji přirozeně v odpovědi): ${state.nextQuestionHint}`;
+  return `${phaseLine}: ${state.stage}
+${frame.missing}: ${state.missingFields.length ? state.missingFields.join(", ") : frame.none}
+${frame.next}: ${state.nextQuestionHint}`;
 }

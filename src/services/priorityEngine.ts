@@ -11,6 +11,10 @@
  * 5. Srozumitelná vysvětlení každého rozhodnutí
  */
 
+import {
+  formatMoney,
+  roundMoney,
+} from "@/lib/financial/locale-config";
 import type {
   Debt,
   DebtCategory,
@@ -53,9 +57,9 @@ const ESSENTIAL_CATEGORIES: DebtCategory[] = [
   "fines",
 ];
 
-/** Klíčová slova signalizující exekuci / soudní výkon */
+/** Klíčová slova: exekuce (CZ) / исполнительное производство, ФССП (RU) */
 const EXECUTION_KEYWORDS =
-  /exeku|výkon\s+rozsudku|soudní\s+exekutor|executor|enforcement|выселен|исполнител/i;
+  /exeku|výkon\s+rozsudku|soudní\s+exekutor|executor|enforcement|выселен|исполнител|фссп|судебн.*пристав|пристав|арест\s+сч|принудительн|взыскан/i;
 
 // ─── Pomocné funkce ────────────────────────────────────────────────────────
 
@@ -125,10 +129,6 @@ export function calculateLifeBufferPercent(
   }
 }
 
-/** Zaokrouhlí na celé Kč */
-function roundCZK(amount: number): number {
-  return Math.max(0, Math.round(amount));
-}
 
 // ─── Určení úrovně priority ────────────────────────────────────────────────
 
@@ -262,10 +262,10 @@ const LEVEL_LABELS: Record<PriorityLevel, Record<Locale, string>> = {
 };
 
 const CATEGORY_LABELS: Record<DebtCategory, Record<Locale, string>> = {
-  housing: { cs: "bydlení", ru: "жильё", en: "housing" },
-  utilities: { cs: "energie a služby", ru: "коммуналка", en: "utilities" },
-  taxes: { cs: "daně", ru: "налоги", en: "taxes" },
-  fines: { cs: "pokuty", ru: "штрафы", en: "fines" },
+  housing: { cs: "bydlení", ru: "жильё / аренда", en: "housing" },
+  utilities: { cs: "energie a služby", ru: "ЖКХ и коммуналка", en: "utilities" },
+  taxes: { cs: "daně", ru: "налоги / ФНС", en: "taxes" },
+  fines: { cs: "pokuty", ru: "штрафы / приставы", en: "fines" },
   loans: { cs: "půjčky", ru: "кредиты", en: "loans" },
   credit_card: { cs: "kreditní karta", ru: "кредитная карта", en: "credit card" },
   medical: { cs: "zdravotní", ru: "медицина", en: "medical" },
@@ -311,7 +311,7 @@ export function buildExplanation(
     }
 
     parts.push(
-      `Alokováno ${allocated.toLocaleString("cs-CZ")} Kč (${sharePercent.toFixed(0)} % disponibilní částky pro tuto úroveň).`
+      `Alokováno ${formatMoney(allocated, locale)} (${sharePercent.toFixed(0)} % disponibilní částky pro tuto úroveň).`
     );
   } else if (locale === "ru") {
     parts.push(`Уровень ${level} (${levelLabel}) — категория: ${catLabel}.`);
@@ -328,8 +328,22 @@ export function buildExplanation(
       parts.push(`Срок через ${daysToDue} дн.`);
     }
 
+    if (factors.includes("essential")) {
+      parts.push(
+        "Обязательный расход — риск отключения услуг или юридических последствий."
+      );
+    }
+    if (factors.includes("execution") || factors.includes("execution_risk")) {
+      parts.push(
+        "Риск исполнительного производства или ФССП — наивысший приоритет."
+      );
+    }
+    if (factors.includes("multiple_deadlines")) {
+      parts.push("Несколько сроков — ориентируемся на ближайший.");
+    }
+
     parts.push(
-      `Выделено ${allocated.toLocaleString("cs-CZ")} Kč (${sharePercent.toFixed(0)} % пула уровня).`
+      `Выделено ${formatMoney(allocated, locale)} (${sharePercent.toFixed(0)} % пула этого уровня).`
     );
   } else {
     parts.push(`Level ${level} (${levelLabel}) — category: ${catLabel}.`);
@@ -347,7 +361,7 @@ export function buildExplanation(
     }
 
     parts.push(
-      `Allocated ${allocated.toLocaleString("en-US")} CZK (${sharePercent.toFixed(0)}% of level pool).`
+      `Allocated ${formatMoney(allocated, locale)} (${sharePercent.toFixed(0)}% of level pool).`
     );
   }
 
@@ -405,7 +419,7 @@ function allocateProportionally(
 
   // Zaokrouhlení s respektem k limitům
   for (const alloc of rawAllocations) {
-    const amount = roundCZK(Math.min(alloc.raw, alloc.cap, remaining));
+    const amount = roundMoney(Math.min(alloc.raw, alloc.cap, remaining));
     if (amount > 0) {
       result.set(alloc.id, (result.get(alloc.id) ?? 0) + amount);
       remaining -= amount;
@@ -450,7 +464,7 @@ export function runPriorityEngine(
 
   // ── 1. Životní buffer ──
   const bufferPercent = calculateLifeBufferPercent(profile.incomeStability);
-  const lifeBuffer = roundCZK(available * bufferPercent);
+  const lifeBuffer = roundMoney(available * bufferPercent);
   let spendable = Math.max(0, available - lifeBuffer);
 
   if (profile.debts.length === 0) {
@@ -598,10 +612,10 @@ export function runPriorityEngine(
   return {
     recommendations,
     totalAllocated,
-    remainingFunds: roundCZK(available - totalAllocated),
+    remainingFunds: roundMoney(available - totalAllocated),
     lifeBuffer,
     lifeBufferPercent: bufferPercent,
-    spendableFunds: roundCZK(available - lifeBuffer),
+    spendableFunds: roundMoney(available - lifeBuffer),
     summary,
     warnings,
   };
@@ -641,17 +655,17 @@ function msgLifeBuffer(
 ): string {
   const pct = Math.round(percent * 100);
   if (locale === "cs")
-    return `Rezerva na životní náklady: ${amount.toLocaleString("cs-CZ")} Kč (${pct} %).`;
+    return `Rezerva na životní náklady: ${formatMoney(amount, locale)} (${pct} %).`;
   if (locale === "ru")
-    return `Резерв на жизнь: ${amount.toLocaleString("cs-CZ")} Kč (${pct} %).`;
-  return `Life buffer reserved: ${amount.toLocaleString("en-US")} CZK (${pct}%).`;
+    return `Резерв на жизнь: ${formatMoney(amount, locale)} (${pct} %).`;
+  return `Life buffer reserved: ${formatMoney(amount, locale)} (${pct}%).`;
 }
 
 function msgNoFunds(locale: Locale): string {
   if (locale === "cs")
     return "Nemáte volné prostředky. Zvažte oddlužení nebo odklad splátek.";
   if (locale === "ru")
-    return "Нет свободных средств. Рассмотрите реструктуризацию.";
+    return "Нет свободных средств. Рассмотрите реструктуризацию долгов или отсрочку платежей.";
   return "No available funds. Consider debt restructuring.";
 }
 
@@ -669,10 +683,10 @@ function msgSummary(
   locale: Locale
 ): string {
   if (locale === "cs")
-    return `Nejdříve zaplaťte ${top.creditor} — ${top.recommendedAmount.toLocaleString("cs-CZ")} Kč (úroveň ${top.priorityLevel}). Rezerva ${buffer.toLocaleString("cs-CZ")} Kč zůstává na jídlo a dopravu.`;
+    return `Nejdříve zaplaťte ${top.creditor} — ${formatMoney(top.recommendedAmount, locale)} (úroveň ${top.priorityLevel}). Rezerva ${formatMoney(buffer, locale)} zůstává na jídlo a dopravu.`;
   if (locale === "ru")
-    return `Сначала оплатите ${top.creditor} — ${top.recommendedAmount.toLocaleString("cs-CZ")} Kč (уровень ${top.priorityLevel}). Резерв ${buffer.toLocaleString("cs-CZ")} Kč на еду и транспорт.`;
-  return `Pay ${top.creditor} first — ${top.recommendedAmount.toLocaleString("en-US")} CZK (level ${top.priorityLevel}). Buffer of ${buffer.toLocaleString("en-US")} CZK kept for essentials.`;
+    return `Сначала оплатите ${top.creditor} — ${formatMoney(top.recommendedAmount, locale)} (уровень ${top.priorityLevel}). Резерв ${formatMoney(buffer, locale)} остаётся на еду и транспорт.`;
+  return `Pay ${top.creditor} first — ${formatMoney(top.recommendedAmount, locale)} (level ${top.priorityLevel}). Buffer of ${formatMoney(buffer, locale)} kept for essentials.`;
 }
 
 function msgNoAllocation(locale: Locale): string {
@@ -693,7 +707,7 @@ function msgExecutionRisk(locale: Locale): string {
   if (locale === "cs")
     return "⚠ Exekuce nebo soudní výkon — doporučujeme právní konzultaci a prioritu této platby.";
   if (locale === "ru")
-    return "⚠ Исполнительное производство — рекомендуем юридическую консультацию.";
+    return "⚠ Исполнительное производство или ФССП — рекомендуем юридическую консультацию и приоритет этого платежа.";
   return "⚠ Enforcement action risk — seek legal advice and prioritize this payment.";
 }
 

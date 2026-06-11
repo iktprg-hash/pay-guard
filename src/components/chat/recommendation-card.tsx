@@ -10,7 +10,7 @@ import type { Locale } from "@/i18n/routing";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { formatCZK } from "@/lib/utils";
+import { formatMoney } from "@/lib/utils";
 import {
   priorityLevelMessageKey,
   resolvePriorityLevel,
@@ -19,11 +19,6 @@ import type { PrioritizationResult } from "@/lib/types/financial";
 import { useSubscriptionTier } from "@/hooks/use-subscription-tier";
 import { toast } from "@/components/ui/toast-provider";
 
-interface RecommendationCardProps {
-  result: PrioritizationResult;
-  locale?: string;
-}
-
 const LEVEL_VARIANT: Record<number, "default" | "warning" | "secondary" | "outline"> = {
   0: "default",
   1: "warning",
@@ -31,7 +26,11 @@ const LEVEL_VARIANT: Record<number, "default" | "warning" | "secondary" | "outli
   3: "outline",
 };
 
-export function RecommendationCard({ result, locale = "cs-CZ" }: RecommendationCardProps) {
+interface RecommendationCardProps {
+  result: PrioritizationResult;
+}
+
+export function RecommendationCard({ result }: RecommendationCardProps) {
   const t = useTranslations("recommendation");
   const tToast = useTranslations("toast");
   const tCat = useTranslations("categories");
@@ -74,7 +73,7 @@ export function RecommendationCard({ result, locale = "cs-CZ" }: RecommendationC
         </div>
         {result.lifeBuffer > 0 && (
           <p className="text-xs text-muted-foreground">
-            {t("lifeBuffer")}: {formatCZK(result.lifeBuffer, locale)} (
+            {t("lifeBuffer")}: {formatMoney(result.lifeBuffer, appLocale)} (
             {Math.round(result.lifeBufferPercent * 100)} %)
           </p>
         )}
@@ -104,7 +103,7 @@ export function RecommendationCard({ result, locale = "cs-CZ" }: RecommendationC
               <div className="text-right">
                 <p className="text-xs text-muted-foreground">{t("amount")}</p>
                 <p className="text-lg font-bold text-primary">
-                  {formatCZK(rec.recommendedAmount, locale)}
+                  {formatMoney(rec.recommendedAmount, appLocale)}
                 </p>
               </div>
             </div>
@@ -116,7 +115,7 @@ export function RecommendationCard({ result, locale = "cs-CZ" }: RecommendationC
 
         <div className="flex justify-between text-sm">
           <span className="text-muted-foreground">{t("remaining")}</span>
-          <span className="font-medium">{formatCZK(result.remainingFunds, locale)}</span>
+          <span className="font-medium">{formatMoney(result.remainingFunds, appLocale)}</span>
         </div>
 
         {result.warnings.length > 0 && (

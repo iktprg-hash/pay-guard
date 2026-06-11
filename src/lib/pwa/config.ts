@@ -20,7 +20,7 @@ export const PWA_SHORT_NAMES = {
 
 export const PWA_DESCRIPTIONS = {
   cs: "Chytrý pomocník pro prioritizaci plateb v České republice.",
-  ru: "Умный помощник по приоритизации платежей для жителей Чехии.",
+  ru: "Умный помощник по приоритизации платежей для жителей России.",
   en: "Smart payment prioritization assistant for Czech residents.",
 } as const;
 

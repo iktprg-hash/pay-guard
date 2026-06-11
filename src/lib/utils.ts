@@ -1,29 +1,40 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import {
+  formatMoney as formatMoneyForLocale,
+  formatLocaleDate as formatDateForLocale,
+  getIntlLocale,
+} from "@/lib/financial/locale-config";
+import type { Locale } from "@/i18n/routing";
 
 /** Sloučí Tailwind třídy bez konfliktů */
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-/** Formátuje částku v CZK */
-export function formatCZK(amount: number, locale = "cs-CZ"): string {
-  return new Intl.NumberFormat(locale, {
-    style: "currency",
-    currency: "CZK",
-    maximumFractionDigits: 0,
-  }).format(amount);
+/** Formátuje částku podle locale aplikace (cs/en → Kč, ru → ₽) */
+export function formatMoney(amount: number, locale: Locale = "cs"): string {
+  return formatMoneyForLocale(amount, locale);
+}
+
+/** @deprecated Prefer formatMoney(amount, locale) */
+export function formatCZK(amount: number, intlLocale = "cs-CZ"): string {
+  const locale: Locale =
+    intlLocale.startsWith("ru") ? "ru" : intlLocale.startsWith("en") ? "en" : "cs";
+  return formatMoneyForLocale(amount, locale);
 }
 
 /** Formátuje datum podle locale */
-export function formatDate(
-  date: string | Date,
-  locale = "cs-CZ"
-): string {
-  const d = typeof date === "string" ? new Date(date) : date;
-  return new Intl.DateTimeFormat(locale, {
-    day: "numeric",
-    month: "numeric",
-    year: "numeric",
-  }).format(d);
+export function formatDate(date: string | Date, localeOrIntl: Locale | string = "cs"): string {
+  const locale: Locale =
+    localeOrIntl === "cs" || localeOrIntl === "ru" || localeOrIntl === "en"
+      ? localeOrIntl
+      : localeOrIntl.startsWith("ru")
+        ? "ru"
+        : localeOrIntl.startsWith("en")
+          ? "en"
+          : "cs";
+  return formatDateForLocale(date, locale);
 }
+
+export { getIntlLocale };

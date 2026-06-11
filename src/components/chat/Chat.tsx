@@ -23,6 +23,7 @@ import { OfflineRecommendationCard } from "@/components/pwa/OfflineRecommendatio
 import { ChatSkeleton } from "@/components/ui/page-loader";
 import type { ChatMessage, PrioritizationResult } from "@/lib/types/financial";
 import type { Locale } from "@/i18n/routing";
+import { getIntlLocale } from "@/lib/utils";
 
 function generateId() {
   return crypto.randomUUID();
@@ -35,8 +36,7 @@ export function Chat() {
   const paramSessionId = searchParams.get("session");
   const { user, loading: authLoading } = useAuth();
   const { isOnline } = useNetworkStatus();
-  const dateLocale =
-    locale === "cs" ? "cs-CZ" : locale === "ru" ? "ru-RU" : "en-US";
+  const dateLocale = getIntlLocale(locale);
 
   const { profile, mergeProfile, isReady, reset: resetProfile } =
     useFinancialProfile();

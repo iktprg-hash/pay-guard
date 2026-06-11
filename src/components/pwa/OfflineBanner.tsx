@@ -45,9 +45,6 @@ export function OfflineBanner() {
 
   if (isOnline) return null;
 
-  const dateLocale =
-    locale === "cs" ? "cs-CZ" : locale === "ru" ? "ru-RU" : "en-US";
-
   return (
     <div
       role="status"
@@ -97,10 +94,7 @@ export function OfflineBanner() {
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   {t("lastRecommendation")}
                 </p>
-                <RecommendationCard
-                  result={data.recommendation.result}
-                  locale={dateLocale}
-                />
+                <RecommendationCard result={data.recommendation.result} />
               </div>
             ) : (
               <p className="rounded-lg border border-dashed border-amber-500/30 p-4 text-center text-sm text-muted-foreground">

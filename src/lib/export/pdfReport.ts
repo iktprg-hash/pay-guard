@@ -5,9 +5,14 @@
 
 import type { jsPDF } from "jspdf";
 import { resolvePriorityLevel } from "@/lib/financial/priorityLevel";
+import {
+  formatMoney as formatLocaleMoney,
+  getIntlLocale,
+} from "@/lib/financial/locale-config";
 import type { PrioritizationResult } from "@/lib/types/financial";
+import type { Locale } from "@/i18n/routing";
 
-type ReportLocale = "cs" | "ru" | "en";
+type ReportLocale = Locale;
 
 const LABELS: Record<
   ReportLocale,
@@ -22,6 +27,7 @@ const LABELS: Record<
     remaining: string;
     warnings: string;
     footer: string;
+    paymentsSection: string;
     levels: Record<number, string>;
   }
 > = {
@@ -36,6 +42,7 @@ const LABELS: Record<
     remaining: "Zbývá",
     warnings: "Upozornění",
     footer: "Pay Guard nenahrazuje finančního poradce. Orientační doporučení.",
+    paymentsSection: "Doporučené platby",
     levels: { 0: "Kritický", 1: "Vysoký", 2: "Střední", 3: "Nízký" },
   },
   ru: {
@@ -48,7 +55,8 @@ const LABELS: Record<
     reason: "Объяснение",
     remaining: "Остаток",
     warnings: "Предупреждения",
-    footer: "Pay Guard не заменяет финансового консультанта.",
+    footer: "Pay Guard не заменяет финансового или юридического консультанта. Рекомендации носят ориентировочный характер.",
+    paymentsSection: "Рекомендуемые платежи",
     levels: { 0: "Критический", 1: "Высокий", 2: "Средний", 3: "Низкий" },
   },
   en: {
@@ -62,17 +70,13 @@ const LABELS: Record<
     remaining: "Remaining",
     warnings: "Warnings",
     footer: "Pay Guard does not replace a financial advisor.",
+    paymentsSection: "Recommended payments",
     levels: { 0: "Critical", 1: "High", 2: "Medium", 3: "Low" },
   },
 };
 
 function formatMoney(amount: number, locale: ReportLocale): string {
-  const loc = locale === "en" ? "en-US" : locale === "ru" ? "ru-RU" : "cs-CZ";
-  return new Intl.NumberFormat(loc, {
-    style: "currency",
-    currency: "CZK",
-    maximumFractionDigits: 0,
-  }).format(amount);
+  return formatLocaleMoney(amount, locale);
 }
 
 /** Zalomí dlouhý text na řádky */
@@ -111,7 +115,7 @@ export async function downloadPriorityReport(
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.setTextColor(100);
-  doc.text(new Date().toLocaleDateString(locale === "en" ? "en-US" : "cs-CZ"), margin, y);
+  doc.text(new Date().toLocaleDateString(getIntlLocale(locale)), margin, y);
   doc.setTextColor(0);
   y += 10;
 
@@ -143,7 +147,7 @@ export async function downloadPriorityReport(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
   addPageIfNeeded(10);
-  doc.text("Doporučené platby", margin, y);
+  doc.text(L.paymentsSection, margin, y);
   y += 8;
 
   result.recommendations.forEach((rec, i) => {

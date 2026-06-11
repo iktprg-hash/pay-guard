@@ -91,7 +91,7 @@ export function Message({ message, locale }: MessageProps) {
           </div>
 
           {message.recommendation && (
-            <RecommendationCard result={message.recommendation} locale={locale} />
+            <RecommendationCard result={message.recommendation} />
           )}
 
           <time className="block text-[11px] text-muted-foreground/60">

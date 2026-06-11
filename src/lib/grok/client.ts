@@ -239,10 +239,15 @@ function getMockResponse(
   const mockDebts = [...profile.debts];
 
   if (amount > 0 && stage === "debts_overview" && mockDebts.length === 0) {
-    const isRent = /nájem|rent|аренд/i.test(userText);
+    const isRent = /nájem|rent|аренд|жкх|квартир|наём/i.test(userText);
+    const creditorByLocale = {
+      cs: isRent ? "Nájem" : "Věřitel",
+      ru: isRent ? "Аренда" : "Кредитор",
+      en: isRent ? "Rent" : "Creditor",
+    };
     mockDebts.push({
       id: "debt-mock-1",
-      creditor: isRent ? "Nájem" : "Věřitel",
+      creditor: creditorByLocale[locale],
       amount,
       category: isRent ? "housing" : "other",
     });
@@ -258,9 +263,14 @@ function getMockResponse(
   }
 
   const response = mockByStage[stage][locale];
+  const demoNote = {
+    cs: "\n\n_*(Demo režim — nastavte XAI_API_KEY pro plný Grok chat)*_",
+    ru: "\n\n_*(Демо-режим — задайте XAI_API_KEY для полного Grok-чата)*_",
+    en: "\n\n_*(Demo mode — set XAI_API_KEY for full Grok chat)*_",
+  }[locale];
 
   return {
-    message: response.message + "\n\n_*(Demo režim — nastavte XAI_API_KEY pro plný Grok chat)*_",
+    message: response.message + demoNote,
     profileUpdate: update ?? response.update ?? null,
     stage,
   };

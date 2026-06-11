@@ -273,10 +273,7 @@ export function ManualForm() {
       )}
 
       {result && (
-        <RecommendationCard
-          result={result}
-          locale={locale === "cs" ? "cs-CZ" : locale === "ru" ? "ru-RU" : "en-US"}
-        />
+        <RecommendationCard result={result} />
       )}
     </form>
   );

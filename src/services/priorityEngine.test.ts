@@ -134,6 +134,19 @@ describe("edge cases — exekuce a více termínů", () => {
     ).toBe(true);
   });
 
+  it("detekuje ФССП / приставов z poznámky (RU)", () => {
+    expect(
+      isExecutionRisk(
+        debt({
+          id: "fssp",
+          creditor: "ФССП",
+          amount: 15000,
+          criticalNote: "Арест счёта судебным приставом",
+        })
+      )
+    ).toBe(true);
+  });
+
   it("exekuce → úroveň 0 a nejvyšší priorita", () => {
     const result = runPriorityEngine(
       profile(
@@ -371,6 +384,31 @@ describe("runPriorityEngine", () => {
     );
     expect(result.recommendations).toHaveLength(0);
     expect(result.warnings.length).toBeGreaterThan(0);
+  });
+
+  it("ru locale — summary a varování v rublech", () => {
+    const result = runPriorityEngine(
+      profile(
+        10000,
+        [
+          debt({
+            id: "rent",
+            creditor: "Аренда",
+            amount: 25000,
+            category: "housing",
+            dueDate: "2026-06-10",
+            minimumPayment: 15000,
+          }),
+        ],
+        "stable"
+      ),
+      "ru",
+      TODAY
+    );
+    expect(result.summary).toMatch(/₽|RUB/);
+    expect(result.warnings.some((w) => w.includes("₽") || w.includes("RUB"))).toBe(
+      true
+    );
   });
 
   it("každé doporučení má explanation a priorityLevel", () => {

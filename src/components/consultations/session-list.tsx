@@ -26,11 +26,10 @@ import {
 } from "@/lib/chat/client-sync";
 import { mergeSessionLists } from "@/lib/chat/sync";
 import type { Locale } from "@/i18n/routing";
+import { getIntlLocale } from "@/lib/utils";
 
 function formatDate(iso: string, locale: Locale): string {
-  const tag =
-    locale === "cs" ? "cs-CZ" : locale === "ru" ? "ru-RU" : "en-US";
-  return new Date(iso).toLocaleString(tag, {
+  return new Date(iso).toLocaleString(getIntlLocale(locale), {
     day: "numeric",
     month: "short",
     year: "numeric",
