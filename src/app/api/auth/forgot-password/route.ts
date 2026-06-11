@@ -3,7 +3,10 @@ import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { serviceUnavailable, validationError } from "@/lib/api/errors";
 import { authErrorResponse } from "@/lib/auth/errors";
-import { enforceAuthRateLimit } from "@/lib/auth/rate-limit";
+import {
+  enforceAuthRateLimit,
+  isSupabaseEmailRateLimit,
+} from "@/lib/auth/rate-limit";
 import { authConfirmUrl } from "@/lib/site/url";
 
 const bodySchema = z.object({
@@ -39,8 +42,12 @@ export async function POST(request: NextRequest) {
   });
 
   if (error) {
-    console.error("[api/auth/forgot-password]", error.message);
-    return authErrorResponse(error.message, 400);
+    if (isSupabaseEmailRateLimit(error.message)) {
+      console.error("[api/auth/forgot-password]", error.message);
+      return authErrorResponse(error.message, 429, "supabase_email_rate_limited");
+    }
+    console.warn("[api/auth/forgot-password] opaque failure:", error.message);
+    return NextResponse.json({ ok: true });
   }
 
   return NextResponse.json({ ok: true });

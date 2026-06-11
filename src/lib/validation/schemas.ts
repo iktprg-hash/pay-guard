@@ -78,6 +78,29 @@ export const historyGetSchema = z.object({
   sessionId: sessionIdSchema,
 });
 
+/** Grok profile_update block — validated before merge */
+export const grokDebtUpdateSchema = z.object({
+  creditor: z.string().min(1).max(200),
+  amount: z.number().min(0).max(100_000_000),
+  minimumPayment: z.number().min(0).max(100_000_000).nullish(),
+  dueDate: z.string().max(30).nullish(),
+  criticalDate: z.string().max(30).nullish(),
+  criticalNote: z.string().max(500).nullish(),
+  category: z.enum(DEBT_CATEGORIES).optional().default("other"),
+  interestRate: z.number().min(0).max(100).nullish(),
+});
+
+export const grokProfileUpdateSchema = z.object({
+  availableFunds: z.number().min(0).max(100_000_000).nullish(),
+  monthlyIncome: z.number().min(0).max(100_000_000).nullish(),
+  monthlyExpenses: z.number().min(0).max(100_000_000).nullish(),
+  incomeStability: z.enum(INCOME_STABILITY).nullish(),
+  debts: z.array(grokDebtUpdateSchema).max(50).optional(),
+  readyForRecommendation: z.boolean().optional(),
+});
+
+export type GrokProfileUpdate = z.infer<typeof grokProfileUpdateSchema>;
+
 /** Normalizuje profil — doplní id u dluhů */
 export function normalizeProfile(
   profile: z.infer<typeof financialProfileSchema>

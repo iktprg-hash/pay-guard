@@ -1,6 +1,7 @@
 import { buildStageContext } from "@/lib/grok/conversation";
 import { mergeDebts, normalizeCategory } from "@/lib/financial/mergeDebts";
 import type { FinancialProfile } from "@/lib/types/financial";
+import { grokProfileUpdateSchema } from "@/lib/validation/schemas";
 
 const BASE_PROMPTS = {
   cs: `Jsi Pay Guard — empatický finanční poradce pro občany České republiky.
@@ -119,38 +120,28 @@ export function parseProfileUpdate(
   if (!match) return null;
 
   try {
-    const parsed = JSON.parse(match[1].trim());
-    const debts = (parsed.debts ?? []).map(
-      (
-        d: {
-          creditor: string;
-          amount: number;
-          minimumPayment?: number;
-          dueDate?: string;
-          criticalDate?: string;
-          criticalNote?: string;
-          category: string;
-          interestRate?: number;
-        },
-        i: number
-      ) => ({
-        id: `debt-${i}-${d.creditor.slice(0, 12).replace(/\s/g, "-").toLowerCase()}`,
-        creditor: d.creditor,
-        amount: d.amount,
-        minimumPayment: d.minimumPayment,
-        dueDate: d.dueDate,
-        criticalDate: d.criticalDate,
-        criticalNote: d.criticalNote,
-        category: normalizeCategory(d.category),
-        interestRate: d.interestRate,
-      })
-    );
+    const raw = JSON.parse(match[1].trim());
+    const validated = grokProfileUpdateSchema.safeParse(raw);
+    if (!validated.success) return null;
+
+    const parsed = validated.data;
+    const debts = (parsed.debts ?? []).map((d, i) => ({
+      id: `debt-${i}-${d.creditor.slice(0, 12).replace(/\s/g, "-").toLowerCase()}`,
+      creditor: d.creditor,
+      amount: d.amount,
+      minimumPayment: d.minimumPayment ?? undefined,
+      dueDate: d.dueDate ?? undefined,
+      criticalDate: d.criticalDate ?? undefined,
+      criticalNote: d.criticalNote ?? undefined,
+      category: normalizeCategory(d.category ?? "other"),
+      interestRate: d.interestRate ?? undefined,
+    }));
 
     return {
       availableFunds: parsed.availableFunds ?? undefined,
-      monthlyIncome: parsed.monthlyIncome,
-      monthlyExpenses: parsed.monthlyExpenses,
-      incomeStability: parsed.incomeStability,
+      monthlyIncome: parsed.monthlyIncome ?? undefined,
+      monthlyExpenses: parsed.monthlyExpenses ?? undefined,
+      incomeStability: parsed.incomeStability ?? undefined,
       debts: debts.length > 0 ? debts : undefined,
       readyForRecommendation: parsed.readyForRecommendation ?? false,
     };

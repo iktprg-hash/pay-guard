@@ -56,6 +56,7 @@ const requiredMigs = [
   "003_auth_profile.sql",
   "004_session_sync.sql",
   "005_normalize_debts.sql",
+  "006_protect_subscription_tier.sql",
 ];
 
 if (!existsSync(migDir)) {
@@ -104,7 +105,7 @@ if (!migrationsVerified) {
   if (result.message) {
     warn(result.message);
   } else if (result.ok) {
-    pass("All migrations 001–005 verified via Supabase API");
+    pass("All migrations 001–006 verified via Supabase API");
     migrationsVerified = true;
   } else {
     const missing = result.checks.filter((c) => !c.ok).map((c) => c.label);

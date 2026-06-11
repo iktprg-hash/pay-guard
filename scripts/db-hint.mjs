@@ -20,7 +20,7 @@ const migrations = readdirSync(join(root, "supabase/migrations"))
   .sort();
 
 console.log(`
-Pay Guard — миграции Supabase (001–005)
+Pay Guard — миграции Supabase (001–006)
 ${"─".repeat(44)}
 
 Проект: ${process.env.NEXT_PUBLIC_SUPABASE_URL ?? "не найден в .env.local"}
