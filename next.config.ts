@@ -19,10 +19,10 @@ const withSerwist = withSerwistInit({
 });
 
 const nextConfig: NextConfig = {
-  turbopack: {
-    root: projectRoot,
-  },
-  outputFileTracingRoot: projectRoot,
+  ...(process.env.NODE_ENV === "development"
+    ? { turbopack: { root: projectRoot } }
+    : {}),
+  ...(process.env.VERCEL ? {} : { outputFileTracingRoot: projectRoot }),
   async headers() {
     return [
       {
