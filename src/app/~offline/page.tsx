@@ -3,7 +3,7 @@ import { OfflineFallbackContent } from "@/components/pwa/offline-fallback-conten
 /** Fallback dokument pro Serwist když navigace selže offline */
 export default function OfflineFallbackPage() {
   return (
-    <html lang="cs">
+    <html lang="en">
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />

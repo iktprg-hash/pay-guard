@@ -11,6 +11,11 @@ import {
 } from "@/lib/financial/locale-config";
 import type { PrioritizationResult } from "@/lib/types/financial";
 import type { Locale } from "@/i18n/routing";
+import {
+  getPdfFontFamily,
+  needsUnicodeFont,
+  registerPdfUnicodeFont,
+} from "@/lib/export/pdfFonts";
 
 type ReportLocale = Locale;
 
@@ -94,6 +99,10 @@ export async function downloadPriorityReport(
   const { jsPDF } = await import("jspdf");
   const L = LABELS[locale];
   const doc = new jsPDF({ unit: "mm", format: "a4" });
+  if (needsUnicodeFont(locale)) {
+    await registerPdfUnicodeFont(doc);
+  }
+  const font = getPdfFontFamily(locale);
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 15;
   const contentWidth = pageWidth - margin * 2;
@@ -107,12 +116,12 @@ export async function downloadPriorityReport(
   };
 
   // Hlavička
-  doc.setFont("helvetica", "bold");
+  doc.setFont(font, "bold");
   doc.setFontSize(16);
   doc.text(L.title, margin, y);
   y += 8;
 
-  doc.setFont("helvetica", "normal");
+  doc.setFont(font, "normal");
   doc.setFontSize(9);
   doc.setTextColor(100);
   doc.text(new Date().toLocaleDateString(getIntlLocale(locale)), margin, y);
@@ -120,12 +129,12 @@ export async function downloadPriorityReport(
   y += 10;
 
   // Shrnutí
-  doc.setFont("helvetica", "bold");
+  doc.setFont(font, "bold");
   doc.setFontSize(11);
   doc.text(L.summary, margin, y);
   y += 6;
 
-  doc.setFont("helvetica", "normal");
+  doc.setFont(font, "normal");
   doc.setFontSize(10);
   for (const line of wrapText(doc, result.summary, contentWidth)) {
     addPageIfNeeded(6);
@@ -144,7 +153,7 @@ export async function downloadPriorityReport(
   }
 
   // Tabulka doporučení
-  doc.setFont("helvetica", "bold");
+  doc.setFont(font, "bold");
   doc.setFontSize(11);
   addPageIfNeeded(10);
   doc.text(L.paymentsSection, margin, y);
@@ -153,7 +162,7 @@ export async function downloadPriorityReport(
   result.recommendations.forEach((rec, i) => {
     addPageIfNeeded(30);
 
-    doc.setFont("helvetica", "bold");
+    doc.setFont(font, "bold");
     doc.setFontSize(10);
     doc.text(
       `${i + 1}. ${rec.creditor} — ${formatMoney(rec.recommendedAmount, locale)}`,
@@ -162,7 +171,7 @@ export async function downloadPriorityReport(
     );
     y += 5;
 
-    doc.setFont("helvetica", "normal");
+    doc.setFont(font, "normal");
     doc.setFontSize(9);
     doc.setTextColor(80);
     doc.text(
@@ -184,7 +193,7 @@ export async function downloadPriorityReport(
 
   // Zbývá
   addPageIfNeeded(10);
-  doc.setFont("helvetica", "bold");
+  doc.setFont(font, "bold");
   doc.text(
     `${L.remaining}: ${formatMoney(result.remainingFunds, locale)}`,
     margin,
@@ -198,7 +207,7 @@ export async function downloadPriorityReport(
     doc.setTextColor(180, 100, 0);
     doc.text(L.warnings, margin, y);
     y += 6;
-    doc.setFont("helvetica", "normal");
+    doc.setFont(font, "normal");
     doc.setFontSize(9);
     for (const w of result.warnings) {
       for (const line of wrapText(doc, `• ${w}`, contentWidth)) {

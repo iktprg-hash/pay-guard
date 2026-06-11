@@ -2,7 +2,6 @@
 
 import {
   createContext,
-  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -63,20 +62,5 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
 
   return (
     <NetworkContext.Provider value={value}>{children}</NetworkContext.Provider>
-  );
-}
-
-/** Hook pro API volání s offline detekcí */
-export function useOfflineAwareFetch() {
-  const { isOnline } = useNetworkStatus();
-
-  return useCallback(
-    async (input: RequestInfo | URL, init?: RequestInit) => {
-      if (!isOnline) {
-        throw new Error("OFFLINE");
-      }
-      return fetch(input, init);
-    },
-    [isOnline]
   );
 }

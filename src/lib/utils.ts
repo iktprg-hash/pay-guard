@@ -17,13 +17,6 @@ export function formatMoney(amount: number, locale: Locale = "cs"): string {
   return formatMoneyForLocale(amount, locale);
 }
 
-/** @deprecated Prefer formatMoney(amount, locale) */
-export function formatCZK(amount: number, intlLocale = "cs-CZ"): string {
-  const locale: Locale =
-    intlLocale.startsWith("ru") ? "ru" : intlLocale.startsWith("en") ? "en" : "cs";
-  return formatMoneyForLocale(amount, locale);
-}
-
 /** Formátuje datum podle locale */
 export function formatDate(date: string | Date, localeOrIntl: Locale | string = "cs"): string {
   const locale: Locale =

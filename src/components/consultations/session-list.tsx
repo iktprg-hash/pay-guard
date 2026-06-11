@@ -96,12 +96,6 @@ export function SessionList() {
         </Button>
       </div>
 
-      {!user && (
-        <p className="rounded-lg border border-dashed bg-muted/40 p-4 text-sm text-muted-foreground">
-          {t("anonymousHint")}
-        </p>
-      )}
-
       {loading ? (
         <PageLoader label={t("loading")} />
       ) : error && sessions.length === 0 ? (

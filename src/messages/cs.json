@@ -18,6 +18,7 @@
     "pdfExported": "PDF bylo staženo",
     "pdfExportFailed": "PDF se nepodařilo stáhnout",
     "syncFailed": "Synchronizace se nezdařila — zobrazují se lokální data",
+    "cloudHistoryProOnly": "Cloudová historie je dostupná jen v tarifu Pro",
     "offline": "Jste offline",
     "online": "Připojení obnoveno"
   },
@@ -54,6 +55,9 @@
     "you": "Vy",
     "assistant": "Pay Guard",
     "error": "Něco se pokazilo. Zkuste to prosím znovu.",
+    "authError": "Pro chat se musíte přihlásit.",
+    "rateLimitError": "Příliš mnoho požadavků — zkuste to za chvíli.",
+    "serviceUnavailableError": "Služba AI je dočasně nedostupná. Zkuste to později.",
     "offlineError": "Jste offline. Chat s AI vyžaduje internet — poslední doporučení najdete v offline režimu.",
     "emptySubtitle": "Pomohu vám zorientovat se v platbách. Napište nebo mluvte — zeptám se na závazky, příjem a volné prostředky.",
     "voiceHint": "Nebo použijte mikrofon pro hlasový vstup",
@@ -80,7 +84,6 @@
     "untitled": "Konzultace",
     "loading": "Načítám konzultace…",
     "loadError": "Konverzace se nepodařilo načíst. Zkuste to znovu.",
-    "anonymousHint": "Bez přihlášení jsou konzultace uložené jen v tomto prohlížeči. Po přihlášení se synchronizují s cloudem.",
     "messages": "{count, plural, one {# zpráva} few {# zprávy} other {# zpráv}}"
   },
   "recommendation": {

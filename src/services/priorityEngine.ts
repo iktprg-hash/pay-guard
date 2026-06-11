@@ -710,6 +710,3 @@ function msgExecutionRisk(locale: Locale): string {
     return "⚠ Исполнительное производство или ФССП — рекомендуем юридическую консультацию и приоритет этого платежа.";
   return "⚠ Enforcement action risk — seek legal advice and prioritize this payment.";
 }
-
-/** Zpětná kompatibilita se starým názvem */
-export const prioritizePayments = runPriorityEngine;

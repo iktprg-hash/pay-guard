@@ -149,7 +149,12 @@ export function Chat() {
           }),
         });
 
-        if (!res.ok) throw new Error("Chat failed");
+        if (!res.ok) {
+          if (res.status === 401) throw new Error("AUTH");
+          if (res.status === 429) throw new Error("RATE_LIMIT");
+          if (res.status === 502) throw new Error("SERVICE_UNAVAILABLE");
+          throw new Error("CHAT_FAILED");
+        }
 
         const data = await res.json();
 
@@ -178,13 +183,23 @@ export function Chat() {
           },
         ]);
       } catch (err) {
-        const offline = err instanceof Error && err.message === "OFFLINE";
+        const code = err instanceof Error ? err.message : "";
+        const content =
+          code === "OFFLINE"
+            ? t("offlineError")
+            : code === "AUTH"
+              ? t("authError")
+              : code === "RATE_LIMIT"
+                ? t("rateLimitError")
+                : code === "SERVICE_UNAVAILABLE"
+                  ? t("serviceUnavailableError")
+                  : t("error");
         setMessages((prev) => [
           ...prev,
           {
             id: generateId(),
             role: "assistant",
-            content: offline ? t("offlineError") : t("error"),
+            content,
             timestamp: new Date(),
           },
         ]);

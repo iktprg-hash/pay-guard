@@ -201,6 +201,7 @@ console.log(`📋 Custom SMTP configured (recommended for OTP / reset password)`
 console.log(`   ${smtpUrl}`);
 console.log(`📋 Site URL + Redirect URLs include your production domain + /auth/confirm`);
 console.log(`📋 Rate limits reviewed (Authentication → Rate Limits)`);
+console.log(`📋 Lokální DB záloha: npm run db:backup → ~/PayGuard-backups (cron na Macu, viz README)`);
 
 // ── Summary ──
 console.log("\n── Summary ──");

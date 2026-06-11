@@ -18,6 +18,7 @@
     "pdfExported": "PDF downloaded",
     "pdfExportFailed": "Could not download PDF",
     "syncFailed": "Sync failed — showing local data",
+    "cloudHistoryProOnly": "Cloud history is available on Pro only",
     "offline": "You are offline",
     "online": "Connection restored"
   },
@@ -54,6 +55,9 @@
     "you": "You",
     "assistant": "Pay Guard",
     "error": "Something went wrong. Please try again.",
+    "authError": "Please sign in to use chat.",
+    "rateLimitError": "Too many requests — try again in a moment.",
+    "serviceUnavailableError": "AI service is temporarily unavailable. Try again later.",
     "offlineError": "You are offline. AI chat requires internet — your last recommendation is available offline.",
     "emptySubtitle": "I'll help you prioritize payments. Type or speak — I'll ask about debts, income, and available funds.",
     "voiceHint": "Or use the microphone for voice input",
@@ -80,7 +84,6 @@
     "untitled": "Consultation",
     "loading": "Loading consultations…",
     "loadError": "Could not load conversations. Please try again.",
-    "anonymousHint": "Without signing in, consultations are stored only in this browser. They sync to the cloud after login.",
     "messages": "{count, plural, one {# message} other {# messages}}"
   },
   "recommendation": {

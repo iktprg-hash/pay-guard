@@ -9,6 +9,18 @@ const offlineCopy = {
   en: en.pwa.offline,
 } as const;
 
+const toastCopy = {
+  cs: cs.toast,
+  ru: ru.toast,
+  en: en.toast,
+} as const;
+
+const globalErrorCopy = {
+  cs: cs.errors,
+  ru: ru.errors,
+  en: en.errors,
+} as const;
+
 export function pickBrowserLocale(): Locale {
   if (typeof navigator === "undefined") return "cs";
   const lang = navigator.language.slice(0, 2);
@@ -18,6 +30,14 @@ export function pickBrowserLocale(): Locale {
 
 export function getOfflineFallbackCopy(locale: Locale) {
   return offlineCopy[locale];
+}
+
+export function getToastCopy(locale: Locale) {
+  return toastCopy[locale];
+}
+
+export function getGlobalErrorCopy(locale: Locale) {
+  return globalErrorCopy[locale];
 }
 
 export function getAuthConfirmCopy(locale: Locale) {

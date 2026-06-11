@@ -6,6 +6,7 @@ import {
   loadStoredSession,
   setSessionCredentials,
 } from "@/lib/chat/storage";
+import { pushChatHistoryToServer } from "@/lib/chat/push-history";
 import {
   listUnsyncedLocalSessions,
   pullServerSessionsToLocal,
@@ -44,18 +45,13 @@ export async function syncUserSessionsOnLogin(locale: string): Promise<void> {
     const stored = await loadStoredSession(meta.sessionId);
     if (!stored) continue;
 
-    await fetch("/api/chat/history", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({
-        sessionId: stored.sessionId,
-        sessionToken: stored.sessionToken,
-        locale: stored.locale,
-        messages: stored.messages,
-        profile: stored.profile,
-      }),
-    }).catch(() => {});
+    await pushChatHistoryToServer({
+      sessionId: stored.sessionId,
+      sessionToken: stored.sessionToken,
+      locale: stored.locale,
+      messages: stored.messages,
+      profile: stored.profile,
+    });
   }
 
   if (

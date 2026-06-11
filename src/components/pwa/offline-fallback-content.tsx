@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import {
   getOfflineFallbackCopy,
   pickBrowserLocale,
@@ -12,6 +12,10 @@ export function OfflineFallbackContent() {
     const locale = pickBrowserLocale();
     return { locale, ...getOfflineFallbackCopy(locale) };
   }, []);
+
+  useEffect(() => {
+    document.documentElement.lang = copy.locale;
+  }, [copy.locale]);
 
   return (
     <div>

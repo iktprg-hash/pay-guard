@@ -101,6 +101,68 @@ npm run prod:checklist      # checklist před deployem
 - **`AUTH_DEV_REGISTER` unset** v produkci
 - Redirect URLs: produkční doména + `/auth/confirm`
 - Trigger `guard_profile_subscription_fields()` — uživatel nemůže sám eskalovat na Pro
+- **Zálohy DB** — lokálně na disk (`npm run db:backup`), viz níže
+
+## Zálohy databáze (pouze lokální disk)
+
+Zálohy **zůstávají jen na vašem počítači**. Skript nic nenahrává do GitHubu, Supabase Storage ani jiného cloudu.
+
+### Spuštění
+
+```bash
+npm run db:backup
+```
+
+Výchozí složka: **`~/PayGuard-backups/pay-guard-<timestamp>/`**
+
+Obsah: JSON tabulky + `pay-guard-*.json.gz` archiv + `manifest.json`.
+
+### Vlastní cesta
+
+V `.env.local`:
+
+```env
+BACKUP_DIR=/Users/vas/Dis/PayGuard-backups
+BACKUP_RETAIN_DAYS=30
+```
+
+### Připojení k DB
+
+Stačí `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` (už v `.env.local`).
+
+Volitelně rychlejší export: `DATABASE_URL` z Supabase → Database → Connection string (port 6543).
+
+### Automatizace na Macu (cron)
+
+Každou neděli v 3:00:
+
+```bash
+crontab -e
+```
+
+```
+0 3 * * 0 cd /Users/vas/Projects/pay-guard && /usr/local/bin/npm run db:backup >> ~/PayGuard-backups/backup.log 2>&1
+```
+
+(Upravte cestu k projektu a `npm`.)
+
+### Bezpečnost
+
+- Složka **`~/PayGuard-backups`** není v git repozitáři
+- Obsahuje **PII** — zálohujte na externí disk / Time Machine podle potřeby
+- Nikdy necommitujte a nesdílejte archivy
+
+### Obnovení (dry-run)
+
+Skript **nic neimportuje** do Supabase — jen ověří integritu zálohy a vypíše počty řádků:
+
+```bash
+npm run db:restore -- ~/PayGuard-backups/pay-guard-<timestamp>
+# nebo přímo .json.gz archiv
+npm run db:restore -- ~/PayGuard-backups/pay-guard-<timestamp>/pay-guard-<timestamp>.json.gz
+```
+
+**Důležité:** záloha neobsahuje `auth.users` (Supabase Auth). Uživatelské účty obnovujte přes Supabase dashboard nebo registraci.
 
 ## Struktura
 

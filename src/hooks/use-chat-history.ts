@@ -22,6 +22,7 @@ import {
 } from "@/lib/chat/sync";
 import { saveOfflineSession } from "@/lib/offline/storage";
 import { loadSessionCacheFirst } from "@/lib/offline/cache-first";
+import { pushChatHistoryToServer } from "@/lib/chat/push-history";
 import type { ChatMessage, FinancialProfile } from "@/lib/types/financial";
 
 interface UseChatHistoryOptions {
@@ -57,18 +58,13 @@ async function pushSessionToServer(
   profile: FinancialProfile,
   sessionToken?: string
 ): Promise<void> {
-  await fetch("/api/chat/history", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify({
-      sessionId,
-      ...(sessionToken ? { sessionToken } : {}),
-      locale,
-      messages: serializeMessages(messages),
-      profile,
-    }),
-  }).catch(() => {});
+  await pushChatHistoryToServer({
+    sessionId,
+    sessionToken,
+    locale,
+    messages,
+    profile,
+  });
 }
 
 /**
