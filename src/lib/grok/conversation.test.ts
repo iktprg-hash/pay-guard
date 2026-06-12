@@ -12,6 +12,32 @@ describe("detectConversationStage — quick flow", () => {
     ).toBe("greeting");
   });
 
+  it("jumps to quick_recommend on first message when minimum data is present", () => {
+    const profile: FinancialProfile = {
+      availableFunds: 45_000,
+      debts: [
+        {
+          id: "rent",
+          creditor: "Nájem",
+          amount: 16_000,
+          category: "housing",
+          dueDate: "2026-06-15",
+        },
+        {
+          id: "micro",
+          creditor: "Mikrozápůjčka",
+          amount: 32_000,
+          category: "loans",
+          interestRate: 45,
+        },
+      ],
+    };
+
+    expect(
+      detectConversationStage(profile, { messageCount: 1 })
+    ).toBe("quick_recommend");
+  });
+
   it("moves to quick_recommend when minimum data is present", () => {
     const profile: FinancialProfile = {
       availableFunds: 10_000,

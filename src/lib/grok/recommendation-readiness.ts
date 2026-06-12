@@ -24,6 +24,10 @@ function debtIsActionable(
   return Boolean(debt.creditor?.trim()) && debt.amount > 0;
 }
 
+function countActionableDebts(profile: FinancialProfile): number {
+  return profile.debts.filter(debtIsActionable).length;
+}
+
 /** At least one debt is Priority Engine level 0. */
 export function profileHasCriticalDebt(
   profile: FinancialProfile,
@@ -48,14 +52,14 @@ export function userMentionedUnstableIncome(text: string): boolean {
  * - at least one debt with creditor + amount
  */
 export function hasMinimumRecommendationData(profile: FinancialProfile): boolean {
-  return (
-    profile.availableFunds > 0 &&
-    profile.debts.some(debtIsActionable)
-  );
+  return profile.availableFunds > 0 && countActionableDebts(profile) >= 1;
 }
 
 /**
  * Assess whether Grok should deliver a recommendation now and in which mode.
+ *
+ * Aggressive default: funds + ≥1 actionable debt → recommend immediately.
+ * Stay in gathering only when funds or debts are missing.
  */
 export function assessRecommendationReadiness(
   profile: FinancialProfile,
@@ -70,37 +74,32 @@ export function assessRecommendationReadiness(
   const hasMinimum = hasMinimumRecommendationData(profile);
   const wantsFull = userWantsFullAnalysis(lastUserMessage);
   const unstableIncome = userMentionedUnstableIncome(lastUserMessage);
+  const actionableDebts = countActionableDebts(profile);
 
   const shouldAskIncome =
-    wantsFull || (unstableIncome && !profile.monthlyIncome && !profile.incomeStability);
+    wantsFull &&
+    unstableIncome &&
+    !profile.monthlyIncome &&
+    !profile.incomeStability;
 
   if (!hasMinimum) {
     return {
       mode: "gathering",
       canRecommend: false,
       hasCriticalDebt: hasCritical,
-      shouldAskIncome: shouldAskIncome,
+      shouldAskIncome,
       shouldAutoDeliver: false,
     };
   }
 
-  if (wantsFull && shouldAskIncome) {
-    return {
-      mode: "gathering",
-      canRecommend: false,
-      hasCriticalDebt: hasCritical,
-      shouldAskIncome: true,
-      shouldAutoDeliver: false,
-    };
-  }
-
-  const mode: AnalysisMode = wantsFull || profile.debts.length >= 3 ? "full" : "quick";
+  const mode: AnalysisMode =
+    wantsFull || actionableDebts >= 3 ? "full" : "quick";
 
   return {
     mode,
     canRecommend: true,
     hasCriticalDebt: hasCritical,
     shouldAskIncome,
-    shouldAutoDeliver: hasCritical || mode === "quick",
+    shouldAutoDeliver: true,
   };
 }

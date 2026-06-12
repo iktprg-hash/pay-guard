@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { chatWithGrok, GrokUnavailableError, GrokRequestError } from "@/lib/grok/client";
 import { mergeProfileUpdate } from "@/lib/grok/prompts";
-import { assessRecommendationReadiness } from "@/lib/grok/recommendation-readiness";
+import { assessRecommendationReadiness, hasMinimumRecommendationData } from "@/lib/grok/recommendation-readiness";
 import { requireApiUser } from "@/lib/auth/session";
 import { getUserGrokConsent } from "@/lib/auth/grok-consent";
 import {
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
       lastUserMessage,
     });
 
-    const engineResult = preReadiness.canRecommend
+    const engineResult = hasMinimumRecommendationData(normalizedProfile)
       ? runPriorityEngine(normalizedProfile, locale)
       : null;
 
@@ -62,14 +62,16 @@ export async function POST(request: NextRequest) {
       lastUserMessage,
     });
 
-    let recommendation = result.recommendation;
-    if (!recommendation && postReadiness.canRecommend) {
+    let recommendation = result.recommendation ?? engineResult;
+    if (!recommendation && hasMinimumRecommendationData(mergedProfile)) {
       recommendation = runPriorityEngine(mergedProfile, locale);
     }
 
-    const readyForRecommendation = postReadiness.canRecommend;
+    const readyForRecommendation =
+      postReadiness.canRecommend || hasMinimumRecommendationData(mergedProfile);
     const shouldAttachRecommendation =
-      postReadiness.shouldAutoDeliver && recommendation !== null;
+      (postReadiness.shouldAutoDeliver || hasMinimumRecommendationData(mergedProfile)) &&
+      recommendation !== null;
 
     return NextResponse.json({
       message: result.message,

@@ -78,7 +78,7 @@ describe("recommendation-readiness", () => {
     expect(assessment.shouldAutoDeliver).toBe(true);
   });
 
-  it("blocks full plan until income when user asks for detailed analysis", () => {
+  it("still auto-delivers when user asks for detailed analysis with minimum data", () => {
     const assessment = assessRecommendationReadiness(
       profile({
         availableFunds: 12_000,
@@ -95,8 +95,43 @@ describe("recommendation-readiness", () => {
     );
 
     expect(userWantsFullAnalysis("Chci podrobný dlouhodobý plán")).toBe(true);
-    expect(assessment.canRecommend).toBe(false);
-    expect(assessment.shouldAskIncome).toBe(true);
+    expect(assessment.canRecommend).toBe(true);
+    expect(assessment.shouldAutoDeliver).toBe(true);
+    expect(assessment.mode).toBe("full");
+    expect(assessment.shouldAskIncome).toBe(false);
+  });
+
+  it("auto-delivers on realistic funds + rent + microloan scenario", () => {
+    const assessment = assessRecommendationReadiness(
+      profile({
+        availableFunds: 45_000,
+        debts: [
+          {
+            id: "rent",
+            creditor: "Nájem",
+            amount: 16_000,
+            category: "housing",
+            dueDate: "2026-06-15",
+          },
+          {
+            id: "micro",
+            creditor: "Mikrozápůjčka",
+            amount: 32_000,
+            category: "loans",
+            interestRate: 45,
+            dueDate: "2026-06-14",
+          },
+        ],
+      }),
+      {
+        lastUserMessage: "У меня 45к, аренда 16к до 15 июня, микрозайм 32к",
+        today: TODAY,
+      }
+    );
+
+    expect(assessment.canRecommend).toBe(true);
+    expect(assessment.shouldAutoDeliver).toBe(true);
+    expect(assessment.mode).toBe("quick");
   });
 
   it("does not require income for quick mode", () => {

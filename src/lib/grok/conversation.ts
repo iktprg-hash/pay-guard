@@ -26,9 +26,9 @@ const STAGE_HINTS: Record<
   Record<"cs" | "ru" | "en", string>
 > = {
   greeting: {
-    cs: "Přivítej stručně. Zeptej se hned na dvě věci: kolik peněz má právě teď k dispozici a jaký je nejkritičtější závazek (věřitel + částka + termín, pokud ho zná).",
-    ru: "Кратко поприветствуй. Сразу спроси две вещи: сколько денег доступно сейчас и какое обязательство самое срочное (кредитор + сумма + срок, если знает).",
-    en: "Greet briefly. Immediately ask two things: how much money is available right now and the most urgent obligation (creditor + amount + deadline if known).",
+    cs: "Přivítej stručně. Pokud profil už obsahuje availableFunds a alespoň jeden dluh — OKAMŽITĚ dej doporučení, neptej se znovu na peníze ani na nejurgentnější závazek. Jinak se zeptej jen na chybějící minimum (peníze NEBO jeden dluh).",
+    ru: "Поприветствуй кратко. Если в профиле уже есть availableFunds и хотя бы один долг — СРАЗУ дай рекомендацию, не переспрашивай про деньги и срочность. Иначе спроси только недостающий минимум (деньги ИЛИ один долг).",
+    en: "Greet briefly. If the profile already has availableFunds and at least one debt — recommend IMMEDIATELY, do not re-ask about money or urgency. Otherwise ask only for the missing minimum (funds OR one debt).",
   },
   initial_capture: {
     cs: "Chybí základ — zjisti volné prostředky a alespoň jeden kritický dluh. Neptej se na všechny závazky ani na mzdu.",
@@ -71,11 +71,11 @@ export function detectConversationStage(
   const lastUserMessage = options?.lastUserMessage ?? "";
   const readiness = assessRecommendationReadiness(profile, { lastUserMessage });
 
-  if (messageCount <= 1) return "greeting";
-
   if (readiness.canRecommend) {
     return readiness.mode === "full" ? "full_enrichment" : "quick_recommend";
   }
+
+  if (messageCount <= 1) return "greeting";
 
   const hasFunds = profile.availableFunds > 0;
   const hasDebts = profile.debts.some((d) => d.creditor && d.amount > 0);
@@ -194,10 +194,19 @@ export function buildStageContext(
         ? frame.full
         : frame.gathering;
 
-  if (messageCount <= 1) {
+  if (messageCount <= 1 && !readiness.canRecommend) {
     return `${frame.phase}: greeting
 ${frame.mode}: ${modeLabel}
 ${frame.task}: ${STAGE_HINTS.greeting[locale]}`;
+  }
+
+  if (readiness.canRecommend && readiness.shouldAutoDeliver) {
+    return `${frame.phase}: quick_recommend
+${frame.mode}: ${modeLabel}
+${frame.critical}: ${readiness.hasCriticalDebt ? frame.yes : frame.no}
+CAN_RECOMMEND_NOW: yes
+AUTO_DELIVER: yes
+${frame.task}: ${STAGE_HINTS.quick_recommend[locale]}`;
   }
 
   return `${frame.phase}: ${state.stage}

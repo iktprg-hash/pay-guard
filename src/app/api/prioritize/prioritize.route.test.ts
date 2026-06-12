@@ -65,7 +65,7 @@ describe("POST /api/prioritize", () => {
     expect(runPriorityEngine).not.toHaveBeenCalled();
   });
 
-  it("runs engine for valid payload", async () => {
+  it("returns 422 when profile lacks minimum recommendation data", async () => {
     const { POST } = await import("./route");
     const res = await POST(
       new NextRequest("http://127.0.0.1:3000/api/prioritize", {
@@ -73,6 +73,33 @@ describe("POST /api/prioritize", () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           profile: { availableFunds: 1000, debts: [] },
+          locale: "ru",
+        }),
+      })
+    );
+
+    expect(res.status).toBe(422);
+    expect(runPriorityEngine).not.toHaveBeenCalled();
+  });
+
+  it("runs engine for valid payload with funds and debt", async () => {
+    const { POST } = await import("./route");
+    const res = await POST(
+      new NextRequest("http://127.0.0.1:3000/api/prioritize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          profile: {
+            availableFunds: 1000,
+            debts: [
+              {
+                id: "1",
+                creditor: "ČEZ",
+                amount: 500,
+                category: "utilities",
+              },
+            ],
+          },
           locale: "ru",
         }),
       })
