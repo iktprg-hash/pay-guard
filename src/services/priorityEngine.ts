@@ -16,8 +16,9 @@
  * | 2      | Střední  | Splatnost ≤30 dní, esenciál bez data                 |
  * | 3      | Nízký    | Ostatní                                              |
  *
- * Life buffer: 20–35 % (dle stability) nebo 10–15 % při kritickém dluhu a
- * `availableFunds < 15 000`. Alokace: min. splátky (0–1) → proporcionálně 0→3.
+ * Life buffer: 20–35 % (standard) nebo 8–12 % při kritickém dluhu a
+ * `availableFunds < 15 000` (emergency režim při ≥2 dluzích úrovně 0).
+ * Alokace: min. splátky (0–1) → level 0 prioritně dle termínu → proporcionálně 1→3.
  *
  * ## Historie vylepšení
  *
@@ -29,6 +30,9 @@
  * - **2026-06-11 (finální optimalizace)** — `levelPools` se počítají přímo při
  *   alokaci (bez druhého průchodu); zjednodušené `msgSummary`; export typu
  *   `PriorityConstants`.
+ * - **2026-06-12 (level-0 rozhodnost)** — prioritní alokace u úrovně 0 dle
+ *   nejbližšího termínu; 70–100 % u ultra-urgent (≤5 dní); buffer 8–12 %
+ *   v emergency režimu (≥2 kritické dluhy + nízké prostředky).
  *
  * ## Exportované API
  *
@@ -69,7 +73,14 @@ type PriorityConstantsShape = {
   readonly BUFFER_CRITICAL_LOW_VARIABLE: number;
   readonly BUFFER_CRITICAL_LOW_UNCERTAIN: number;
   readonly BUFFER_CRITICAL_LOW_DEFAULT: number;
+  readonly BUFFER_EMERGENCY_STABLE: number;
+  readonly BUFFER_EMERGENCY_VARIABLE: number;
+  readonly BUFFER_EMERGENCY_UNCERTAIN: number;
+  readonly BUFFER_EMERGENCY_DEFAULT: number;
   readonly LOW_FUNDS_CRITICAL_BUFFER_THRESHOLD: number;
+  readonly EMERGENCY_LEVEL0_DEBT_COUNT: number;
+  readonly LEVEL0_URGENT_DEADLINE_DAYS: number;
+  readonly LEVEL0_URGENT_MIN_COVERAGE: number;
   readonly ALLOCATION_DEBT_CAP: number;
   readonly MIN_ALLOCATION_WEIGHT: number;
 };
@@ -95,11 +106,18 @@ export const PRIORITY_CONSTANTS = {
   BUFFER_VARIABLE: 0.28,
   BUFFER_UNCERTAIN: 0.35,
   BUFFER_DEFAULT: 0.25,
-  BUFFER_CRITICAL_LOW_STABLE: 0.1,
-  BUFFER_CRITICAL_LOW_VARIABLE: 0.12,
-  BUFFER_CRITICAL_LOW_UNCERTAIN: 0.15,
-  BUFFER_CRITICAL_LOW_DEFAULT: 0.12,
+  BUFFER_CRITICAL_LOW_STABLE: 0.08,
+  BUFFER_CRITICAL_LOW_VARIABLE: 0.1,
+  BUFFER_CRITICAL_LOW_UNCERTAIN: 0.12,
+  BUFFER_CRITICAL_LOW_DEFAULT: 0.1,
+  BUFFER_EMERGENCY_STABLE: 0.08,
+  BUFFER_EMERGENCY_VARIABLE: 0.1,
+  BUFFER_EMERGENCY_UNCERTAIN: 0.12,
+  BUFFER_EMERGENCY_DEFAULT: 0.1,
   LOW_FUNDS_CRITICAL_BUFFER_THRESHOLD: 15_000,
+  EMERGENCY_LEVEL0_DEBT_COUNT: 2,
+  LEVEL0_URGENT_DEADLINE_DAYS: 5,
+  LEVEL0_URGENT_MIN_COVERAGE: 0.7,
   ALLOCATION_DEBT_CAP: 50_000,
   MIN_ALLOCATION_WEIGHT: 5,
 } as const satisfies PriorityConstantsShape;
@@ -173,27 +191,62 @@ function isEssentialCategory(category: DebtCategory): boolean {
   return ESSENTIAL_CATEGORY_SET.has(category);
 }
 
+type BufferMode = "standard" | "critical" | "emergency";
+
+function resolveBufferMode(
+  hasLevel0Debt: boolean,
+  level0Count: number,
+  availableFunds: number
+): BufferMode {
+  if (!hasLevel0Debt) return "standard";
+
+  const funds = sanitizeAmount(availableFunds);
+  if (funds >= PRIORITY_CONSTANTS.LOW_FUNDS_CRITICAL_BUFFER_THRESHOLD) {
+    return "standard";
+  }
+
+  if (level0Count >= PRIORITY_CONSTANTS.EMERGENCY_LEVEL0_DEBT_COUNT) {
+    return "emergency";
+  }
+
+  return "critical";
+}
+
 function bufferPercentForStability(
   stability: IncomeStability | undefined,
-  criticalLow: boolean
+  mode: BufferMode
 ): number {
+  if (mode === "standard") {
+    switch (stability) {
+      case "stable":
+        return PRIORITY_CONSTANTS.BUFFER_STABLE;
+      case "variable":
+        return PRIORITY_CONSTANTS.BUFFER_VARIABLE;
+      case "uncertain":
+        return PRIORITY_CONSTANTS.BUFFER_UNCERTAIN;
+      default:
+        return PRIORITY_CONSTANTS.BUFFER_DEFAULT;
+    }
+  }
+
+  const emergency = mode === "emergency";
   switch (stability) {
     case "stable":
-      return criticalLow
-        ? PRIORITY_CONSTANTS.BUFFER_CRITICAL_LOW_STABLE
-        : PRIORITY_CONSTANTS.BUFFER_STABLE;
+      return emergency
+        ? PRIORITY_CONSTANTS.BUFFER_EMERGENCY_STABLE
+        : PRIORITY_CONSTANTS.BUFFER_CRITICAL_LOW_STABLE;
     case "variable":
-      return criticalLow
-        ? PRIORITY_CONSTANTS.BUFFER_CRITICAL_LOW_VARIABLE
-        : PRIORITY_CONSTANTS.BUFFER_VARIABLE;
+      return emergency
+        ? PRIORITY_CONSTANTS.BUFFER_EMERGENCY_VARIABLE
+        : PRIORITY_CONSTANTS.BUFFER_CRITICAL_LOW_VARIABLE;
     case "uncertain":
-      return criticalLow
-        ? PRIORITY_CONSTANTS.BUFFER_CRITICAL_LOW_UNCERTAIN
-        : PRIORITY_CONSTANTS.BUFFER_UNCERTAIN;
+      return emergency
+        ? PRIORITY_CONSTANTS.BUFFER_EMERGENCY_UNCERTAIN
+        : PRIORITY_CONSTANTS.BUFFER_CRITICAL_LOW_UNCERTAIN;
     default:
-      return criticalLow
-        ? PRIORITY_CONSTANTS.BUFFER_CRITICAL_LOW_DEFAULT
-        : PRIORITY_CONSTANTS.BUFFER_DEFAULT;
+      return emergency
+        ? PRIORITY_CONSTANTS.BUFFER_EMERGENCY_DEFAULT
+        : PRIORITY_CONSTANTS.BUFFER_CRITICAL_LOW_DEFAULT;
   }
 }
 
@@ -205,6 +258,14 @@ function needsReducedBuffer(
     hasLevel0Debt &&
     availableFunds < PRIORITY_CONSTANTS.LOW_FUNDS_CRITICAL_BUFFER_THRESHOLD
   );
+}
+
+function isEmergencyBufferMode(
+  hasLevel0Debt: boolean,
+  level0Count: number,
+  availableFunds: number
+): boolean {
+  return resolveBufferMode(hasLevel0Debt, level0Count, availableFunds) === "emergency";
 }
 
 // ─── Pomocné funkce ────────────────────────────────────────────────────────
@@ -264,29 +325,33 @@ function parseDate(iso?: string): Date | null {
 export function calculateLifeBufferPercent(
   stability?: IncomeStability
 ): number {
-  return bufferPercentForStability(stability, false);
+  return bufferPercentForStability(stability, "standard");
 }
 
 /**
- * Finální procento life bufferu včetně sníženého režimu (10–15 %).
+ * Finální procento life bufferu včetně sníženého (8–12 %) a emergency režimu.
  *
  * Snížený buffer platí, pokud existuje dluh úrovně 0 a sanitizované
  * `availableFunds` jsou pod `LOW_FUNDS_CRITICAL_BUFFER_THRESHOLD`.
+ * Emergency (≥2 dluhy úrovně 0 + nízké prostředky) používá 8–12 % dle stability.
  *
  * @param stability — stabilita příjmu z profilu
  * @param options.hasLevel0Debt — alespoň jeden dluh úrovně 0 po analýze
- * @param options.availableFunds — sanitizované volné prostředky (`safeProfile.availableFunds`)
+ * @param options.availableFunds — sanitizované volné prostředky
+ * @param options.level0Count — počet dluhů úrovně 0 (pro emergency režim)
  */
 export function resolveLifeBufferPercent(
   stability: IncomeStability | undefined,
-  options: { hasLevel0Debt: boolean; availableFunds: number }
+  options: {
+    hasLevel0Debt: boolean;
+    availableFunds: number;
+    level0Count?: number;
+  }
 ): number {
   const funds = sanitizeAmount(options.availableFunds);
-  return bufferPercentForStability(
-    stability,
-    options.hasLevel0Debt &&
-      funds < PRIORITY_CONSTANTS.LOW_FUNDS_CRITICAL_BUFFER_THRESHOLD
-  );
+  const level0Count = options.level0Count ?? (options.hasLevel0Debt ? 1 : 0);
+  const mode = resolveBufferMode(options.hasLevel0Debt, level0Count, funds);
+  return bufferPercentForStability(stability, mode);
 }
 
 // ─── Určení úrovně priority ────────────────────────────────────────────────
@@ -649,6 +714,86 @@ function allocateProportionally(
   return result;
 }
 
+/** Nejbližší termín pro řazení dluhů úrovně 0 (větší = méně naléhavé). */
+function level0NearestDays(analysis: DebtAnalysis): number {
+  const nearest = nearestDeadlineDays(
+    analysis.daysToDue,
+    analysis.daysToCritical
+  );
+  return nearest ?? 9999;
+}
+
+/** Seřadí dluhy úrovně 0: nejdřív nejbližší termín, pak urgencyScore. */
+function sortLevel0ByUrgency(items: readonly AllocationState[]): AllocationState[] {
+  return [...items].sort((a, b) => {
+    const deadlineDiff =
+      level0NearestDays(a.analysis) - level0NearestDays(b.analysis);
+    if (deadlineDiff !== 0) return deadlineDiff;
+    return b.analysis.urgencyScore - a.analysis.urgencyScore;
+  });
+}
+
+/**
+ * Alokace poolu pro úroveň 0 — prioritně nejurgentnější dluh, ne rovnoměrné dělení.
+ *
+ * 1. Ultra-urgent (≤5 dní): cíl 70–100 % původní částky dluhu
+ * 2. Greedy dle termínu: nejurgentnější dostane maximum, pak další
+ * 3. Proporcionální zbytek mezi zbývající level-0 dluhy
+ */
+function allocateLevel0Pool(
+  levelItems: readonly AllocationState[],
+  pool: number,
+  stateById: Map<string, AllocationState>,
+  allocations: Map<string, number>,
+  levelPools: Map<PriorityLevel, number>
+): number {
+  let remaining = sanitizeAmount(pool);
+  const active = levelItems.filter((item) => item.stillOwed > 0);
+  if (remaining <= 0 || active.length === 0) return remaining;
+
+  const sorted = sortLevel0ByUrgency(active);
+  const urgentDays = PRIORITY_CONSTANTS.LEVEL0_URGENT_DEADLINE_DAYS;
+  const minCoverage = PRIORITY_CONSTANTS.LEVEL0_URGENT_MIN_COVERAGE;
+
+  // Fáze A: ultra-urgent — min. 70 % původní částky, ideálně 100 %
+  for (const state of sorted) {
+    if (remaining <= 0) break;
+    if (level0NearestDays(state.analysis) > urgentDays) continue;
+
+    const debtTotal = state.analysis.debt.amount;
+    const minTarget = roundMoney(debtTotal * minCoverage);
+    let pay = Math.min(state.stillOwed, remaining);
+
+    if (pay < minTarget && remaining >= minTarget) {
+      pay = Math.min(minTarget, state.stillOwed, remaining);
+    }
+
+    remaining -= applyAllocationToState(state, pay, allocations, levelPools);
+  }
+
+  // Fáze B: greedy podle termínu — nejurgentnější dostane maximum
+  for (const state of sorted) {
+    if (remaining <= 0) break;
+    if (state.stillOwed <= 0) continue;
+
+    const pay = Math.min(state.stillOwed, remaining);
+    remaining -= applyAllocationToState(state, pay, allocations, levelPools);
+  }
+
+  // Fáze C: proporcionální zbytek (edge case)
+  const unpaid = sorted.filter((item) => item.stillOwed > 0);
+  if (remaining > 0 && unpaid.length > 0) {
+    const levelAlloc = allocateProportionally(unpaid, remaining);
+    for (const [debtId, amount] of levelAlloc) {
+      const state = stateById.get(debtId);
+      if (!state) continue;
+      remaining -= applyAllocationToState(state, amount, allocations, levelPools);
+    }
+  }
+
+  return remaining;
+}
+
 function applyAllocationToState(
   state: AllocationState,
   amount: number,
@@ -720,6 +865,18 @@ function applyProportionalByLevel(
 
     const totalOwed = levelItems.reduce((sum, item) => sum + item.stillOwed, 0);
     const pool = Math.min(remaining, totalOwed);
+
+    if (level === 0) {
+      remaining = allocateLevel0Pool(
+        levelItems,
+        pool,
+        stateById,
+        allocations,
+        levelPools
+      );
+      continue;
+    }
+
     const levelAlloc = allocateProportionally(levelItems, pool);
 
     for (const [debtId, amount] of levelAlloc) {
@@ -884,19 +1041,32 @@ export function runPriorityEngine(
 
   // ── Fáze 4: analýza dluhů (po sanitizaci profilu) ──
   const analyses = safeProfile.debts.map((debt) => analyzeDebt(debt, today));
-  const hasLevel0Debt = analyses.some((analysis) => analysis.level === 0);
+  const level0Debts = analyses.filter((analysis) => analysis.level === 0);
+  const hasLevel0Debt = level0Debts.length > 0;
+  const level0Count = level0Debts.length;
 
   // ── Fáze 5: life buffer ──
   const bufferPercent = resolveLifeBufferPercent(safeProfile.incomeStability, {
     hasLevel0Debt,
     availableFunds: safeProfile.availableFunds,
+    level0Count,
   });
   const lifeBuffer = roundMoney(availableFunds * bufferPercent);
   const spendableStart = Math.max(0, availableFunds - lifeBuffer);
 
+  const emergencyBuffer = isEmergencyBufferMode(
+    hasLevel0Debt,
+    level0Count,
+    availableFunds
+  );
+
   const bufferWarnings = needsReducedBuffer(hasLevel0Debt, availableFunds)
-      ? [msgReducedBuffer(lifeBuffer, bufferPercent, locale)]
-      : [msgLifeBuffer(lifeBuffer, bufferPercent, locale)];
+    ? [
+        emergencyBuffer
+          ? msgEmergencyBuffer(lifeBuffer, bufferPercent, locale)
+          : msgReducedBuffer(lifeBuffer, bufferPercent, locale),
+      ]
+    : [msgLifeBuffer(lifeBuffer, bufferPercent, locale)];
 
   // ── Fáze 6: alokace ──
   const states = buildAllocationStates(analyses);
@@ -1031,6 +1201,25 @@ function msgReducedBuffer(
   if (locale === "ru")
     return `⚠ Критические долги и мало средств — резерв снижен до ${formatMoney(amount, locale)} (${pct} %, обычно 20–35 %).`;
   return `⚠ Critical debts with low funds — buffer reduced to ${formatMoney(amount, locale)} (${pct}%, normally 20–35%).`;
+}
+
+function msgEmergencyBuffer(
+  amount: number,
+  percent: number,
+  locale: Locale
+): string {
+  const pct = Math.round(percent * 100);
+  if (locale === "cs")
+    return `⚠ Emergency režim — ${level0CountLabel(locale)} kritické závazky, rezerva pouze ${formatMoney(amount, locale)} (${pct} %).`;
+  if (locale === "ru")
+    return `⚠ Emergency режим — несколько критических долгов, резерв только ${formatMoney(amount, locale)} (${pct} %).`;
+  return `⚠ Emergency mode — multiple critical debts, buffer only ${formatMoney(amount, locale)} (${pct}%).`;
+}
+
+function level0CountLabel(locale: Locale): string {
+  if (locale === "cs") return "více";
+  if (locale === "ru") return "несколько";
+  return "multiple";
 }
 
 function msgNoFunds(locale: Locale): string {

@@ -297,7 +297,7 @@ describe("resolveLifeBufferPercent", () => {
 });
 
 describe("runPriorityEngine — dynamický buffer a sanitizace", () => {
-  it("sníží buffer na 10 % při kritickém dluhu a 10 000 Kč", () => {
+  it("sníží buffer na 8 % při kritickém dluhu a 10 000 Kč", () => {
     const result = runPriorityEngine(
       profile(
         10_000,
@@ -316,9 +316,9 @@ describe("runPriorityEngine — dynamický buffer a sanitizace", () => {
       TODAY
     );
 
-    expect(result.lifeBufferPercent).toBe(0.1);
-    expect(result.lifeBuffer).toBe(1000);
-    expect(result.warnings.some((w) => w.includes("snížena") || w.includes("10"))).toBe(
+    expect(result.lifeBufferPercent).toBe(0.08);
+    expect(result.lifeBuffer).toBe(800);
+    expect(result.warnings.some((w) => w.includes("snížena") || w.includes("8"))).toBe(
       true
     );
   });
@@ -425,17 +425,17 @@ describe("runPriorityEngine", () => {
         [
           debt({
             id: "a",
-            creditor: "Elektřina",
+            creditor: "Air Bank — úvěr",
             amount: 4000,
-            category: "utilities",
-            dueDate: "2026-06-14",
+            category: "loans",
+            dueDate: "2026-06-17",
           }),
           debt({
             id: "b",
-            creditor: "Plyn",
+            creditor: "Moneta — půjčka",
             amount: 3000,
-            category: "utilities",
-            dueDate: "2026-06-15",
+            category: "loans",
+            dueDate: "2026-06-18",
           }),
         ],
         "stable"
@@ -696,5 +696,71 @@ describe("Priority Engine — additional CZ scenarios", () => {
     expect(result.recommendations[0]?.creditor).toContain("Nájem");
     expect(result.totalAllocated).toBeGreaterThan(0);
     expect(result.summary).toMatch(/Priorita/i);
+  });
+
+  it("prioritises the most urgent level-0 debt over less urgent critical debts", () => {
+    const result = runPriorityEngine(
+      profile(
+        10_000,
+        [
+          debt({
+            id: "najem",
+            creditor: "Nájem — výpověď",
+            amount: 12_000,
+            category: "housing",
+            criticalDate: "2026-06-12",
+            criticalNote: "Výpověď z bytu",
+          }),
+          debt({
+            id: "ele",
+            creditor: "ČEZ — elektřina",
+            amount: 5_000,
+            category: "utilities",
+            criticalDate: "2026-06-16",
+          }),
+        ],
+        "stable"
+      ),
+      "cs",
+      TODAY
+    );
+
+    const najem = result.recommendations.find((r) => r.debtId === "najem");
+    const ele = result.recommendations.find((r) => r.debtId === "ele");
+
+    expect(najem?.recommendedAmount).toBeGreaterThan(0);
+    expect(najem!.recommendedAmount).toBeGreaterThan(ele?.recommendedAmount ?? 0);
+    expect(najem!.recommendedAmount).toBeGreaterThanOrEqual(8_400);
+  });
+
+  it("uses emergency buffer when multiple level-0 debts exist with low funds", () => {
+    const result = runPriorityEngine(
+      profile(
+        8_000,
+        [
+          debt({
+            id: "najem",
+            creditor: "Nájem",
+            amount: 10_000,
+            category: "housing",
+            criticalDate: "2026-06-12",
+          }),
+          debt({
+            id: "exekuce",
+            creditor: "Exekuce",
+            amount: 6_000,
+            category: "fines",
+            dueDate: "2026-06-13",
+          }),
+        ],
+        "stable"
+      ),
+      "cs",
+      TODAY
+    );
+
+    expect(result.lifeBufferPercent).toBe(0.08);
+    expect(result.lifeBuffer).toBe(640);
+    expect(result.warnings.some((w) => w.includes("Emergency"))).toBe(true);
   });
 });
