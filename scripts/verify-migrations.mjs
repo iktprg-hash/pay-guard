@@ -58,6 +58,12 @@ async function verifyMigrations() {
       table: "profiles",
       columns: "subscription_tier",
     },
+    {
+      id: "008",
+      label: "profiles.stripe_customer_id",
+      table: "profiles",
+      columns: "stripe_customer_id",
+    },
   ];
 
   const checks = await Promise.all(

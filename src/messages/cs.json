@@ -19,6 +19,8 @@
     "pdfExportFailed": "PDF se nepodařilo stáhnout",
     "syncFailed": "Synchronizace se nezdařila — zobrazují se lokální data",
     "cloudHistoryProOnly": "Cloudová historie je dostupná jen v tarifu Pro",
+    "checkoutFailed": "Nepodařilo se spustit platbu",
+    "portalFailed": "Nepodařilo se otevřít správu předplatného",
     "offline": "Jste offline",
     "online": "Připojení obnoveno"
   },
@@ -156,7 +158,25 @@
     ],
     "upgrade": "Přejít na Pro",
     "currentPlan": "Váš plán",
-    "comingSoon": "brzy"
+    "comingSoon": "brzy",
+    "loginToUpgrade": "Přihlásit se a přejít na Pro",
+    "redirecting": "Přesměrování…",
+    "proActive": "Pro je aktivní",
+    "alreadyPro": "Pro tarif už máte aktivní",
+    "checkoutSuccess": "Děkujeme! Pro tarif bude aktivní během chvilky.",
+    "checkoutCancelled": "Platba byla zrušena"
+  },
+  "billing": {
+    "title": "Předplatné",
+    "planFree": "Zdarma",
+    "planPro": "Pro",
+    "freeDescription": "Základní chat a doporučení plateb.",
+    "proDescription": "Historie konverzací, PDF export a cloud sync.",
+    "upgrade": "Přejít na Pro",
+    "manage": "Spravovat předplatné",
+    "loginHint": "Přihlaste se pro správu tarifu.",
+    "login": "Přihlásit se",
+    "renewsAt": "Obnovení {date}"
   },
   "footer": {
     "disclaimer": "Pay Guard nenahrazuje finančního poradce, právníka ani insolvenčního správce. Doporučení slouží pouze k orientaci."

@@ -91,6 +91,10 @@ async function main() {
 
   if (!hasDb && !hasToken) {
     const hint = databaseUrlHint(ref);
+    const sqlFile =
+      only && files[0]
+        ? `supabase/migrations/${files[0]}`
+        : "supabase/migrations/008_stripe_billing.sql";
     console.error(`
 Need DATABASE_URL or SUPABASE_ACCESS_TOKEN in .env.local
 
@@ -103,7 +107,8 @@ Copy URI: Connection string → Session pooler → port 6543
 
 Or run: npm run db:hint
 
-Alternative: paste supabase/migrations/006_protect_subscription_tier.sql in SQL Editor → Run
+Alternative: open the .sql file locally, copy ALL its contents (not the path), paste in SQL Editor → Run:
+   ${sqlFile}
    https://supabase.com/dashboard/project/${ref ?? "YOUR_REF"}/sql/new
 `);
     process.exit(1);

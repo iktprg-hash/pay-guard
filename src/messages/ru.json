@@ -19,6 +19,8 @@
     "pdfExportFailed": "Не удалось загрузить PDF",
     "syncFailed": "Синхронизация не удалась — показаны локальные данные",
     "cloudHistoryProOnly": "Облачная история — только Pro",
+    "checkoutFailed": "Не удалось начать оплату",
+    "portalFailed": "Не удалось открыть портал подписки",
     "offline": "Вы офлайн",
     "online": "Соединение восстановлено"
   },
@@ -156,7 +158,25 @@
     ],
     "upgrade": "Перейти на Pro",
     "currentPlan": "Ваш план",
-    "comingSoon": "скоро"
+    "comingSoon": "скоро",
+    "loginToUpgrade": "Войти и перейти на Pro",
+    "redirecting": "Перенаправление…",
+    "proActive": "Pro активен",
+    "alreadyPro": "У вас уже активен Pro",
+    "checkoutSuccess": "Спасибо! Pro активируется через минуту.",
+    "checkoutCancelled": "Оплата отменена"
+  },
+  "billing": {
+    "title": "Подписка",
+    "planFree": "Бесплатно",
+    "planPro": "Pro",
+    "freeDescription": "Базовый чат и рекомендации по платежам.",
+    "proDescription": "История разговоров, PDF и облачная синхронизация.",
+    "upgrade": "Перейти на Pro",
+    "manage": "Управление подпиской",
+    "loginHint": "Войдите, чтобы управлять тарифом.",
+    "login": "Войти",
+    "renewsAt": "Продление {date}"
   },
   "footer": {
     "disclaimer": "Pay Guard не заменяет финансового консультанта, юриста или арбитражного управляющего. Рекомендации носят ориентировочный характер."

@@ -59,6 +59,7 @@ const requiredMigs = [
   "005_normalize_debts.sql",
   "006_protect_subscription_tier.sql",
   "007_grok_consent.sql",
+  "008_stripe_billing.sql",
 ];
 
 if (!existsSync(migDir)) {
@@ -204,6 +205,18 @@ console.log(`   ${smtpUrl}`);
 console.log(`📋 Site URL + Redirect URLs include your production domain + /auth/confirm`);
 console.log(`📋 Rate limits reviewed (Authentication → Rate Limits)`);
 console.log(`📋 Lokální DB záloha: npm run db:backup → ~/PayGuard-backups (cron na Macu, viz README)`);
+
+console.log("\n── Stripe (Pro billing, Czech market) ──");
+const stripeKey = env("STRIPE_SECRET_KEY");
+const stripePrice = env("STRIPE_PRO_PRICE_ID");
+const stripeWebhook = env("STRIPE_WEBHOOK_SECRET");
+if (isPlaceholder(stripeKey) || isPlaceholder(stripePrice) || isPlaceholder(stripeWebhook)) {
+  warn("Stripe not fully configured — Pro checkout disabled (STRIPE_SECRET_KEY, STRIPE_PRO_PRICE_ID, STRIPE_WEBHOOK_SECRET)");
+} else {
+  pass("Stripe env vars set");
+  console.log("   Webhook URL: https://<your-domain>/api/billing/webhook");
+  console.log("   Create CZK monthly Price in Stripe Dashboard → STRIPE_PRO_PRICE_ID");
+}
 
 // ── Summary ──
 console.log("\n── Summary ──");

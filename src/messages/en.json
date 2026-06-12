@@ -19,6 +19,8 @@
     "pdfExportFailed": "Could not download PDF",
     "syncFailed": "Sync failed — showing local data",
     "cloudHistoryProOnly": "Cloud history is available on Pro only",
+    "checkoutFailed": "Could not start checkout",
+    "portalFailed": "Could not open subscription portal",
     "offline": "You are offline",
     "online": "Connection restored"
   },
@@ -156,7 +158,25 @@
     ],
     "upgrade": "Upgrade to Pro",
     "currentPlan": "Your plan",
-    "comingSoon": "coming soon"
+    "comingSoon": "coming soon",
+    "loginToUpgrade": "Sign in to upgrade to Pro",
+    "redirecting": "Redirecting…",
+    "proActive": "Pro is active",
+    "alreadyPro": "You already have Pro",
+    "checkoutSuccess": "Thank you! Pro will activate shortly.",
+    "checkoutCancelled": "Checkout was cancelled"
+  },
+  "billing": {
+    "title": "Subscription",
+    "planFree": "Free",
+    "planPro": "Pro",
+    "freeDescription": "Basic chat and payment recommendations.",
+    "proDescription": "Conversation history, PDF export, and cloud sync.",
+    "upgrade": "Upgrade to Pro",
+    "manage": "Manage subscription",
+    "loginHint": "Sign in to manage your plan.",
+    "login": "Sign in",
+    "renewsAt": "Renews {date}"
   },
   "footer": {
     "disclaimer": "Pay Guard does not replace a financial or legal advisor. Recommendations are indicative."

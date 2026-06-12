@@ -24,3 +24,16 @@ describe("migration 006 subscription guard", () => {
     expect(migration006).toContain("new.subscription_expires_at := null");
   });
 });
+
+describe("migration 008 stripe billing", () => {
+  const migration008 = readFileSync(
+    join(process.cwd(), "supabase/migrations/008_stripe_billing.sql"),
+    "utf8"
+  );
+
+  it("adds stripe columns and extends subscription guard", () => {
+    expect(migration008).toContain("stripe_customer_id");
+    expect(migration008).toContain("stripe_subscription_id");
+    expect(migration008).toContain("new.stripe_customer_id := old.stripe_customer_id");
+  });
+});

@@ -1,8 +1,12 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
+import { Suspense } from "react";
 import { Check } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { isStripeBillingConfigured } from "@/lib/billing/config";
+import { PricingActions } from "@/components/pricing/pricing-actions";
+import { FreePlanBadge } from "@/components/pricing/free-plan-badge";
+import { CheckoutResultToast } from "@/components/pricing/checkout-result-toast";
 
 export default async function PricingPage({
   params,
@@ -12,12 +16,16 @@ export default async function PricingPage({
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations("pricing");
+  const billingEnabled = isStripeBillingConfigured();
 
   const freeFeatures = t.raw("freeFeatures") as string[];
   const proFeatures = t.raw("proFeatures") as string[];
 
   return (
     <div className="mx-auto max-w-4xl flex-1 px-4 py-12">
+      <Suspense fallback={null}>
+        <CheckoutResultToast />
+      </Suspense>
       <h1 className="mb-8 text-center text-3xl font-bold">{t("title")}</h1>
 
       <div className="grid gap-6 md:grid-cols-2">
@@ -37,9 +45,7 @@ export default async function PricingPage({
                 </li>
               ))}
             </ul>
-            <Badge className="mt-6" variant="secondary">
-              {t("currentPlan")}
-            </Badge>
+            <FreePlanBadge />
           </CardContent>
         </Card>
 
@@ -62,9 +68,7 @@ export default async function PricingPage({
                 </li>
               ))}
             </ul>
-            <Button className="mt-6 w-full" disabled>
-              {t("upgrade")} — {t("comingSoon")}
-            </Button>
+            <PricingActions billingEnabled={billingEnabled} />
           </CardContent>
         </Card>
       </div>

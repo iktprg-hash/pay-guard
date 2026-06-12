@@ -19,6 +19,7 @@
     "db:apply:003": "node scripts/apply-migration.mjs 003",
     "db:apply:005": "node scripts/apply-migration.mjs 005",
     "db:apply:006": "node scripts/apply-migration.mjs 006",
+    "db:apply:008": "node scripts/apply-migration.mjs 008",
     "db:verify": "node scripts/verify-migrations.mjs",
     "db:backup": "node scripts/db-backup.mjs",
     "db:restore": "node scripts/db-restore.mjs",
@@ -54,6 +55,7 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "serwist": "^9.5.11",
+    "stripe": "^18.5.0",
     "tailwind-merge": "^3.6.0",
     "zod": "^4.4.3"
   },

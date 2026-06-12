@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { Smartphone, Shield, Wifi, Download } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +9,11 @@ import { usePwaInstall } from "@/components/pwa/PwaInstallProvider";
 import { useNetworkStatus } from "@/components/pwa/NetworkProvider";
 import { Separator } from "@/components/ui/separator";
 
-export function SettingsPanel() {
+interface SettingsPanelProps {
+  subscriptionSlot?: ReactNode;
+}
+
+export function SettingsPanel({ subscriptionSlot }: SettingsPanelProps) {
   const t = useTranslations("pwa.settings");
   const { isInstalled, isIOS } = usePwaInstall();
   const { isOnline } = useNetworkStatus();
@@ -19,6 +24,8 @@ export function SettingsPanel() {
         <h1 className="text-2xl font-semibold">{t("title")}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t("subtitle")}</p>
       </div>
+
+      {subscriptionSlot}
 
       <Card>
         <CardHeader>
