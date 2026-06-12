@@ -36,7 +36,17 @@ export function PricingActions({ billingEnabled }: PricingActionsProps) {
         body: JSON.stringify({ locale }),
       });
 
-      const data = (await res.json()) as { url?: string; error?: string };
+      const data = (await res.json()) as {
+        url?: string;
+        error?: string;
+        detail?: string;
+        code?: string;
+      };
+
+      if (res.status === 401) {
+        toast(t("loginToUpgrade"), "default");
+        return;
+      }
 
       if (res.status === 409) {
         toast(t("alreadyPro"), "default");
@@ -44,7 +54,7 @@ export function PricingActions({ billingEnabled }: PricingActionsProps) {
       }
 
       if (!res.ok || !data.url) {
-        toast(tToast("checkoutFailed"), "error");
+        toast(data.detail ?? tToast("checkoutFailed"), "error");
         return;
       }
 

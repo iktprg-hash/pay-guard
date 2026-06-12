@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import Stripe from "stripe";
 import { z } from "zod";
 import { requireApiUser } from "@/lib/auth/session";
 import { userHasProAccess } from "@/lib/auth/subscription";
@@ -55,18 +56,13 @@ export async function POST(request: NextRequest) {
     const stripe = getStripeClient();
     const billing = await getUserBillingRecord(auth.user.id);
 
-    const session = await stripe.checkout.sessions.create({
+    const sessionParams: Stripe.Checkout.SessionCreateParams = {
       mode: "subscription",
       locale: locale === "cs" ? "cs" : locale === "ru" ? "ru" : "en",
-      customer: billing?.stripeCustomerId ?? undefined,
-      customer_email: billing?.stripeCustomerId
-        ? undefined
-        : auth.user.email ?? undefined,
       client_reference_id: auth.user.id,
       line_items: [{ price: priceId, quantity: 1 }],
       allow_promotion_codes: true,
       billing_address_collection: "auto",
-      tax_id_collection: { enabled: true },
       metadata: {
         supabase_user_id: auth.user.id,
       },
@@ -77,7 +73,39 @@ export async function POST(request: NextRequest) {
       },
       success_url: `${origin}/${locale}/pricing?checkout=success`,
       cancel_url: `${origin}/${locale}/pricing?checkout=cancelled`,
-    });
+    };
+
+    if (billing?.stripeCustomerId) {
+      sessionParams.customer = billing.stripeCustomerId;
+    } else if (auth.user.email) {
+      sessionParams.customer_email = auth.user.email;
+    } else {
+      return NextResponse.json(
+        {
+          error: "Account email required for checkout",
+          code: "email_required",
+        },
+        { status: 422 }
+      );
+    }
+
+    let session: Stripe.Checkout.Session;
+    try {
+      session = await stripe.checkout.sessions.create(sessionParams);
+    } catch (firstError) {
+      if (
+        billing?.stripeCustomerId &&
+        firstError instanceof Stripe.errors.StripeInvalidRequestError
+      ) {
+        session = await stripe.checkout.sessions.create({
+          ...sessionParams,
+          customer: undefined,
+          customer_email: auth.user.email ?? undefined,
+        });
+      } else {
+        throw firstError;
+      }
+    }
 
     if (!session.url) {
       return NextResponse.json(
@@ -89,6 +117,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ url: session.url });
   } catch (error) {
     console.error("[api/billing/checkout]", error);
-    return NextResponse.json({ error: "Checkout failed" }, { status: 500 });
+    const detail =
+      error instanceof Stripe.errors.StripeError
+        ? error.message
+        : undefined;
+    return NextResponse.json(
+      { error: "Checkout failed", code: "stripe_error", detail },
+      { status: 500 }
+    );
   }
 }
