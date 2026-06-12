@@ -21,7 +21,18 @@ export function getStripeWebhookSecret(): string | undefined {
 export function getStripeProPriceId(): string | undefined {
   const id = process.env.STRIPE_PRO_PRICE_ID?.trim();
   if (!id || id.includes("price_xxx")) return undefined;
+  if (id.startsWith("prod_")) return undefined;
+  if (!id.startsWith("price_")) return undefined;
   return id;
+}
+
+export function getStripeProPriceIdIssue(): string | null {
+  const id = process.env.STRIPE_PRO_PRICE_ID?.trim();
+  if (!id) return "missing";
+  if (id.includes("price_xxx")) return "placeholder";
+  if (id.startsWith("prod_")) return "product_id_not_price";
+  if (!id.startsWith("price_")) return "invalid_format";
+  return null;
 }
 
 export function getStripePublishableKey(): string | undefined {
