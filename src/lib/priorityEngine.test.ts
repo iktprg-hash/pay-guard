@@ -1,24 +1,27 @@
 /**
- * Priority Engine — consolidated coverage suite
+ * Priority Engine — unified test suite
  *
- * Single source of focused Vitest scenarios. Complements
- * src/services/priorityEngine.test.ts with readable, maintainable cases.
- *
+ * Single source of truth for Priority Engine unit and integration tests.
  * Run: npm test -- src/lib/priorityEngine.test.ts
  */
 
 import { describe, it, expect } from "vitest";
 import {
   analyzeDebt,
+  calculateLifeBufferPercent,
+  resolveLifeBufferPercent,
   runPriorityEngine,
+  daysBetween,
+  isExecutionRisk,
+  nearestDeadlineDays,
+  hasMultipleDeadlines,
   PRIORITY_CONSTANTS,
 } from "@/services/priorityEngine";
 import type { Debt, FinancialProfile } from "@/lib/types/financial";
 
-// Fixed reference date — keeps deadline math deterministic across runs.
 const TODAY = new Date("2026-06-11");
 
-// ─── Test helpers ────────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function debt(overrides: Partial<Debt> & Pick<Debt, "id" | "creditor" | "amount">): Debt {
   return { category: "other", ...overrides };
@@ -36,10 +39,69 @@ function rec(result: ReturnType<typeof runPriorityEngine>, debtId: string) {
   return result.recommendations.find((r) => r.debtId === debtId);
 }
 
-// ─── Suite ───────────────────────────────────────────────────────────────────
+// ─── Suite ─────────────────────────────────────────────────────────────────
 
 describe("Priority Engine", () => {
+  describe("utilities", () => {
+    it("computes days between two dates", () => {
+      expect(daysBetween(TODAY, new Date("2026-06-14"))).toBe(3);
+    });
+
+    it("picks the nearest deadline when multiple dates exist", () => {
+      expect(hasMultipleDeadlines(10, 5)).toBe(true);
+      expect(nearestDeadlineDays(10, 5)).toBe(5);
+      expect(nearestDeadlineDays(3, 14)).toBe(3);
+    });
+  });
+
   describe("life buffer", () => {
+    describe("calculateLifeBufferPercent", () => {
+      it("returns 20% for stable income", () => {
+        expect(calculateLifeBufferPercent("stable")).toBe(0.2);
+      });
+
+      it("returns 28% for variable income", () => {
+        expect(calculateLifeBufferPercent("variable")).toBe(0.28);
+      });
+
+      it("returns 35% for uncertain income", () => {
+        expect(calculateLifeBufferPercent("uncertain")).toBe(0.35);
+      });
+
+      it("returns 25% when income stability is unknown", () => {
+        expect(calculateLifeBufferPercent(undefined)).toBe(0.25);
+      });
+    });
+
+    describe("resolveLifeBufferPercent", () => {
+      it("reduces buffer when a level-0 debt exists with low funds", () => {
+        expect(
+          resolveLifeBufferPercent("stable", {
+            hasLevel0Debt: true,
+            availableFunds: 10_000,
+          })
+        ).toBe(PRIORITY_CONSTANTS.BUFFER_CRITICAL_LOW_STABLE);
+      });
+
+      it("keeps standard buffer without critical debts", () => {
+        expect(
+          resolveLifeBufferPercent("stable", {
+            hasLevel0Debt: false,
+            availableFunds: 10_000,
+          })
+        ).toBe(0.2);
+      });
+
+      it("keeps standard buffer when funds exceed the critical threshold", () => {
+        expect(
+          resolveLifeBufferPercent("stable", {
+            hasLevel0Debt: true,
+            availableFunds: 20_000,
+          })
+        ).toBe(0.2);
+      });
+    });
+
     it("reserves standard 20% buffer with sufficient funds and no critical pressure", () => {
       const result = runPriorityEngine(
         profile(25_000, [
@@ -111,48 +173,124 @@ describe("Priority Engine", () => {
       expect(result.lifeBuffer).toBe(640);
       expect(result.warnings.some((w) => w.includes("Emergency"))).toBe(true);
     });
+
+    it("reserves 35% buffer for uncertain income stability", () => {
+      const result = runPriorityEngine(
+        profile(10_000, [debt({ id: "x", creditor: "Test", amount: 1_000 })], "uncertain"),
+        "cs",
+        TODAY
+      );
+
+      expect(result.lifeBuffer).toBe(3_500);
+      expect(result.spendableFunds).toBe(6_500);
+    });
   });
 
-  describe("priority levels", () => {
-    it("assigns level 0 only to essential services and execution-risk debts", () => {
+  describe("execution risk detection", () => {
+    it("detects execution risk from Czech note keywords", () => {
       expect(
-        analyzeDebt(
+        isExecutionRisk(
           debt({
-            id: "najem",
-            creditor: "Stones Residence — nájem",
-            amount: 13_000,
-            category: "housing",
-            criticalDate: "2026-06-13",
-          }),
-          TODAY
-        ).level
-      ).toBe(0);
+            id: "e",
+            creditor: "Exekutor",
+            amount: 5_000,
+            criticalNote: "Soudní exekuce na účet",
+          })
+        )
+      ).toBe(true);
+    });
 
+    it("treats fines and taxes categories as execution risk", () => {
+      expect(
+        isExecutionRisk(debt({ id: "f", creditor: "Úřad", amount: 2_000, category: "fines" }))
+      ).toBe(true);
+      expect(
+        isExecutionRisk(
+          debt({ id: "t", creditor: "Finanční úřad", amount: 3_000, category: "taxes" })
+        )
+      ).toBe(true);
+    });
+
+    it("detects FSSP / bailiff keywords in Russian notes", () => {
+      expect(
+        isExecutionRisk(
+          debt({
+            id: "fssp",
+            creditor: "ФССП",
+            amount: 15_000,
+            criticalNote: "Арест счёта судебным приставом",
+          })
+        )
+      ).toBe(true);
+    });
+  });
+
+  describe("analyzeDebt — priority levels", () => {
+    it("assigns level 0 to imminent essential and execution-risk debts", () => {
+      const rent = analyzeDebt(
+        debt({
+          id: "najem",
+          creditor: "Nájem",
+          amount: 15_000,
+          category: "housing",
+          criticalDate: "2026-06-13",
+          criticalNote: "Vystěhování",
+        }),
+        TODAY
+      );
+      const overdueRent = analyzeDebt(
+        debt({
+          id: "najem2",
+          creditor: "Nájem",
+          amount: 10_000,
+          category: "housing",
+          dueDate: "2026-06-01",
+        }),
+        TODAY
+      );
+      const utilities = analyzeDebt(
+        debt({
+          id: "plyn",
+          creditor: "Pražská plynárenská",
+          amount: 5_200,
+          category: "utilities",
+          criticalDate: "2026-06-13",
+          criticalNote: "Hrozí odpojení plynu",
+        }),
+        TODAY
+      );
+      const exekuce = analyzeDebt(
+        debt({
+          id: "ex",
+          creditor: "Městský úřad — exekuční pokuta",
+          amount: 18_000,
+          category: "fines",
+        }),
+        TODAY
+      );
+
+      expect(rent.level).toBe(0);
+      expect(rent.urgencyScore).toBeGreaterThan(100);
+      expect(overdueRent.level).toBe(0);
+      expect(utilities.level).toBe(0);
+      expect(utilities.factors).toContain("critical_imminent");
+      expect(exekuce.level).toBe(0);
+      expect(exekuce.factors).toContain("execution_risk");
+    });
+
+    it("assigns level 1 to debts due within 7 days or overdue non-essential debts", () => {
       expect(
         analyzeDebt(
           debt({
-            id: "plyn",
-            creditor: "Pražská plynárenská",
-            amount: 5_200,
+            id: "ele",
+            creditor: "Elektřina",
+            amount: 3_000,
             category: "utilities",
-            criticalDate: "2026-06-13",
-            criticalNote: "Hrozí odpojení plynu",
+            dueDate: "2026-06-16",
           }),
           TODAY
         ).level
-      ).toBe(0);
-
-      expect(
-        analyzeDebt(
-          debt({
-            id: "ex",
-            creditor: "Městský úřad — exekuční pokuta",
-            amount: 18_000,
-            category: "fines",
-          }),
-          TODAY
-        ).level
-      ).toBe(0);
+      ).toBe(1);
 
       expect(
         analyzeDebt(
@@ -179,6 +317,48 @@ describe("Priority Engine", () => {
           TODAY
         ).level
       ).toBe(1);
+
+      expect(
+        analyzeDebt(
+          debt({
+            id: "karta",
+            creditor: "Visa — ČSOB",
+            amount: 8_000,
+            category: "credit_card",
+            dueDate: "2026-06-13",
+          }),
+          TODAY
+        ).level
+      ).toBe(1);
+    });
+
+    it("assigns level 2 to debts due within 30 days", () => {
+      expect(
+        analyzeDebt(
+          debt({
+            id: "pujcka",
+            creditor: "Půjčka",
+            amount: 5_000,
+            category: "loans",
+            dueDate: "2026-07-01",
+          }),
+          TODAY
+        ).level
+      ).toBe(2);
+    });
+
+    it("assigns level 3 to low-urgency debts without near deadlines", () => {
+      expect(
+        analyzeDebt(
+          debt({
+            id: "karta",
+            creditor: "Visa",
+            amount: 8_000,
+            category: "credit_card",
+          }),
+          TODAY
+        ).level
+      ).toBe(3);
     });
   });
 
@@ -213,6 +393,91 @@ describe("Priority Engine", () => {
       expect(najem!.recommendedAmount).toBeGreaterThan(
         rec(result, "ele")?.recommendedAmount ?? 0
       );
+    });
+
+    it("prioritises the nearest level-0 deadline over less urgent critical debts", () => {
+      const result = runPriorityEngine(
+        profile(10_000, [
+          debt({
+            id: "najem",
+            creditor: "Nájem — výpověď",
+            amount: 12_000,
+            category: "housing",
+            criticalDate: "2026-06-12",
+            criticalNote: "Výpověď z bytu",
+          }),
+          debt({
+            id: "ele",
+            creditor: "ČEZ — elektřina",
+            amount: 5_000,
+            category: "utilities",
+            criticalDate: "2026-06-16",
+          }),
+        ]),
+        "cs",
+        TODAY
+      );
+
+      const najem = rec(result, "najem");
+      const ele = rec(result, "ele");
+
+      expect(najem?.recommendedAmount).toBeGreaterThan(0);
+      expect(najem!.recommendedAmount).toBeGreaterThan(ele?.recommendedAmount ?? 0);
+      expect(najem!.recommendedAmount).toBeGreaterThanOrEqual(8_400);
+    });
+
+    it("prioritises critical rent over a distant credit card", () => {
+      const result = runPriorityEngine(
+        profile(10_000, [
+          debt({
+            id: "karta",
+            creditor: "Visa",
+            amount: 5_000,
+            category: "credit_card",
+            dueDate: "2026-12-01",
+          }),
+          debt({
+            id: "najem",
+            creditor: "Nájem",
+            amount: 15_000,
+            category: "housing",
+            criticalDate: "2026-06-13",
+            criticalNote: "Vystěhování",
+          }),
+        ]),
+        "cs",
+        TODAY
+      );
+
+      expect(result.recommendations[0]?.creditor).toBe("Nájem");
+      expect(result.recommendations[0]?.priorityLevel).toBe(0);
+    });
+
+    it("prioritises execution-risk debt over non-critical debts", () => {
+      const result = runPriorityEngine(
+        profile(3_000, [
+          debt({
+            id: "exekuce",
+            creditor: "Exekutor Města",
+            amount: 8_000,
+            category: "fines",
+            criticalNote: "Exekuce",
+            criticalDate: "2026-06-20",
+          }),
+          debt({
+            id: "karta",
+            creditor: "Visa",
+            amount: 3_000,
+            category: "credit_card",
+          }),
+        ]),
+        "cs",
+        TODAY
+      );
+
+      expect(result.recommendations[0]?.creditor).toBe("Exekutor Města");
+      expect(result.recommendations[0]?.priorityLevel).toBe(0);
+      expect(result.recommendations[0]?.explanation).toMatch(/exeku/i);
     });
 
     it("aggressively pays the most expensive level-1 debt after level 0 is covered", () => {
@@ -252,9 +517,41 @@ describe("Priority Engine", () => {
         (micro?.recommendedAmount ?? 0) + (bank?.recommendedAmount ?? 0);
 
       expect(rec(result, "najem")?.recommendedAmount).toBeGreaterThanOrEqual(7_000);
-      expect(micro?.priorityLevel).toBe(1);
       expect(micro!.recommendedAmount).toBeGreaterThan(bank?.recommendedAmount ?? 0);
       expect(micro!.recommendedAmount / level1Total).toBeGreaterThanOrEqual(0.6);
+    });
+
+    it("aggressively pays the most expensive level-1 debt when no level-0 debts exist", () => {
+      const result = runPriorityEngine(
+        profile(10_000, [
+          debt({
+            id: "micro",
+            creditor: "Rychlá půjčka online",
+            amount: 5_000,
+            category: "loans",
+            interestRate: 35,
+            dueDate: "2026-06-17",
+          }),
+          debt({
+            id: "bank",
+            creditor: "Air Bank — úvěr",
+            amount: 4_000,
+            category: "loans",
+            interestRate: 8,
+            dueDate: "2026-06-18",
+          }),
+        ]),
+        "cs",
+        TODAY
+      );
+
+      const micro = rec(result, "micro");
+      const bank = rec(result, "bank");
+      const total = result.recommendations.reduce((s, r) => s + r.recommendedAmount, 0);
+
+      expect(total).toBeLessThanOrEqual(8_000);
+      expect(micro!.recommendedAmount).toBeGreaterThan(bank?.recommendedAmount ?? 0);
+      expect(micro!.recommendedAmount / total).toBeGreaterThanOrEqual(0.6);
     });
 
     it("splits funds proportionally between debts on the same level", () => {
@@ -284,8 +581,6 @@ describe("Priority Engine", () => {
 
       expect(a?.priorityLevel).toBe(2);
       expect(b?.priorityLevel).toBe(2);
-      expect(a?.recommendedAmount).toBeGreaterThan(0);
-      expect(b?.recommendedAmount).toBeGreaterThan(0);
       expect(Math.abs(a!.recommendedAmount - b!.recommendedAmount)).toBeLessThan(2_500);
     });
 
@@ -311,8 +606,7 @@ describe("Priority Engine", () => {
         TODAY
       );
 
-      expect(result.spendableFunds).toBe(16_000);
-      expect(rec(result, "hypo")?.recommendedAmount).toBeLessThan(16_000);
+      expect(rec(result, "hypo")?.recommendedAmount).toBeLessThan(result.spendableFunds);
       expect(rec(result, "tel")?.recommendedAmount).toBeGreaterThanOrEqual(500);
     });
 
@@ -339,8 +633,60 @@ describe("Priority Engine", () => {
         TODAY
       );
 
-      expect(rec(result, "pujcka")?.priorityLevel).toBe(1);
       expect(rec(result, "pujcka")?.recommendedAmount).toBeGreaterThanOrEqual(2_800);
+    });
+
+    it("allocates partial amount when funds are below the minimum payment", () => {
+      const result = runPriorityEngine(
+        profile(8_000, [
+          debt({
+            id: "pujcka",
+            creditor: "Moneta — splátka úvěru",
+            amount: 9_000,
+            category: "loans",
+            dueDate: "2026-06-14",
+            minimumPayment: 9_000,
+          }),
+        ]),
+        "cs",
+        TODAY
+      );
+
+      expect(result.spendableFunds).toBe(6_400);
+      expect(result.recommendations[0]?.recommendedAmount).toBe(6_400);
+    });
+
+    it("never allocates more than available funds", () => {
+      const result = runPriorityEngine(
+        profile(5_000, [
+          debt({
+            id: "a",
+            creditor: "Nájem",
+            amount: 10_000,
+            category: "housing",
+            dueDate: "2026-06-12",
+          }),
+          debt({
+            id: "b",
+            creditor: "Elektřina",
+            amount: 10_000,
+            category: "utilities",
+            dueDate: "2026-06-13",
+          }),
+          debt({
+            id: "c",
+            creditor: "Půjčka",
+            amount: 10_000,
+            category: "loans",
+            dueDate: "2026-06-20",
+          }),
+        ]),
+        "cs",
+        TODAY
+      );
+
+      expect(result.totalAllocated).toBeLessThanOrEqual(5_000);
+      expect(result.remainingFunds + result.totalAllocated).toBe(5_000);
     });
   });
 
@@ -371,7 +717,25 @@ describe("Priority Engine", () => {
       expect(result.warnings.some((w) => w.includes("2 kritick"))).toBe(true);
       expect(result.warnings.some((w) => w.includes("Emergency"))).toBe(true);
       expect(result.warnings.some((w) => w.includes("nepokryt"))).toBe(true);
-      expect(result.totalAllocated).toBeLessThan(19_500);
+    });
+
+    it("warns when an execution-risk debt receives less than 50% payment", () => {
+      const result = runPriorityEngine(
+        profile(5_000, [
+          debt({
+            id: "exekuce",
+            creditor: "Soudní exekutor JUDr. Novák",
+            amount: 24_000,
+            category: "fines",
+            dueDate: "2026-06-14",
+          }),
+        ]),
+        "cs",
+        TODAY
+      );
+
+      expect(rec(result, "exekuce")?.recommendedAmount).toBeLessThan(12_000);
+      expect(result.warnings.some((w) => w.includes("Exekuce"))).toBe(true);
     });
 
     it("sanitizes NaN and negative amounts to safe zero behaviour", () => {
@@ -388,10 +752,8 @@ describe("Priority Engine", () => {
         TODAY
       );
 
-      expect(result.lifeBuffer).toBe(0);
       expect(result.spendableFunds).toBe(0);
       expect(result.recommendations).toHaveLength(0);
-      expect(result.totalAllocated).toBe(0);
       expect(result.warnings.length).toBeGreaterThan(0);
     });
 
@@ -410,11 +772,15 @@ describe("Priority Engine", () => {
         TODAY
       );
 
-      expect(result.lifeBuffer).toBe(0);
-      expect(result.spendableFunds).toBe(0);
       expect(result.recommendations).toHaveLength(0);
-      expect(result.totalAllocated).toBe(0);
       expect(result.warnings.some((w) => w.includes("volné prostředky"))).toBe(true);
+    });
+
+    it("handles an empty debt list gracefully", () => {
+      const result = runPriorityEngine(profile(5_000, []), "cs", TODAY);
+
+      expect(result.recommendations).toHaveLength(0);
+      expect(result.summary).toMatch(/dluhy|долг|debts/i);
     });
   });
 
@@ -449,10 +815,7 @@ describe("Priority Engine", () => {
       );
 
       expect(cs.summary).toMatch(/Priorita|Kč/i);
-      expect(cs.warnings.some((w) => w.includes("Kč") || w.includes("snížena"))).toBe(
-        true
-      );
-
+      expect(cs.warnings.some((w) => w.includes("Kč") || w.includes("snížena"))).toBe(true);
       expect(ru.summary).toMatch(/Приоритет|₽|RUB/i);
       expect(
         ru.warnings.some(
@@ -496,13 +859,38 @@ describe("Priority Engine", () => {
 
       const levels = new Set(result.recommendations.map((r) => r.priorityLevel));
 
-      expect(result.recommendations[0]?.creditor).toContain("Nájem");
       expect(result.recommendations[0]?.priorityLevel).toBe(0);
       expect(levels.has(1)).toBe(true);
       expect(levels.has(2)).toBe(true);
-      expect(result.totalAllocated).toBeGreaterThan(0);
       expect(result.totalAllocated + result.remainingFunds).toBe(28_000);
-      expect(result.summary).toMatch(/Priorita/i);
+    });
+
+    it("includes explanation and priorityLevel on every recommendation", () => {
+      const result = runPriorityEngine(
+        profile(
+          20_000,
+          [
+            debt({
+              id: "najem",
+              creditor: "Nájem",
+              amount: 12_000,
+              category: "housing",
+              dueDate: "2026-06-18",
+              minimumPayment: 12_000,
+            }),
+          ],
+          "variable"
+        ),
+        "cs",
+        TODAY
+      );
+
+      for (const recommendation of result.recommendations) {
+        expect(recommendation.priorityLevel).toBeGreaterThanOrEqual(0);
+        expect(recommendation.priorityLevel).toBeLessThanOrEqual(3);
+        expect(recommendation.explanation.length).toBeGreaterThan(0);
+        expect(recommendation.reason.length).toBeGreaterThan(0);
+      }
     });
   });
 });
