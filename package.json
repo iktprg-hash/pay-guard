@@ -26,6 +26,7 @@
     "db:hint": "node scripts/db-hint.mjs",
     "auth:setup": "node scripts/auth-setup-checklist.mjs",
     "verify:upstash": "node scripts/verify-upstash.mjs",
+    "verify:stripe": "node scripts/verify-stripe.mjs",
     "prod:checklist": "node scripts/prod-checklist.mjs",
     "prod:checklist:strict": "node scripts/prod-checklist.mjs --strict",
     "domain:setup": "node scripts/domain-setup.mjs"
