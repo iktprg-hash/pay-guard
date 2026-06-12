@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { chatWithGrok, GrokUnavailableError, GrokRequestError } from "@/lib/grok/client";
 import { mergeProfileUpdate } from "@/lib/grok/prompts";
+import { assessRecommendationReadiness } from "@/lib/grok/recommendation-readiness";
 import { requireApiUser } from "@/lib/auth/session";
 import { getUserGrokConsent } from "@/lib/auth/grok-consent";
 import {
@@ -14,6 +15,7 @@ import {
   chatRequestSchema,
   normalizeProfile,
 } from "@/lib/validation/schemas";
+import { runPriorityEngine } from "@/services/priorityEngine";
 
 export async function POST(request: NextRequest) {
   const auth = await requireApiUser();
@@ -36,16 +38,51 @@ export async function POST(request: NextRequest) {
     }
 
     const normalizedProfile = normalizeProfile(profile);
+    const lastUserMessage =
+      [...messages].reverse().find((m) => m.role === "user")?.content ?? "";
 
-    const result = await chatWithGrok(messages, normalizedProfile, locale);
+    const preReadiness = assessRecommendationReadiness(normalizedProfile, {
+      lastUserMessage,
+    });
+
+    const engineResult = preReadiness.canRecommend
+      ? runPriorityEngine(normalizedProfile, locale)
+      : null;
+
+    const result = await chatWithGrok(messages, normalizedProfile, locale, {
+      lastUserMessage,
+      engineResult,
+    });
 
     const mergedProfile = result.profileUpdate
       ? mergeProfileUpdate(normalizedProfile, result.profileUpdate)
       : normalizedProfile;
 
+    const postReadiness = assessRecommendationReadiness(mergedProfile, {
+      lastUserMessage,
+    });
+
+    let recommendation = result.recommendation;
+    if (!recommendation && postReadiness.canRecommend) {
+      recommendation = runPriorityEngine(mergedProfile, locale);
+    }
+
+    const readyForRecommendation = postReadiness.canRecommend;
+    const shouldAttachRecommendation =
+      postReadiness.shouldAutoDeliver && recommendation !== null;
+
     return NextResponse.json({
-      ...result,
+      message: result.message,
+      profileUpdate: result.profileUpdate
+        ? { ...result.profileUpdate, readyForRecommendation }
+        : readyForRecommendation
+          ? { readyForRecommendation: true, analysisMode: postReadiness.mode }
+          : null,
+      stage: result.stage,
       profile: mergedProfile,
+      readyForRecommendation,
+      analysisMode: postReadiness.mode,
+      recommendation: shouldAttachRecommendation ? recommendation : null,
     });
   } catch (error) {
     if (error instanceof GrokUnavailableError) {

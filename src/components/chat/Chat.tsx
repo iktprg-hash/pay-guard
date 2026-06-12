@@ -157,30 +157,44 @@ export function Chat() {
 
         const data = await res.json();
 
-        if (data.profileUpdate) {
-          const merged = mergeProfileUpdate(
-            profileRef.current,
-            data.profileUpdate
-          );
-          mergeProfile(merged);
-          profileRef.current = merged;
-          if (
-            data.profileUpdate.readyForRecommendation ||
-            (merged.debts.length > 0 && merged.availableFunds > 0)
-          ) {
-            setCanRecommend(true);
-          }
+        const merged = data.profileUpdate
+          ? mergeProfileUpdate(profileRef.current, data.profileUpdate)
+          : data.profile ?? profileRef.current;
+
+        mergeProfile(merged);
+        profileRef.current = merged;
+
+        if (data.readyForRecommendation) {
+          setCanRecommend(true);
         }
 
-        setMessages((prev) => [
-          ...prev,
+        const assistantMessages: ChatMessage[] = [
           {
             id: generateId(),
             role: "assistant",
             content: data.message,
             timestamp: new Date(),
           },
-        ]);
+        ];
+
+        if (data.recommendation) {
+          await persistRecommendationOffline(
+            locale,
+            merged,
+            data.recommendation as PrioritizationResult,
+            "chat"
+          );
+          assistantMessages.push({
+            id: generateId(),
+            role: "assistant",
+            content: data.recommendation.summary,
+            timestamp: new Date(),
+            recommendation: data.recommendation as PrioritizationResult,
+          });
+          setCanRecommend(false);
+        }
+
+        setMessages((prev) => [...prev, ...assistantMessages]);
       } catch (err) {
         const code = err instanceof Error ? err.message : "";
         const content =

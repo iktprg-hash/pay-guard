@@ -1,19 +1,24 @@
 import type { FinancialProfile } from "@/lib/types/financial";
+import {
+  assessRecommendationReadiness,
+  userWantsFullAnalysis,
+} from "@/lib/grok/recommendation-readiness";
 
-/** Fáze konverzace — řídí aktivní dotazování Grok */
+/** Conversation phase — drives Grok questioning strategy */
 export type ConversationStage =
   | "greeting"
+  | "initial_capture"
   | "debts_overview"
-  | "debt_details"
-  | "income"
   | "available_funds"
-  | "confirmation"
+  | "quick_recommend"
+  | "full_enrichment"
   | "ready";
 
 export interface ConversationState {
   stage: ConversationStage;
   missingFields: string[];
   nextQuestionHint: string;
+  analysisMode: "gathering" | "quick" | "full";
 }
 
 const STAGE_HINTS: Record<
@@ -21,154 +26,184 @@ const STAGE_HINTS: Record<
   Record<"cs" | "ru" | "en", string>
 > = {
   greeting: {
-    cs: "Přivítej uživatele a zeptej se, jaká je jeho finanční situace. Buď vřelý, ale stručný.",
-    ru: "Поприветствуй пользователя и спроси о его финансовой ситуации. Тепло, но кратко.",
-    en: "Greet the user and ask about their financial situation. Be warm but concise.",
+    cs: "Přivítej stručně. Zeptej se hned na dvě věci: kolik peněz má právě teď k dispozici a jaký je nejkritičtější závazek (věřitel + částka + termín, pokud ho zná).",
+    ru: "Кратко поприветствуй. Сразу спроси две вещи: сколько денег доступно сейчас и какое обязательство самое срочное (кредитор + сумма + срок, если знает).",
+    en: "Greet briefly. Immediately ask two things: how much money is available right now and the most urgent obligation (creditor + amount + deadline if known).",
+  },
+  initial_capture: {
+    cs: "Chybí základ — zjisti volné prostředky a alespoň jeden kritický dluh. Neptej se na všechny závazky ani na mzdu.",
+    ru: "Не хватает базы — узнай свободные средства и хотя бы один критический долг. Не спрашивай про все обязательства и зарплату.",
+    en: "Missing basics — get available funds and at least one critical debt. Do not ask for all obligations or salary yet.",
   },
   debts_overview: {
-    cs: "Zeptej se na všechny závazky — nájem, energie, půjčky, pokuty. Požádej o věřitele a částku u každého.",
-    ru: "Спроси обо всех обязательствах — аренда, ЖКХ, кредиты, микрозаймы, штрафы, приставы. Попроси кредитора и сумму в рублях.",
-    en: "Ask about all obligations — rent, utilities, loans, fines. Request creditor and amount for each.",
-  },
-  debt_details: {
-    cs: "Upřesni u závazků splatnost a kritické termíny (např. vystěhování, exekuce). Ptej se na jeden dluh najednou.",
-    ru: "Уточни сроки и критические даты (выселение, ФССП, отключение услуг). Спрашивай по одному долгу.",
-    en: "Clarify due dates and critical deadlines (eviction, enforcement). Ask about one debt at a time.",
-  },
-  income: {
-    cs: "Zeptej se na měsíční příjem a zda je stabilní, nebo kolísá.",
-    ru: "Спроси о месячном доходе и его стабильности.",
-    en: "Ask about monthly income and whether it is stable or variable.",
+    cs: "Uživatel má peníze, ale chybí dluh. Zeptej se jen na nejdůležitější závazek (věřitel, částka, kritický termín).",
+    ru: "Деньги есть, но нет долга. Спроси только о самом важном обязательстве (кредитор, сумма, критический срок).",
+    en: "User has funds but no debt yet. Ask only for the most important obligation (creditor, amount, critical deadline).",
   },
   available_funds: {
-    cs: "Zeptej se, kolik peněz má uživatel právě teď k dispozici na splátky.",
-    ru: "Спроси, сколько денег доступно прямо сейчас на платежи.",
-    en: "Ask how much money the user has available right now for payments.",
+    cs: "Dluh znáš, chybí částka k rozdělení. Zeptej se, kolik peněz má právě teď k dispozici.",
+    ru: "Долг известен, не хватает суммы для распределения. Спроси, сколько денег доступно прямо сейчас.",
+    en: "Debt is known, missing spendable amount. Ask how much money is available right now.",
   },
-  confirmation: {
-    cs: "Shrň nasbírané údaje a ověř, zda je vše správně. Zeptej se, zda něco chybí.",
-    ru: "Подведи итог собранных данных и уточни, всё ли верно.",
-    en: "Summarize collected data and confirm everything is correct.",
+  quick_recommend: {
+    cs: "Máš minimum dat — IHNED dej doporučení podle Priority Engine. Na konci nabídni doplnění dalších dluhů nebo podrobnější plán.",
+    ru: "Есть минимум данных — СРАЗУ дай рекомендацию по Priority Engine. В конце предложи добавить другие долги или детальный план.",
+    en: "You have minimum data — give a recommendation NOW using Priority Engine output. Offer to add more debts or a detailed plan at the end.",
+  },
+  full_enrichment: {
+    cs: "Uživatel chce podrobný plán. Doplň chybějící dluhy nebo příjem, pak aktualizuj doporučení.",
+    ru: "Пользователь хочет подробный план. Дополни недостающие долги или доход, затем обнови рекомендацию.",
+    en: "User wants a detailed plan. Collect missing debts or income, then refresh the recommendation.",
   },
   ready: {
-    cs: "Máš dostatek dat. Shrň situaci empaticky a nabídni přípravu doporučení priorit plateb.",
-    ru: "Достаточно данных. Кратко подведи итог и предложи подготовить рекомендации.",
-    en: "You have enough data. Summarize empathetically and offer to prepare payment priorities.",
+    cs: "Doporučení už bylo — nabídni upřesnění, další dluhy nebo nový výpočet.",
+    ru: "Рекомендация уже дана — предложи уточнения, другие долги или новый расчёт.",
+    en: "Recommendation was given — offer refinements, more debts, or a fresh calculation.",
   },
 };
 
-/** Určí aktuální fázi konverzace podle profilu */
+/** Determine conversation stage from profile + user intent */
 export function detectConversationStage(
-  profile: FinancialProfile
+  profile: FinancialProfile,
+  options?: { lastUserMessage?: string; messageCount?: number }
 ): ConversationStage {
-  if (profile.debts.length === 0) return "debts_overview";
+  const messageCount = options?.messageCount ?? 0;
+  const lastUserMessage = options?.lastUserMessage ?? "";
+  const readiness = assessRecommendationReadiness(profile, { lastUserMessage });
 
-  const hasIncompleteDebt = profile.debts.some(
-    (d) => !d.dueDate && !d.criticalDate
-  );
-  if (hasIncompleteDebt) return "debt_details";
+  if (messageCount <= 1) return "greeting";
 
-  if (!profile.monthlyIncome && !profile.incomeStability) return "income";
-
-  if (!profile.availableFunds || profile.availableFunds <= 0) {
-    return "available_funds";
+  if (readiness.canRecommend) {
+    return readiness.mode === "full" ? "full_enrichment" : "quick_recommend";
   }
 
-  if (profile.debts.length > 0 && profile.availableFunds > 0) {
-    return "ready";
+  const hasFunds = profile.availableFunds > 0;
+  const hasDebts = profile.debts.some((d) => d.creditor && d.amount > 0);
+
+  if (!hasFunds && !hasDebts) return "initial_capture";
+  if (!hasDebts) return "debts_overview";
+  if (!hasFunds) return "available_funds";
+
+  if (userWantsFullAnalysis(lastUserMessage) && readiness.shouldAskIncome) {
+    return "full_enrichment";
   }
 
-  return "confirmation";
+  return "initial_capture";
 }
 
-/** Vrátí chybějící pole pro aktivní dotazování */
-export function getMissingFields(profile: FinancialProfile): string[] {
+/** Missing fields — only what blocks the current mode */
+export function getMissingFields(
+  profile: FinancialProfile,
+  options?: { lastUserMessage?: string }
+): string[] {
   const missing: string[] = [];
+  const readiness = assessRecommendationReadiness(profile, options);
 
-  if (profile.debts.length === 0) {
-    missing.push("debts");
-    return missing;
-  }
+  if (readiness.canRecommend) return missing;
 
-  for (const debt of profile.debts) {
-    if (!debt.creditor) missing.push(`debt.${debt.id}.creditor`);
-    if (!debt.amount) missing.push(`debt.${debt.id}.amount`);
-    if (!debt.dueDate && !debt.criticalDate) {
-      missing.push(`debt.${debt.id}.dates`);
-    }
-  }
-
-  if (!profile.monthlyIncome) missing.push("monthlyIncome");
-  if (!profile.incomeStability) missing.push("incomeStability");
   if (!profile.availableFunds || profile.availableFunds <= 0) {
     missing.push("availableFunds");
+  }
+
+  if (!profile.debts.some((d) => d.creditor && d.amount > 0)) {
+    missing.push("debts");
+  }
+
+  if (readiness.shouldAskIncome && !profile.monthlyIncome) {
+    missing.push("monthlyIncome");
   }
 
   return missing;
 }
 
-/** Stav konverzace pro system prompt */
 export function buildConversationState(
   profile: FinancialProfile,
-  locale: "cs" | "ru" | "en"
+  locale: "cs" | "ru" | "en",
+  options?: { lastUserMessage?: string; messageCount?: number }
 ): ConversationState {
-  const stage = detectConversationStage(profile);
-  const missingFields = getMissingFields(profile);
+  const stage = detectConversationStage(profile, options);
+  const readiness = assessRecommendationReadiness(profile, options);
+  const missingFields = getMissingFields(profile, options);
 
   return {
     stage,
     missingFields,
     nextQuestionHint: STAGE_HINTS[stage][locale],
+    analysisMode: readiness.mode,
   };
 }
 
-/** Kontext fáze pro Grok system prompt */
 export function buildStageContext(
   profile: FinancialProfile,
   locale: "cs" | "ru" | "en",
-  messageCount: number
+  messageCount: number,
+  lastUserMessage?: string
 ): string {
-  const state = buildConversationState(profile, locale);
+  const state = buildConversationState(profile, locale, {
+    lastUserMessage,
+    messageCount,
+  });
+  const readiness = assessRecommendationReadiness(profile, { lastUserMessage });
 
   const frame = {
     cs: {
       phase: "FÁZE",
-      greeting: "FÁZE: greeting",
+      mode: "REŽIM",
       task: "ÚKOL",
-      missing: "CHYBĚJÍCÍ ÚDAJE",
-      none: "žádné",
-      next: "DALŠÍ OTÁZKA (polož ji přirozeně v odpovědi)",
+      missing: "CHYBÍ",
+      none: "nic kritického",
+      critical: "KRITICKÝ DLUH",
+      yes: "ano",
+      no: "ne",
+      quick: "rychlý (minimum dat)",
+      full: "plný (podrobný plán)",
+      gathering: "sběr dat",
     },
     ru: {
       phase: "ЭТАП",
-      greeting: "ЭТАП: greeting",
+      mode: "РЕЖИМ",
       task: "ЗАДАЧА",
-      missing: "НЕ ХВАТАЕТ ДАННЫХ",
-      none: "ничего",
-      next: "СЛЕДУЮЩИЙ ВОПРОС (задай естественно в ответе)",
+      missing: "НЕ ХВАТАЕТ",
+      none: "ничего критичного",
+      critical: "КРИТИЧЕСКИЙ ДОЛГ",
+      yes: "да",
+      no: "нет",
+      quick: "быстрый (минимум данных)",
+      full: "полный (детальный план)",
+      gathering: "сбор данных",
     },
     en: {
       phase: "STAGE",
-      greeting: "STAGE: greeting",
+      mode: "MODE",
       task: "TASK",
-      missing: "MISSING FIELDS",
-      none: "none",
-      next: "NEXT QUESTION (ask naturally in your reply)",
+      missing: "MISSING",
+      none: "nothing critical",
+      critical: "CRITICAL DEBT",
+      yes: "yes",
+      no: "no",
+      quick: "quick (minimum data)",
+      full: "full (detailed plan)",
+      gathering: "gathering data",
     },
   }[locale];
 
-  const phaseLine =
-    locale === "ru"
-      ? `${frame.phase} РАЗГОВОРА`
-      : locale === "en"
-        ? frame.phase
-        : `${frame.phase} KONVERZACE`;
+  const modeLabel =
+    readiness.mode === "quick"
+      ? frame.quick
+      : readiness.mode === "full"
+        ? frame.full
+        : frame.gathering;
 
   if (messageCount <= 1) {
-    return `${frame.greeting}\n${frame.task}: ${STAGE_HINTS.greeting[locale]}`;
+    return `${frame.phase}: greeting
+${frame.mode}: ${modeLabel}
+${frame.task}: ${STAGE_HINTS.greeting[locale]}`;
   }
 
-  return `${phaseLine}: ${state.stage}
+  return `${frame.phase}: ${state.stage}
+${frame.mode}: ${modeLabel}
+${frame.critical}: ${readiness.hasCriticalDebt ? frame.yes : frame.no}
 ${frame.missing}: ${state.missingFields.length ? state.missingFields.join(", ") : frame.none}
-${frame.next}: ${state.nextQuestionHint}`;
+CAN_RECOMMEND_NOW: ${readiness.canRecommend ? "yes" : "no"}
+${frame.task}: ${state.nextQuestionHint}`;
 }

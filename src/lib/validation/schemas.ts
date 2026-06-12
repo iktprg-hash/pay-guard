@@ -96,6 +96,7 @@ export const grokProfileUpdateSchema = z.object({
   incomeStability: z.enum(INCOME_STABILITY).nullish(),
   debts: z.array(grokDebtUpdateSchema).max(50).optional(),
   readyForRecommendation: z.boolean().optional(),
+  analysisMode: z.enum(["quick", "full"]).nullish(),
 });
 
 export type GrokProfileUpdate = z.infer<typeof grokProfileUpdateSchema>;

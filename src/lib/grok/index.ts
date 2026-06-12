@@ -13,3 +13,10 @@ export {
   type ConversationStage,
   type ConversationState,
 } from "./conversation";
+export {
+  assessRecommendationReadiness,
+  profileHasCriticalDebt,
+  type AnalysisMode,
+  type ReadinessAssessment,
+} from "./recommendation-readiness";
+export { buildEngineContext } from "./prompts";
