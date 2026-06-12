@@ -45,7 +45,10 @@ async function handleCheckoutCompleted(
 
   const stripe = getStripeClient();
   const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-  await applyStripeSubscriptionToUser(userId, subscription);
+  const applied = await applyStripeSubscriptionToUser(userId, subscription);
+  if (!applied) {
+    throw new Error("Failed to update profile subscription");
+  }
 }
 
 async function handleSubscriptionEvent(
@@ -60,7 +63,10 @@ async function handleSubscriptionEvent(
     return;
   }
 
-  await applyStripeSubscriptionToUser(userId, subscription);
+  const applied = await applyStripeSubscriptionToUser(userId, subscription);
+  if (!applied) {
+    throw new Error("Failed to update profile subscription");
+  }
 }
 
 /** Stripe webhook — updates profiles.subscription_* via service role. */

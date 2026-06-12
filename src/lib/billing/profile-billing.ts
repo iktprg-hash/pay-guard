@@ -43,7 +43,12 @@ export async function applyProfileSubscriptionPatch(
     .update(profilePatchToRow(patch))
     .eq("id", userId);
 
-  return !error;
+  if (error) {
+    console.error("[billing] profile update failed:", error.message);
+    return false;
+  }
+
+  return true;
 }
 
 export async function applyStripeSubscriptionToUser(

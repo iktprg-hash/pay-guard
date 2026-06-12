@@ -29,6 +29,7 @@ export function SubscriptionCard({ billingEnabled }: SubscriptionCardProps) {
   const { user, loading: authLoading } = useAuth();
   const { pro, loading: tierLoading } = useSubscriptionTier();
   const [portalLoading, setPortalLoading] = useState(false);
+  const [syncLoading, setSyncLoading] = useState(false);
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
 
   useEffect(() => {
@@ -40,6 +41,26 @@ export function SubscriptionCard({ billingEnabled }: SubscriptionCardProps) {
       })
       .catch(() => {});
   }, [user]);
+
+  const syncSubscription = async () => {
+    setSyncLoading(true);
+    try {
+      const res = await fetch("/api/billing/sync", {
+        method: "POST",
+        credentials: "include",
+      });
+      if (res.ok) {
+        toast(t("syncSuccess"), "success");
+        window.location.reload();
+        return;
+      }
+      toast(tToast("syncFailed"), "error");
+    } catch {
+      toast(tToast("syncFailed"), "error");
+    } finally {
+      setSyncLoading(false);
+    }
+  };
 
   const openPortal = async () => {
     setPortalLoading(true);
@@ -116,9 +137,22 @@ export function SubscriptionCard({ billingEnabled }: SubscriptionCardProps) {
         </div>
 
         {!pro && billingEnabled && (
-          <Button asChild className="w-full sm:w-auto">
-            <Link href={`/${locale}/pricing`}>{t("upgrade")}</Link>
-          </Button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button asChild className="w-full sm:w-auto">
+              <Link href={`/${locale}/pricing`}>{t("upgrade")}</Link>
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto"
+              disabled={syncLoading}
+              onClick={() => void syncSubscription()}
+            >
+              {syncLoading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              {t("syncSubscription")}
+            </Button>
+          </div>
         )}
 
         {pro && billingEnabled && (

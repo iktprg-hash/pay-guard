@@ -176,7 +176,9 @@
     "manage": "Spravovat předplatné",
     "loginHint": "Přihlaste se pro správu tarifu.",
     "login": "Přihlásit se",
-    "renewsAt": "Obnovení {date}"
+    "renewsAt": "Obnovení {date}",
+    "syncSubscription": "Obnovit stav Pro",
+    "syncSuccess": "Pro tarif byl aktivován"
   },
   "footer": {
     "disclaimer": "Pay Guard nenahrazuje finančního poradce, právníka ani insolvenčního správce. Doporučení slouží pouze k orientaci."

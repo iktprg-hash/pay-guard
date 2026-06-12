@@ -176,7 +176,9 @@
     "manage": "Manage subscription",
     "loginHint": "Sign in to manage your plan.",
     "login": "Sign in",
-    "renewsAt": "Renews {date}"
+    "renewsAt": "Renews {date}",
+    "syncSubscription": "Restore Pro status",
+    "syncSuccess": "Pro subscription activated"
   },
   "footer": {
     "disclaimer": "Pay Guard does not replace a financial or legal advisor. Recommendations are indicative."

@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
           supabase_user_id: auth.user.id,
         },
       },
-      success_url: `${origin}/${locale}/pricing?checkout=success`,
+      success_url: `${origin}/${locale}/pricing?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/${locale}/pricing?checkout=cancelled`,
     };
 
