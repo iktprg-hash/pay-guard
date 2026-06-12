@@ -418,23 +418,25 @@ describe("runPriorityEngine", () => {
     expect(result.recommendations[0].priorityLevel).toBe(0);
   });
 
-  it("proporcionálně rozdělí peníze mezi dva dluhy úrovně 1", () => {
+  it("alokuje většinu prostředků na dražší dluh úrovně 1", () => {
     const result = runPriorityEngine(
       profile(
         10000,
         [
           debt({
-            id: "a",
-            creditor: "Air Bank — úvěr",
-            amount: 4000,
+            id: "micro",
+            creditor: "Rychlá půjčka online",
+            amount: 5000,
             category: "loans",
+            interestRate: 35,
             dueDate: "2026-06-17",
           }),
           debt({
-            id: "b",
-            creditor: "Moneta — půjčka",
-            amount: 3000,
+            id: "bank",
+            creditor: "Air Bank — úvěr",
+            amount: 4000,
             category: "loans",
+            interestRate: 8,
             dueDate: "2026-06-18",
           }),
         ],
@@ -444,15 +446,17 @@ describe("runPriorityEngine", () => {
       TODAY
     );
 
+    const micro = result.recommendations.find((r) => r.debtId === "micro");
+    const bank = result.recommendations.find((r) => r.debtId === "bank");
     const total = result.recommendations.reduce(
       (s, r) => s + r.recommendedAmount,
       0
     );
+
     expect(total).toBeLessThanOrEqual(8000);
-    expect(result.recommendations).toHaveLength(2);
-    expect(result.recommendations.every((r) => r.explanation.length > 10)).toBe(
-      true
-    );
+    expect(micro?.recommendedAmount).toBeGreaterThan(0);
+    expect(micro!.recommendedAmount).toBeGreaterThan(bank?.recommendedAmount ?? 0);
+    expect(micro!.recommendedAmount / total).toBeGreaterThanOrEqual(0.6);
   });
 
   it("nepřekročí disponibilní prostředky", () => {
@@ -762,5 +766,49 @@ describe("Priority Engine — additional CZ scenarios", () => {
     expect(result.lifeBufferPercent).toBe(0.08);
     expect(result.lifeBuffer).toBe(640);
     expect(result.warnings.some((w) => w.includes("Emergency"))).toBe(true);
+  });
+
+  it("prioritises expensive level-1 debt after level-0 critical debts are covered", () => {
+    const result = runPriorityEngine(
+      profile(
+        15_000,
+        [
+          debt({
+            id: "rent",
+            creditor: "Nájem",
+            amount: 8_000,
+            category: "housing",
+            criticalDate: "2026-06-12",
+          }),
+          debt({
+            id: "micro",
+            creditor: "SMS půjčka",
+            amount: 4_000,
+            category: "loans",
+            interestRate: 40,
+            dueDate: "2026-06-17",
+          }),
+          debt({
+            id: "bank",
+            creditor: "Moneta — úvěr",
+            amount: 3_000,
+            category: "loans",
+            interestRate: 9,
+            dueDate: "2026-06-18",
+          }),
+        ],
+        "stable"
+      ),
+      "cs",
+      TODAY
+    );
+
+    const rent = result.recommendations.find((r) => r.debtId === "rent");
+    const micro = result.recommendations.find((r) => r.debtId === "micro");
+    const bank = result.recommendations.find((r) => r.debtId === "bank");
+
+    expect(rent?.recommendedAmount).toBeGreaterThanOrEqual(7_000);
+    expect(micro?.recommendedAmount).toBeGreaterThan(0);
+    expect(micro!.recommendedAmount).toBeGreaterThan(bank?.recommendedAmount ?? 0);
   });
 });

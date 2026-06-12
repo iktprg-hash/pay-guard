@@ -18,7 +18,8 @@
  *
  * Life buffer: 20–35 % (standard) nebo 8–12 % při kritickém dluhu a
  * `availableFunds < 15 000` (emergency režim při ≥2 dluzích úrovně 0).
- * Alokace: min. splátky (0–1) → level 0 prioritně dle termínu → proporcionálně 1→3.
+ * Alokace: min. splátky (0–1) → level 0 dle termínu → level 1 dle ceny peněz
+ * (60–80 % na nejdražší) → proporcionálně 2→3.
  *
  * ## Historie vylepšení
  *
@@ -33,6 +34,8 @@
  * - **2026-06-12 (level-0 rozhodnost)** — prioritní alokace u úrovně 0 dle
  *   nejbližšího termínu; 70–100 % u ultra-urgent (≤5 dní); buffer 8–12 %
  *   v emergency režimu (≥2 kritické dluhy + nízké prostředky).
+ * - **2026-06-12 (level-1 rozhodnost)** — po úrovni 0 směřuje 60–80 % poolu
+ *   na nejdražší dluh (úrok + prodlení + mikropůjčky); greedy dle ceny peněz.
  *
  * ## Exportované API
  *
@@ -81,6 +84,14 @@ type PriorityConstantsShape = {
   readonly EMERGENCY_LEVEL0_DEBT_COUNT: number;
   readonly LEVEL0_URGENT_DEADLINE_DAYS: number;
   readonly LEVEL0_URGENT_MIN_COVERAGE: number;
+  readonly LEVEL1_AGGRESSIVE_SHARE_MIN: number;
+  readonly LEVEL1_AGGRESSIVE_SHARE_MAX: number;
+  readonly LEVEL1_COST_OVERDUE_PENALTY: number;
+  readonly LEVEL1_DEFAULT_RATE_LOANS: number;
+  readonly LEVEL1_DEFAULT_RATE_CREDIT_CARD: number;
+  readonly LEVEL1_DEFAULT_RATE_OTHER: number;
+  readonly LEVEL1_MICROLOAN_RATE_BONUS: number;
+  readonly MICROLOAN_KEYWORDS: RegExp;
   readonly ALLOCATION_DEBT_CAP: number;
   readonly MIN_ALLOCATION_WEIGHT: number;
 };
@@ -118,6 +129,15 @@ export const PRIORITY_CONSTANTS = {
   EMERGENCY_LEVEL0_DEBT_COUNT: 2,
   LEVEL0_URGENT_DEADLINE_DAYS: 5,
   LEVEL0_URGENT_MIN_COVERAGE: 0.7,
+  LEVEL1_AGGRESSIVE_SHARE_MIN: 0.6,
+  LEVEL1_AGGRESSIVE_SHARE_MAX: 0.8,
+  LEVEL1_COST_OVERDUE_PENALTY: 30,
+  LEVEL1_DEFAULT_RATE_LOANS: 12,
+  LEVEL1_DEFAULT_RATE_CREDIT_CARD: 22,
+  LEVEL1_DEFAULT_RATE_OTHER: 5,
+  LEVEL1_MICROLOAN_RATE_BONUS: 35,
+  MICROLOAN_KEYWORDS:
+    /mikro|payday|rychl|fast.?loan|online.?půj|sms.?půj|mini.?půj|займ|микрозайм|быстр.*займ/i,
   ALLOCATION_DEBT_CAP: 50_000,
   MIN_ALLOCATION_WEIGHT: 5,
 } as const satisfies PriorityConstantsShape;
@@ -794,6 +814,127 @@ function allocateLevel0Pool(
   return remaining;
 }
 
+/** Odhad efektivní sazby dle kategorie, pokud není uvedena. */
+function defaultInterestRateForCategory(category: DebtCategory): number {
+  switch (category) {
+    case "credit_card":
+      return PRIORITY_CONSTANTS.LEVEL1_DEFAULT_RATE_CREDIT_CARD;
+    case "loans":
+      return PRIORITY_CONSTANTS.LEVEL1_DEFAULT_RATE_LOANS;
+    default:
+      return PRIORITY_CONSTANTS.LEVEL1_DEFAULT_RATE_OTHER;
+  }
+}
+
+function isMicroloanDebt(debt: Debt): boolean {
+  const text = `${debt.creditor} ${debt.notes ?? ""}`;
+  return PRIORITY_CONSTANTS.MICROLOAN_KEYWORDS.test(text);
+}
+
+/**
+ * Skóre „ceny peněz“ pro řazení dluhů úrovně 1 — vyšší = dražší dluh.
+ * Kombinuje úrok, prodlení a signály mikropůjčky.
+ */
+function level1CostScore(analysis: DebtAnalysis): number {
+  const { debt, daysToDue } = analysis;
+  let rate = debt.interestRate ?? defaultInterestRateForCategory(debt.category);
+
+  if (isMicroloanDebt(debt)) {
+    rate += PRIORITY_CONSTANTS.LEVEL1_MICROLOAN_RATE_BONUS;
+  }
+
+  if (daysToDue !== null && daysToDue < 0) {
+    rate += PRIORITY_CONSTANTS.LEVEL1_COST_OVERDUE_PENALTY;
+  }
+
+  return rate;
+}
+
+/** Seřadí dluhy úrovně 1: nejdražší dluh první, pak urgencyScore. */
+function sortLevel1ByCost(items: readonly AllocationState[]): AllocationState[] {
+  return [...items].sort((a, b) => {
+    const costDiff = level1CostScore(b.analysis) - level1CostScore(a.analysis);
+    if (costDiff !== 0) return costDiff;
+    return b.analysis.urgencyScore - a.analysis.urgencyScore;
+  });
+}
+
+/** Podíl poolu pro nejdražší dluh — 60–80 % dle rozdílu v ceně peněz. */
+function resolveLevel1AggressiveShare(
+  topCost: number,
+  secondCost: number
+): number {
+  if (secondCost <= 0) return 1;
+
+  const ratio = topCost / secondCost;
+  if (ratio >= 2) return PRIORITY_CONSTANTS.LEVEL1_AGGRESSIVE_SHARE_MAX;
+  if (ratio >= 1.5) {
+    return (
+      (PRIORITY_CONSTANTS.LEVEL1_AGGRESSIVE_SHARE_MIN +
+        PRIORITY_CONSTANTS.LEVEL1_AGGRESSIVE_SHARE_MAX) /
+      2
+    );
+  }
+  return PRIORITY_CONSTANTS.LEVEL1_AGGRESSIVE_SHARE_MIN;
+}
+
+/**
+ * Alokace poolu pro úroveň 1 — prioritně nejdražší dluh, ne rovnoměrné dělení.
+ *
+ * 1. Agresivní podíl 60–80 % poolu na nejdražší dluh (úrok + prodlení + mikropůjčka)
+ * 2. Greedy dle ceny peněz: další dluhy až po vyčerpání prioritního
+ * 3. Proporcionální zbytek (edge case)
+ */
+function allocateLevel1Pool(
+  levelItems: readonly AllocationState[],
+  pool: number,
+  stateById: Map<string, AllocationState>,
+  allocations: Map<string, number>,
+  levelPools: Map<PriorityLevel, number>
+): number {
+  let remaining = sanitizeAmount(pool);
+  const active = levelItems.filter((item) => item.stillOwed > 0);
+  if (remaining <= 0 || active.length === 0) return remaining;
+
+  const sorted = sortLevel1ByCost(active);
+
+  if (sorted.length >= 2) {
+    const topCost = level1CostScore(sorted[0].analysis);
+    const secondCost = level1CostScore(sorted[1].analysis);
+    const share = resolveLevel1AggressiveShare(topCost, secondCost);
+    const target = roundMoney(remaining * share);
+    const topState = sorted[0];
+
+    const pay = Math.min(topState.stillOwed, target, remaining);
+    remaining -= applyAllocationToState(
+      topState,
+      pay,
+      allocations,
+      levelPools
+    );
+  }
+
+  for (const state of sorted) {
+    if (remaining <= 0) break;
+    if (state.stillOwed <= 0) continue;
+
+    const pay = Math.min(state.stillOwed, remaining);
+    remaining -= applyAllocationToState(state, pay, allocations, levelPools);
+  }
+
+  const unpaid = sorted.filter((item) => item.stillOwed > 0);
+  if (remaining > 0 && unpaid.length > 0) {
+    const levelAlloc = allocateProportionally(unpaid, remaining);
+    for (const [debtId, amount] of levelAlloc) {
+      const state = stateById.get(debtId);
+      if (!state) continue;
+      remaining -= applyAllocationToState(state, amount, allocations, levelPools);
+    }
+  }
+
+  return remaining;
+}
+
 function applyAllocationToState(
   state: AllocationState,
   amount: number,
@@ -867,13 +1008,26 @@ function applyProportionalByLevel(
     const pool = Math.min(remaining, totalOwed);
 
     if (level === 0) {
-      remaining = allocateLevel0Pool(
+      const poolRemaining = allocateLevel0Pool(
         levelItems,
         pool,
         stateById,
         allocations,
         levelPools
       );
+      remaining -= pool - poolRemaining;
+      continue;
+    }
+
+    if (level === 1) {
+      const poolRemaining = allocateLevel1Pool(
+        levelItems,
+        pool,
+        stateById,
+        allocations,
+        levelPools
+      );
+      remaining -= pool - poolRemaining;
       continue;
     }
 
