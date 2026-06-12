@@ -518,16 +518,16 @@ describe("Priority Engine", () => {
 
       expect(rec(result, "najem")?.recommendedAmount).toBeGreaterThanOrEqual(7_000);
       expect(micro!.recommendedAmount).toBeGreaterThan(bank?.recommendedAmount ?? 0);
-      expect(micro!.recommendedAmount / level1Total).toBeGreaterThanOrEqual(0.6);
+      expect(micro!.recommendedAmount / level1Total).toBeGreaterThanOrEqual(0.7);
     });
 
     it("aggressively pays the most expensive level-1 debt when no level-0 debts exist", () => {
       const result = runPriorityEngine(
-        profile(10_000, [
+        profile(12_000, [
           debt({
             id: "micro",
             creditor: "Rychlá půjčka online",
-            amount: 5_000,
+            amount: 7_000,
             category: "loans",
             interestRate: 35,
             dueDate: "2026-06-17",
@@ -547,11 +547,12 @@ describe("Priority Engine", () => {
 
       const micro = rec(result, "micro");
       const bank = rec(result, "bank");
-      const total = result.recommendations.reduce((s, r) => s + r.recommendedAmount, 0);
+      const level1Total =
+        (micro?.recommendedAmount ?? 0) + (bank?.recommendedAmount ?? 0);
 
-      expect(total).toBeLessThanOrEqual(8_000);
+      expect(result.spendableFunds).toBe(9_600);
       expect(micro!.recommendedAmount).toBeGreaterThan(bank?.recommendedAmount ?? 0);
-      expect(micro!.recommendedAmount / total).toBeGreaterThanOrEqual(0.6);
+      expect(micro!.recommendedAmount / level1Total).toBeGreaterThanOrEqual(0.7);
     });
 
     it("splits funds proportionally between debts on the same level", () => {

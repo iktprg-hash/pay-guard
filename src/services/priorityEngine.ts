@@ -16,10 +16,10 @@
  * | 2      | Střední  | Splatnost ≤30 dní, esenciál bez data                 |
  * | 3      | Nízký    | Ostatní                                              |
  *
- * Life buffer: 20–35 % (standard) nebo 8–12 % při kritickém dluhu a
+ * Life buffer: 20–35 % (standard) nebo 8–10 % při kritickém dluhu a
  * `availableFunds < 15 000` (emergency režim při ≥2 dluzích úrovně 0).
  * Alokace: min. splátky (0–1) → level 0 dle termínu → level 1 dle ceny peněz
- * (60–80 % na nejdražší) → proporcionálně 2→3.
+ * (70–90 % mikropůjčky, 50–70 % běžné úvěry) → proporcionálně 2→3.
  *
  * ## Historie vylepšení
  *
@@ -36,6 +36,8 @@
  *   v emergency režimu (≥2 kritické dluhy + nízké prostředky).
  * - **2026-06-12 (level-1 rozhodnost)** — po úrovni 0 směřuje 60–80 % poolu
  *   na nejdražší dluh (úrok + prodlení + mikropůjčky); greedy dle ceny peněz.
+ * - **2026-06-12 (level-1 mikropůjčky)** — 70–90 % poolu u mikropůjček (>30 %
+ *   nebo SMS/rychlá půjčka); 50–70 % u běžných úvěrů; emergency buffer max 10 %.
  *
  * ## Exportované API
  *
@@ -84,8 +86,11 @@ type PriorityConstantsShape = {
   readonly EMERGENCY_LEVEL0_DEBT_COUNT: number;
   readonly LEVEL0_URGENT_DEADLINE_DAYS: number;
   readonly LEVEL0_URGENT_MIN_COVERAGE: number;
-  readonly LEVEL1_AGGRESSIVE_SHARE_MIN: number;
-  readonly LEVEL1_AGGRESSIVE_SHARE_MAX: number;
+  readonly LEVEL1_MICROLOAN_SHARE_MIN: number;
+  readonly LEVEL1_MICROLOAN_SHARE_MAX: number;
+  readonly LEVEL1_REGULAR_SHARE_MIN: number;
+  readonly LEVEL1_REGULAR_SHARE_MAX: number;
+  readonly LEVEL1_HIGH_INTEREST_THRESHOLD: number;
   readonly LEVEL1_COST_OVERDUE_PENALTY: number;
   readonly LEVEL1_DEFAULT_RATE_LOANS: number;
   readonly LEVEL1_DEFAULT_RATE_CREDIT_CARD: number;
@@ -118,26 +123,29 @@ export const PRIORITY_CONSTANTS = {
   BUFFER_UNCERTAIN: 0.35,
   BUFFER_DEFAULT: 0.25,
   BUFFER_CRITICAL_LOW_STABLE: 0.08,
-  BUFFER_CRITICAL_LOW_VARIABLE: 0.1,
-  BUFFER_CRITICAL_LOW_UNCERTAIN: 0.12,
-  BUFFER_CRITICAL_LOW_DEFAULT: 0.1,
+  BUFFER_CRITICAL_LOW_VARIABLE: 0.09,
+  BUFFER_CRITICAL_LOW_UNCERTAIN: 0.1,
+  BUFFER_CRITICAL_LOW_DEFAULT: 0.09,
   BUFFER_EMERGENCY_STABLE: 0.08,
-  BUFFER_EMERGENCY_VARIABLE: 0.1,
-  BUFFER_EMERGENCY_UNCERTAIN: 0.12,
-  BUFFER_EMERGENCY_DEFAULT: 0.1,
+  BUFFER_EMERGENCY_VARIABLE: 0.09,
+  BUFFER_EMERGENCY_UNCERTAIN: 0.1,
+  BUFFER_EMERGENCY_DEFAULT: 0.09,
   LOW_FUNDS_CRITICAL_BUFFER_THRESHOLD: 15_000,
   EMERGENCY_LEVEL0_DEBT_COUNT: 2,
   LEVEL0_URGENT_DEADLINE_DAYS: 5,
   LEVEL0_URGENT_MIN_COVERAGE: 0.7,
-  LEVEL1_AGGRESSIVE_SHARE_MIN: 0.6,
-  LEVEL1_AGGRESSIVE_SHARE_MAX: 0.8,
+  LEVEL1_MICROLOAN_SHARE_MIN: 0.7,
+  LEVEL1_MICROLOAN_SHARE_MAX: 0.9,
+  LEVEL1_REGULAR_SHARE_MIN: 0.5,
+  LEVEL1_REGULAR_SHARE_MAX: 0.7,
+  LEVEL1_HIGH_INTEREST_THRESHOLD: 30,
   LEVEL1_COST_OVERDUE_PENALTY: 30,
   LEVEL1_DEFAULT_RATE_LOANS: 12,
   LEVEL1_DEFAULT_RATE_CREDIT_CARD: 22,
   LEVEL1_DEFAULT_RATE_OTHER: 5,
   LEVEL1_MICROLOAN_RATE_BONUS: 35,
   MICROLOAN_KEYWORDS:
-    /mikro|payday|rychl|fast.?loan|online.?půj|sms.?půj|mini.?půj|займ|микрозайм|быстр.*займ/i,
+    /mikro|payday|rychl|fast.?loan|online.?půj|sms|mini.?půj|z[aá]jm|půjč|займ|микрозайм|быстр.*займ/i,
   ALLOCATION_DEBT_CAP: 50_000,
   MIN_ALLOCATION_WEIGHT: 5,
 } as const satisfies PriorityConstantsShape;
@@ -831,20 +839,37 @@ function isMicroloanDebt(debt: Debt): boolean {
   return PRIORITY_CONSTANTS.MICROLOAN_KEYWORDS.test(text);
 }
 
+/** Mikropůjčka dle sazby (>30 %) nebo klíčových slov v názvu/poznámce. */
+function isHighCostMicroloan(debt: Debt): boolean {
+  if (
+    debt.interestRate !== undefined &&
+    debt.interestRate > PRIORITY_CONSTANTS.LEVEL1_HIGH_INTEREST_THRESHOLD
+  ) {
+    return true;
+  }
+  return isMicroloanDebt(debt);
+}
+
 /**
  * Skóre „ceny peněz“ pro řazení dluhů úrovně 1 — vyšší = dražší dluh.
- * Kombinuje úrok, prodlení a signály mikropůjčky.
+ * Kombinuje úrok, prodlení, vysokou sazbu a signály mikropůjčky.
  */
 function level1CostScore(analysis: DebtAnalysis): number {
   const { debt, daysToDue } = analysis;
   let rate = debt.interestRate ?? defaultInterestRateForCategory(debt.category);
 
-  if (isMicroloanDebt(debt)) {
+  if (isHighCostMicroloan(debt)) {
     rate += PRIORITY_CONSTANTS.LEVEL1_MICROLOAN_RATE_BONUS;
+  } else if (
+    debt.interestRate !== undefined &&
+    debt.interestRate > PRIORITY_CONSTANTS.LEVEL1_HIGH_INTEREST_THRESHOLD
+  ) {
+    rate += debt.interestRate - PRIORITY_CONSTANTS.LEVEL1_HIGH_INTEREST_THRESHOLD;
   }
 
   if (daysToDue !== null && daysToDue < 0) {
     rate += PRIORITY_CONSTANTS.LEVEL1_COST_OVERDUE_PENALTY;
+    rate += Math.min(20, Math.abs(daysToDue) * 2);
   }
 
   return rate;
@@ -859,29 +884,35 @@ function sortLevel1ByCost(items: readonly AllocationState[]): AllocationState[] 
   });
 }
 
-/** Podíl poolu pro nejdražší dluh — 60–80 % dle rozdílu v ceně peněz. */
+/**
+ * Podíl poolu pro nejdražší dluh — 70–90 % mikropůjčka, 50–70 % běžný úvěr.
+ * Vyšší podíl při větším rozdílu v ceně peněz.
+ */
 function resolveLevel1AggressiveShare(
-  topCost: number,
+  topState: AllocationState,
   secondCost: number
 ): number {
+  const topCost = level1CostScore(topState.analysis);
+  const microloan = isHighCostMicroloan(topState.analysis.debt);
+  const minShare = microloan
+    ? PRIORITY_CONSTANTS.LEVEL1_MICROLOAN_SHARE_MIN
+    : PRIORITY_CONSTANTS.LEVEL1_REGULAR_SHARE_MIN;
+  const maxShare = microloan
+    ? PRIORITY_CONSTANTS.LEVEL1_MICROLOAN_SHARE_MAX
+    : PRIORITY_CONSTANTS.LEVEL1_REGULAR_SHARE_MAX;
+
   if (secondCost <= 0) return 1;
 
   const ratio = topCost / secondCost;
-  if (ratio >= 2) return PRIORITY_CONSTANTS.LEVEL1_AGGRESSIVE_SHARE_MAX;
-  if (ratio >= 1.5) {
-    return (
-      (PRIORITY_CONSTANTS.LEVEL1_AGGRESSIVE_SHARE_MIN +
-        PRIORITY_CONSTANTS.LEVEL1_AGGRESSIVE_SHARE_MAX) /
-      2
-    );
-  }
-  return PRIORITY_CONSTANTS.LEVEL1_AGGRESSIVE_SHARE_MIN;
+  if (ratio >= 2) return maxShare;
+  if (ratio >= 1.5) return (minShare + maxShare) / 2;
+  return minShare;
 }
 
 /**
  * Alokace poolu pro úroveň 1 — prioritně nejdražší dluh, ne rovnoměrné dělení.
  *
- * 1. Agresivní podíl 60–80 % poolu na nejdražší dluh (úrok + prodlení + mikropůjčka)
+ * 1. Agresivní podíl 70–90 % (mikropůjčka) nebo 50–70 % (běžný úvěr) na top dluh
  * 2. Greedy dle ceny peněz: další dluhy až po vyčerpání prioritního
  * 3. Proporcionální zbytek (edge case)
  */
@@ -897,13 +928,12 @@ function allocateLevel1Pool(
   if (remaining <= 0 || active.length === 0) return remaining;
 
   const sorted = sortLevel1ByCost(active);
+  const topState = sorted[0];
 
   if (sorted.length >= 2) {
-    const topCost = level1CostScore(sorted[0].analysis);
     const secondCost = level1CostScore(sorted[1].analysis);
-    const share = resolveLevel1AggressiveShare(topCost, secondCost);
+    const share = resolveLevel1AggressiveShare(topState, secondCost);
     const target = roundMoney(remaining * share);
-    const topState = sorted[0];
 
     const pay = Math.min(topState.stillOwed, target, remaining);
     remaining -= applyAllocationToState(
@@ -912,6 +942,14 @@ function allocateLevel1Pool(
       allocations,
       levelPools
     );
+  } else {
+    const microloan = isHighCostMicroloan(topState.analysis.debt);
+    const share = microloan
+      ? PRIORITY_CONSTANTS.LEVEL1_MICROLOAN_SHARE_MAX
+      : PRIORITY_CONSTANTS.LEVEL1_REGULAR_SHARE_MAX;
+    const target = roundMoney(remaining * share);
+    const pay = Math.min(topState.stillOwed, target, remaining);
+    remaining -= applyAllocationToState(topState, pay, allocations, levelPools);
   }
 
   for (const state of sorted) {
