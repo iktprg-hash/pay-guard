@@ -109,12 +109,13 @@ npm run test:e2e
 
 | Symptom | Fix |
 |---------|-----|
-| Mass E2E failures (login, smoke, health) | Corrupted `.next/dev/prerender-manifest.json` → **HTTP 500**. Fix: `npm run dev:restart` |
+| Mass E2E failures (login, smoke, health) | Corrupted `.next/dev/prerender-manifest.json` → **HTTP 404/500** on all routes. Fix: `npm run dev:restart` |
+| `E2E preflight: /cs/login returned HTTP 404` | Dev is up but Turbopack cache/routes are broken — same fix: `npm run dev:restart` |
 | `E2E preflight: /api/health returned HTTP 500` | Same — run `npm run dev:restart` (clears `.next` and restarts) |
-| `EMFILE: too many open files` | Run `npm run dev` in a separate terminal, then `npm run test:e2e:local` |
+| `EMFILE: too many open files` | `ulimit -n 10240`, then `npm run dev:restart` — without this Turbopack returns 404 on every route |
 | Checkout / pricing guest tests **skipped** | Add `STRIPE_SECRET_KEY` + `STRIPE_PRO_PRICE_ID` to `.env.local` |
 
-Preflight check (`tests/global-setup.ts`) verifies `/api/health` before tests when using `E2E_NO_WEBSERVER=1`.
+Preflight (`npm run test:e2e:preflight` / `tests/global-setup.ts`) waits for `/api/health`, then checks `/cs/login` and `POST /api/auth/send-otp` before tests run.
 
 ### Co testy pokrývají
 

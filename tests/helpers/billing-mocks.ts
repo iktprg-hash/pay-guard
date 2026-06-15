@@ -127,8 +127,8 @@ export async function mockBillingSyncSuccess(page: Page): Promise<void> {
 }
 
 /**
- * Full Stripe checkout mock — checkout redirect + confirm + sync.
- * Use with {@link mockSubscriptionTier} and tier.setTier("pro") after success redirect.
+ * Full Stripe billing mock — success flow (checkout + confirm + sync).
+ * Pair with {@link mockStripeCheckoutCancel} for cancel scenarios.
  */
 export async function mockStripeBillingFlow(
   page: Page,
@@ -139,6 +139,18 @@ export async function mockStripeBillingFlow(
   await mockStripeCheckoutSuccess(page, baseURL, sessionId);
   await mockBillingConfirmSuccess(page);
   await mockBillingSyncSuccess(page);
+  return urls;
+}
+
+/** Register success + cancel Stripe mocks (cancel via direct redirect URL in tests). */
+export async function mockStripeBillingSuite(
+  page: Page,
+  baseURL: string,
+  sessionId = "cs_test_e2e_mock"
+): Promise<{ successUrl: string; cancelUrl: string }> {
+  const urls = billingUrls(baseURL, sessionId);
+  await mockStripeBillingFlow(page, baseURL, sessionId);
+  await mockStripeCheckoutCancel(page, baseURL);
   return urls;
 }
 

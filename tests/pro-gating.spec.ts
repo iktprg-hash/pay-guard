@@ -3,18 +3,20 @@ import { mockSubscriptionTier } from "./helpers/billing-mocks";
 import { createManualRecommendation } from "./helpers/manual-flow";
 import {
   UI,
+  expectProGateWithBlur,
   latestPdfProUpsellLink,
   openProRouteExpectGate,
+  pollForGateFullyUnlocked,
   pollForNoUpgradeGate,
   pollForProGated,
   proBannerUpgradeLink,
+  proBlurredPreview,
   proLockedOverlay,
   proOverlayUpgradeLink,
   proPageHeading,
   proPath,
   proUpgradeBanner,
   refreshSubscriptionTier,
-  waitForProGate,
 } from "./helpers/test-utils";
 
 test.describe.configure({ mode: "serial" });
@@ -36,13 +38,8 @@ test.describe("Pro gating", () => {
       await openProRouteExpectGate(page, "dashboard");
     });
 
-    await test.step("Upgrade banner and locked overlay are visible", async () => {
-      const banner = proUpgradeBanner(page);
-      const overlay = proLockedOverlay(page);
-
-      await expect.soft(banner).toBeVisible();
-      await expect.soft(overlay).toBeVisible();
-      await expect.soft(page.getByText(UI.lockedHint)).toBeVisible();
+    await test.step("Upgrade banner, blur, and locked overlay are visible", async () => {
+      await expectProGateWithBlur(page);
     });
 
     await test.step("Banner upgrade link points to pricing", async () => {
@@ -134,26 +131,22 @@ test.describe("Pro gating", () => {
     const tier = mockSubscriptionTier(page);
     tier.setTier("free");
 
-    await page.goto(proPath("debts"));
-    await waitForProGate(page);
-
     await test.step("Gate visible while Free", async () => {
-      await expect.soft(proUpgradeBanner(page)).toBeVisible();
-      await expect.soft(proLockedOverlay(page)).toBeVisible();
+      await openProRouteExpectGate(page, "debts");
+      await expectProGateWithBlur(page);
     });
 
-    await test.step("Upgrade tier mock → gate disappears", async () => {
+    await test.step("Upgrade tier mock → gate and overlay disappear", async () => {
       tier.setTier("pro");
       await page.reload();
 
-      await pollForNoUpgradeGate(page);
-      await expect
-        .poll(async () => proLockedOverlay(page).isVisible().catch(() => false))
-        .toBe(false);
+      await pollForGateFullyUnlocked(page);
 
       await expect.soft(
         proPageHeading(page, /debts|dluhy|долги/i)
       ).toBeVisible();
+      await expect.soft(proUpgradeBanner(page)).toHaveCount(0);
+      await expect.soft(proLockedOverlay(page)).toHaveCount(0);
     });
   });
 
@@ -163,8 +156,11 @@ test.describe("Pro gating", () => {
     const tier = mockSubscriptionTier(page);
     tier.setTier("free");
 
-    await page.goto(proPath("debts"));
-    await pollForProGated(page);
+    await test.step("Gate with blur is visible on debts page", async () => {
+      await page.goto(proPath("debts"));
+      await pollForProGated(page);
+      await expectProGateWithBlur(page);
+    });
 
     await test.step("Gate banner links to pricing", async () => {
       const upgradeLink = proBannerUpgradeLink(page);
@@ -181,8 +177,7 @@ test.describe("Pro gating", () => {
     });
 
     await test.step("Preview content is blurred (aria-hidden wrapper)", async () => {
-      const blurredPreview = page.locator("[aria-hidden='true'].blur-sm");
-      await expect.soft(blurredPreview.first()).toBeVisible();
+      await expect.soft(proBlurredPreview(page).first()).toBeVisible();
     });
   });
 });

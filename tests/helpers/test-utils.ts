@@ -223,6 +223,45 @@ export async function pollForNoUpgradeGate(
     .toBe(0);
 }
 
+/** Poll until ProFeatureGate locked overlay disappears. */
+export async function pollForOverlayHidden(
+  page: Page,
+  options: { timeout?: number } = {}
+): Promise<void> {
+  await expect
+    .poll(
+      async () => proLockedOverlay(page).isVisible().catch(() => false),
+      {
+        timeout: options.timeout ?? 20_000,
+        intervals: [300, 500, 1000],
+      }
+    )
+    .toBe(false);
+}
+
+/** Poll until both upgrade gate and locked overlay are gone (Pro unlocked). */
+export async function pollForGateFullyUnlocked(
+  page: Page,
+  options: { timeout?: number } = {}
+): Promise<void> {
+  const timeout = options.timeout ?? 25_000;
+  await pollForNoUpgradeGate(page, { timeout });
+  await pollForOverlayHidden(page, { timeout });
+}
+
+/** Blurred preview wrapper inside ProFeatureGate. */
+export function proBlurredPreview(page: Page): Locator {
+  return page.locator("[aria-hidden='true'].blur-sm");
+}
+
+/** Assert ProFeatureGate blur overlay + locked overlay are present. */
+export async function expectProGateWithBlur(page: Page): Promise<void> {
+  await expect.soft(proUpgradeBanner(page)).toBeVisible();
+  await expect.soft(proLockedOverlay(page)).toBeVisible();
+  await expect.soft(proBlurredPreview(page).first()).toBeVisible();
+  await expect.soft(page.getByText(UI.lockedHint)).toBeVisible();
+}
+
 /** Poll until a locator becomes visible (subscription/UI state changes). */
 export async function pollUntilVisible(
   locator: Locator,

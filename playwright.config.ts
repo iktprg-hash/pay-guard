@@ -29,7 +29,7 @@ export default defineConfig({
         ["html", { open: "never" }],
       ]
     : [
-        ["list"],
+        ["list", { printSteps: true }],
         ["html", { open: "on-failure" }],
       ],
   use: {
