@@ -47,6 +47,8 @@ export async function pushChatHistoryToServer(
   if (res.status === 403) {
     const copy = getToastCopy(pickBrowserLocale());
     toast(copy.cloudHistoryProOnly, "default");
+  } else if (res.status === 429) {
+    toast("Too many requests. Please try again later.", "error");
   }
 
   return res;

@@ -7,6 +7,7 @@ import type { Locale } from "@/i18n/routing";
 import { getRecommendationPdfFilename } from "@/lib/pdf/filename";
 
 export const PDF_ERROR_PRO_REQUIRED = "PRO_REQUIRED";
+export const PDF_ERROR_RATE_LIMITED = "RATE_LIMITED";
 
 export class PdfDownloadError extends Error {
   constructor(
@@ -47,6 +48,16 @@ export async function downloadRecommendationPdf(
     throw new PdfDownloadError(
       "Pro subscription required for PDF export",
       data.code ?? PDF_ERROR_PRO_REQUIRED
+    );
+  }
+
+  if (res.status === 429) {
+    const retryAfter = res.headers.get("Retry-After");
+    throw new PdfDownloadError(
+      retryAfter
+        ? `Too many PDF requests. Retry in ${retryAfter}s.`
+        : "Too many PDF requests. Please try again later.",
+      PDF_ERROR_RATE_LIMITED
     );
   }
 

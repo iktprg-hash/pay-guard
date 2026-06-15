@@ -9,6 +9,9 @@ import { authSendOtpSchema } from "@/lib/validation/schemas";
 
 /** Odešle 6místný kód na e-mail — pouze existující účty (bez registrace heslem) */
 export async function POST(request: NextRequest) {
+  const ipLimited = await enforceAuthRateLimit(request, "send-otp");
+  if (ipLimited) return ipLimited;
+
   const parsed = await parseJsonBody(request, authSendOtpSchema);
   if (!parsed.ok) return validationError(parsed.error);
 

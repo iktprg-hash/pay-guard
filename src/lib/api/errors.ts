@@ -44,3 +44,7 @@ export function proRequiredError() {
     { status: 403 }
   );
 }
+
+export function internalServerError(message = "Internal server error") {
+  return NextResponse.json({ error: message }, { status: 500 });
+}

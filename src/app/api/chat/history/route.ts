@@ -8,10 +8,11 @@ import type { StoredMessage } from "@/lib/chat/storage";
 import { requireProApiWithRateLimit } from "@/lib/api/pro-route-guard";
 import { createClient } from "@/lib/supabase/server";
 import {
+  internalServerError,
   unauthorizedError,
   validationError,
 } from "@/lib/api/errors";
-import { parseJsonBody } from "@/lib/api/parse-request";
+import { parseJsonBody, parseQueryParams } from "@/lib/api/parse-request";
 import {
   historyGetLatestQuerySchema,
   historyGetSchema,
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, persisted: saved });
   } catch (error) {
     console.error("[api/chat/history POST]", error);
-    return NextResponse.json({ ok: false }, { status: 500 });
+    return internalServerError("Failed to persist chat history");
   }
 }
 
@@ -60,8 +61,8 @@ export async function GET(request: NextRequest) {
   const latestParam = request.nextUrl.searchParams.get("latest");
 
   if (latestParam === "1") {
-    const latestParsed = historyGetLatestQuerySchema.safeParse({ latest: "1" });
-    if (!latestParsed.success) return validationError(latestParsed.error);
+    const latestQuery = parseQueryParams(request, historyGetLatestQuerySchema);
+    if (!latestQuery.ok) return validationError(latestQuery.error);
 
     const supabase = await createClient();
     const bundle = await loadLatestUserSession(supabase, guard.user.id);
@@ -76,17 +77,14 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const parsed = historyGetSchema.safeParse({
-    sessionId: request.nextUrl.searchParams.get("sessionId"),
-  });
-
-  if (!parsed.success) return validationError(parsed.error);
+  const sessionQuery = parseQueryParams(request, historyGetSchema);
+  if (!sessionQuery.ok) return validationError(sessionQuery.error);
 
   try {
     const supabase = await createClient();
     const messages = await loadSessionFromSupabase(
       supabase,
-      parsed.data.sessionId,
+      sessionQuery.data.sessionId,
       guard.user.id
     );
 
@@ -97,6 +95,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ messages });
   } catch (error) {
     console.error("[api/chat/history GET]", error);
-    return NextResponse.json({ messages: [] }, { status: 500 });
+    return internalServerError("Failed to load chat history");
   }
 }

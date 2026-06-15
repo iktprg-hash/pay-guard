@@ -92,7 +92,7 @@ export const storedMessageSchema = z.object({
   role: z.enum(["user", "assistant", "system"]),
   content: z.string().max(10_000),
   timestamp: z.string(),
-  recommendation: z.unknown().optional(),
+  recommendation: prioritizationResultSchema.optional(),
 });
 
 export const historyPostSchema = z.object({
@@ -103,13 +103,17 @@ export const historyPostSchema = z.object({
   profile: financialProfileSchema,
 });
 
-export const historyGetSchema = z.object({
-  sessionId: sessionIdSchema,
-});
+export const historyGetSchema = z
+  .object({
+    sessionId: sessionIdSchema,
+  })
+  .strict();
 
-export const historyGetLatestQuerySchema = z.object({
-  latest: z.literal("1"),
-});
+export const historyGetLatestQuerySchema = z
+  .object({
+    latest: z.literal("1"),
+  })
+  .strict();
 
 /** Auth — login / register / OTP / confirm */
 export const authLoginSchema = z.object({

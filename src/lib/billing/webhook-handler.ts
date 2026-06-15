@@ -8,8 +8,10 @@ import { extractSupabaseUserId } from "@/lib/billing/subscription-sync";
 import {
   isStripeEventProcessed,
   markStripeEventType,
+  releaseStripeEventLock,
 } from "@/lib/billing/webhook-idempotency";
 import { getStripeClient } from "@/lib/billing/stripe-client";
+import { createServiceClient } from "@/lib/supabase/service";
 
 export const STRIPE_WEBHOOK_MAX_BODY_BYTES = 1_000_000;
 
@@ -108,6 +110,17 @@ export type StripeWebhookHandleResult =
 export async function handleStripeWebhookEvent(
   event: Stripe.Event
 ): Promise<StripeWebhookHandleResult> {
+  if (
+    process.env.NODE_ENV === "production" &&
+    !createServiceClient()
+  ) {
+    return {
+      ok: false,
+      status: 503,
+      error: "Webhook idempotency unavailable",
+    };
+  }
+
   if (await isStripeEventProcessed(event.id)) {
     return {
       ok: true,
@@ -158,15 +171,12 @@ export async function handleStripeWebhookEvent(
       error,
     });
 
-    await markStripeEventType(event.id, `${event.type}:failed`);
+    await releaseStripeEventLock(event.id);
 
     return {
-      ok: true,
-      warning: "Handler failed — logged for review",
-      eventId: event.id,
-      eventType: event.type,
-      userId: outcome.userId,
-      profileUpdated: false,
+      ok: false,
+      status: 500,
+      error: "Webhook handler failed",
     };
   }
 }
