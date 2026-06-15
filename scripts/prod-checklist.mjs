@@ -39,7 +39,13 @@ function env(name) {
 }
 
 function isPlaceholder(v) {
-  return !v || v.includes("your-") || v.includes("xxx") || v === "your_xai_api_key";
+  return (
+    !v ||
+    v.includes("your-") ||
+    v.includes("xxx") ||
+    v.startsWith("PASTE_") ||
+    v === "your_xai_api_key"
+  );
 }
 
 console.log(`
