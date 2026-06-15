@@ -17,7 +17,7 @@ jobs:
 
     env:
       CI: true
-      NODE_ENV: production
+      # Do not set NODE_ENV=production for build — Next.js handles prod mode internally.
       # Required for prod:checklist blockers (configure as repository secrets).
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
