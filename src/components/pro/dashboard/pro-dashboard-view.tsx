@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback, useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import {
@@ -8,20 +8,30 @@ import {
   AlertTriangle,
   ArrowRight,
   LayoutDashboard,
+  LineChart,
   Sparkles,
   TrendingDown,
   TrendingUp,
   Wallet,
 } from "lucide-react";
 import { PdfDownloadButton } from "@/components/pdf/pdf-download-button";
-import { analyzeDebt, runPriorityEngine } from "@/services/priorityEngine";
-import { useProFinancialSummary, type ProFinancialSummary } from "@/hooks/useProFinancial";
-import { buildEngineProfileFromUser } from "@/lib/pro/pro-engine-cashflow";
+import { runPriorityEngine } from "@/services/priorityEngine";
+import { useProFinancialSummary } from "@/hooks/useProFinancial";
+import { useCashFlowForecast } from "@/hooks/useCashFlowForecast";
+import {
+  buildEngineProfileFromUser,
+  buildProEngineCashFlowContext,
+} from "@/lib/pro/pro-engine-cashflow";
+import { toFinancialProfile } from "@/lib/types/financial";
 import { useRecommendationPdfDownload, PRO_DASHBOARD_PDF_KEY } from "@/hooks/use-recommendation-pdf";
 import { ProPageSkeleton } from "@/components/pro/pro-skeletons";
 import { ProEmptyState, ProPageHeader, StatCard } from "@/components/pro/pro-page";
+import { ProDashboardQuickActions } from "@/components/pro/dashboard/pro-dashboard-quick-actions";
+import { ProDashboardHealthBanner } from "@/components/pro/dashboard/pro-dashboard-health-banner";
+import { ProDashboardForecastSummary } from "@/components/pro/dashboard/pro-dashboard-forecast-summary";
+import { ProDashboardEngineInsight } from "@/components/pro/dashboard/pro-dashboard-engine-insight";
+import { ProDashboardDebtTable } from "@/components/pro/dashboard/pro-dashboard-debt-table";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -29,21 +39,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { formatDate, formatMoney } from "@/lib/utils";
+import { formatMoney } from "@/lib/utils";
 import { isPaidTier } from "@/lib/types/financial";
-import type { Debt } from "@/lib/types/financial";
+import type { ProFinancialSummary } from "@/hooks/useProFinancial";
 import type { Locale } from "@/i18n/routing";
 import { hasMinimumRecommendationData } from "@/lib/grok/recommendation-readiness";
 
-/** Whether the profile has no meaningful financial data yet. */
 function isProfileEmpty(summary: ProFinancialSummary) {
   return (
     summary.debtCount === 0 &&
@@ -53,75 +54,20 @@ function isProfileEmpty(summary: ProFinancialSummary) {
   );
 }
 
-const DebtPriorityTable = memo(function DebtPriorityTable({
-  debts,
-  locale,
-  emptyTitle,
-  emptyHint,
-}: {
-  debts: Debt[];
-  locale: Locale;
-  emptyTitle: string;
-  emptyHint: string;
-}) {
-  const t = useTranslations("pro.dashboard");
-
-  if (debts.length === 0) {
-    return (
-      <div className="rounded-xl border border-dashed bg-muted/20 py-8 text-center">
-        <p className="text-sm font-medium">{emptyTitle}</p>
-        <p className="mt-1 text-xs text-muted-foreground">{emptyHint}</p>
-      </div>
-    );
-  }
-
-  return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>{t("creditor")}</TableHead>
-          <TableHead>{t("amount")}</TableHead>
-          <TableHead>{t("dueDate")}</TableHead>
-          <TableHead>{t("priority")}</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {debts.map((debt) => {
-          const analysis = analyzeDebt(debt);
-          return (
-            <TableRow key={debt.id}>
-              <TableCell className="font-medium">{debt.creditor}</TableCell>
-              <TableCell className="tabular-nums">
-                {formatMoney(debt.amount, locale)}
-              </TableCell>
-              <TableCell>
-                {debt.dueDate
-                  ? formatDate(debt.dueDate, locale)
-                  : debt.criticalDate
-                    ? formatDate(debt.criticalDate, locale)
-                    : "—"}
-              </TableCell>
-              <TableCell>
-                <Badge variant={analysis.level === 0 ? "warning" : "secondary"}>
-                  {t("priorityLevel", { level: analysis.level })}
-                </Badge>
-              </TableCell>
-            </TableRow>
-          );
-        })}
-      </TableBody>
-    </Table>
-  );
-});
-
-/** Pro dashboard — cash flow, debt summary, urgent & critical obligations. */
+/** Pro dashboard — command center for cash flow, forecast, and payment priorities. */
 export function ProDashboardView() {
   const t = useTranslations("pro.dashboard");
   const locale = useLocale() as Locale;
   const { summary, isLoading, isError, error, refetch } =
     useProFinancialSummary();
+  const { forecast } = useCashFlowForecast();
   const { downloadPdf, isGeneratingForKey, isPro } = useRecommendationPdfDownload();
   const isGeneratingPdf = isGeneratingForKey(PRO_DASHBOARD_PDF_KEY);
+
+  const engineCashFlow = useMemo(() => {
+    if (!summary.profile) return undefined;
+    return buildProEngineCashFlowContext(toFinancialProfile(summary.profile));
+  }, [summary.profile]);
 
   const canExportPdf = useMemo(
     () =>
@@ -136,11 +82,8 @@ export function ProDashboardView() {
 
   const handleDownloadPdf = useCallback(() => {
     if (!summary.profile) return;
-
     const profile = buildEngineProfileFromUser(summary.profile);
-
     if (!hasMinimumRecommendationData(profile)) return;
-
     const recommendation = runPriorityEngine(profile, locale);
     void downloadPdf(
       { recommendation, profile, locale },
@@ -169,6 +112,8 @@ export function ProDashboardView() {
           : "neutral",
     [summary.netMonthlyCashFlow]
   );
+
+  const forecastEndBalance = forecast.months.at(-1)?.endingBalance;
 
   if (isLoading) {
     return <ProPageSkeleton variant="dashboard" label={t("title")} />;
@@ -243,6 +188,9 @@ export function ProDashboardView() {
                 <Link href={`/${locale}/pro/debts`}>{t("addDebt")}</Link>
               </Button>
               <Button variant="outline" asChild>
+                <Link href={`/${locale}/pro/incomes`}>{t("quickIncomes")}</Link>
+              </Button>
+              <Button variant="outline" asChild>
                 <Link href={`/${locale}/manual`}>{t("addViaManual")}</Link>
               </Button>
             </div>
@@ -250,12 +198,34 @@ export function ProDashboardView() {
         />
       ) : (
         <>
-          {/* Key metrics */}
+          <ProDashboardQuickActions
+            debtCount={summary.debtCount}
+            incomeTotal={summary.monthlyRecurringIncome}
+            expenseTotal={summary.monthlyRecurringExpense}
+          />
+
+          <ProDashboardHealthBanner
+            criticalCount={summary.criticalDebts.length}
+            netMonthlyCashFlow={summary.netMonthlyCashFlow}
+            labels={{
+              critical: t("healthCritical", {
+                count: summary.criticalDebts.length,
+              }),
+              deficit: t("healthDeficit", {
+                amount: formatMoney(
+                  Math.abs(summary.netMonthlyCashFlow),
+                  locale
+                ),
+              }),
+              healthy: t("healthHealthy"),
+            }}
+          />
+
           <section aria-labelledby="pro-metrics-heading">
             <h2 id="pro-metrics-heading" className="sr-only">
               {t("metricsHeading")}
             </h2>
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
               <StatCard
                 label={t("availableFunds")}
                 value={formatMoney(summary.availableFunds, locale)}
@@ -287,10 +257,47 @@ export function ProDashboardView() {
                 icon={AlertOctagon}
                 iconClassName="bg-destructive/10 text-destructive"
               />
+              <StatCard
+                label={t("forecastEndBalance")}
+                value={
+                  forecastEndBalance != null
+                    ? formatMoney(forecastEndBalance, locale)
+                    : "—"
+                }
+                hint={t("forecastEndBalanceHint")}
+                trend={
+                  forecastEndBalance != null && forecastEndBalance < 0
+                    ? "negative"
+                    : forecastEndBalance != null && forecastEndBalance > 0
+                      ? "positive"
+                      : "neutral"
+                }
+                icon={LineChart}
+                iconClassName="bg-violet-500/10 text-violet-600 dark:text-violet-400"
+              />
             </div>
           </section>
 
-          {/* Cash flow breakdown */}
+          <section className="grid gap-4 xl:grid-cols-5">
+            <div className="xl:col-span-3">
+              <ProDashboardForecastSummary forecast={forecast} />
+            </div>
+            <div className="xl:col-span-2">
+              {prioritization ? (
+                <ProDashboardEngineInsight
+                  prioritization={prioritization}
+                  locale={locale}
+                />
+              ) : (
+                <Card className="flex h-full items-center justify-center border-dashed">
+                  <CardContent className="py-10 text-center text-sm text-muted-foreground">
+                    {t("engineNoRecommendations")}
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </section>
+
           <section className="grid gap-4 lg:grid-cols-2">
             <Card>
               <CardHeader>
@@ -329,7 +336,13 @@ export function ProDashboardView() {
                 )}
                 <div className="flex items-center justify-between border-t pt-3 text-sm font-semibold">
                   <span>{t("netCashFlow")}</span>
-                  <span className="tabular-nums">
+                  <span
+                    className={
+                      summary.netMonthlyCashFlow < 0
+                        ? "tabular-nums text-destructive"
+                        : "tabular-nums text-emerald-600 dark:text-emerald-400"
+                    }
+                  >
                     {formatMoney(summary.netMonthlyCashFlow, locale)}
                   </span>
                 </div>
@@ -342,6 +355,14 @@ export function ProDashboardView() {
                 <CardDescription>{t("snapshotDescription")}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">
+                    {t("planningFundsLabel")}
+                  </span>
+                  <span className="font-medium tabular-nums">
+                    {formatMoney(summary.planningAvailableFunds, locale)}
+                  </span>
+                </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">{t("monthlyIncome")}</span>
                   <span className="font-medium tabular-nums">
@@ -377,70 +398,6 @@ export function ProDashboardView() {
             </Card>
           </section>
 
-          {prioritization && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">{t("engineInsightTitle")}</CardTitle>
-                <CardDescription>{t("engineInsightDescription")}</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm">
-                <p>{prioritization.summary}</p>
-                {prioritization.warnings.length > 0 && (
-                  <ul className="space-y-2 text-muted-foreground">
-                    {prioritization.warnings.slice(0, 4).map((warning, i) => (
-                      <li key={i} className="flex gap-2">
-                        <span className="shrink-0 text-amber-600">•</span>
-                        <span>{warning}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                <div className="flex flex-wrap gap-4 border-t pt-3 text-xs text-muted-foreground">
-                  {prioritization.planningAvailableFunds != null && (
-                    <span>
-                      {t("enginePlanningFunds")}:{" "}
-                      <strong className="text-foreground">
-                        {formatMoney(prioritization.planningAvailableFunds, locale)}
-                      </strong>
-                    </span>
-                  )}
-                  <span>
-                    {t("engineLifeBuffer")}:{" "}
-                    <strong className="text-foreground">
-                      {formatMoney(prioritization.lifeBuffer, locale)}
-                    </strong>
-                  </span>
-                  <span>
-                    {t("engineSpendable")}:{" "}
-                    <strong className="text-foreground">
-                      {formatMoney(prioritization.spendableFunds, locale)}
-                    </strong>
-                  </span>
-                </div>
-                {prioritization.shortTermForecast &&
-                  prioritization.shortTermForecast.length > 0 && (
-                    <div className="flex flex-wrap gap-3 border-t pt-3 text-xs text-muted-foreground">
-                      {prioritization.shortTermForecast.map((month) => (
-                        <span key={month.monthIndex}>
-                          {t("engineForecastMonth", { month: month.monthIndex + 1 })}:{" "}
-                          <strong
-                            className={
-                              month.endingBalance < 0
-                                ? "text-destructive"
-                                : "text-foreground"
-                            }
-                          >
-                            {formatMoney(month.endingBalance, locale)}
-                          </strong>
-                        </span>
-                      ))}
-                    </div>
-                  )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Critical debts */}
           <Card className="border-destructive/20">
             <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
               <div>
@@ -458,16 +415,16 @@ export function ProDashboardView() {
               </Button>
             </CardHeader>
             <CardContent>
-              <DebtPriorityTable
+              <ProDashboardDebtTable
                 debts={summary.criticalDebts}
                 locale={locale}
+                cashFlow={engineCashFlow}
                 emptyTitle={t("noCriticalDebts")}
                 emptyHint={t("noCriticalDebtsHint")}
               />
             </CardContent>
           </Card>
 
-          {/* Urgent debts (levels 0–1) */}
           <Card>
             <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
               <div>
@@ -496,9 +453,10 @@ export function ProDashboardView() {
                   </Button>
                 </div>
               ) : (
-                <DebtPriorityTable
+                <ProDashboardDebtTable
                   debts={summary.urgentDebts}
                   locale={locale}
+                  cashFlow={engineCashFlow}
                   emptyTitle={t("noUrgentDebts")}
                   emptyHint={t("noUrgentDebtsHint")}
                 />

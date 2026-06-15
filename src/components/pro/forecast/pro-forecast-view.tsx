@@ -32,79 +32,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { ForecastMonth, ForecastRecommendation } from "@/lib/pro/cash-flow-forecast";
+import { formatForecastMonth } from "@/lib/pro/format-forecast-month";
+import { ProForecastChart } from "@/components/pro/shared/pro-forecast-chart";
 import { analyzeDebt } from "@/services/priorityEngine";
 import { cn, formatDate, formatMoney } from "@/lib/utils";
 import type { Debt } from "@/lib/types/financial";
 import type { Locale } from "@/i18n/routing";
-
-function formatForecastMonth(yearMonth: string, locale: Locale): string {
-  const [year, month] = yearMonth.split("-").map(Number);
-  return new Intl.DateTimeFormat(locale, {
-    month: "long",
-    year: "numeric",
-  }).format(new Date(year, month - 1, 1));
-}
-
-const ForecastChart = memo(function ForecastChart({
-  months,
-  chartScaleMax,
-  locale,
-}: {
-  months: ForecastMonth[];
-  chartScaleMax: number;
-  locale: Locale;
-}) {
-  const t = useTranslations("pro.forecast");
-
-  return (
-    <div className="space-y-4">
-      <div
-        className="flex h-48 items-end justify-around gap-3 rounded-xl border bg-muted/20 px-4 pb-4 pt-6"
-        role="img"
-        aria-label={t("chartTitle")}
-      >
-        {months.map((month) => {
-          const heightPct = Math.max(
-            8,
-            (Math.abs(month.endingBalance) / chartScaleMax) * 100
-          );
-          const positive = month.endingBalance >= 0;
-
-          return (
-            <div
-              key={month.yearMonth}
-              className="flex min-w-0 flex-1 flex-col items-center gap-2"
-            >
-              <span
-                className={cn(
-                  "text-xs font-semibold tabular-nums",
-                  positive
-                    ? "text-emerald-600 dark:text-emerald-400"
-                    : "text-destructive"
-                )}
-              >
-                {formatMoney(month.endingBalance, locale)}
-              </span>
-              <div className="flex h-32 w-full items-end justify-center">
-                <div
-                  className={cn(
-                    "w-full max-w-16 rounded-t-md transition-all",
-                    positive ? "bg-emerald-500/80" : "bg-destructive/80"
-                  )}
-                  style={{ height: `${heightPct}%` }}
-                />
-              </div>
-              <span className="truncate text-center text-xs text-muted-foreground">
-                {formatForecastMonth(month.yearMonth, locale)}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-      <p className="text-xs text-muted-foreground">{t("chartLegend")}</p>
-    </div>
-  );
-});
 
 const ForecastTable = memo(function ForecastTable({
   months,
@@ -422,10 +355,11 @@ export function ProForecastView() {
                 <CardDescription>{t("chartDescription")}</CardDescription>
               </CardHeader>
               <CardContent>
-                <ForecastChart
+                <ProForecastChart
                   months={forecast.months}
                   chartScaleMax={forecast.chartScaleMax}
                   locale={locale}
+                  legend={t("chartLegend")}
                 />
               </CardContent>
             </Card>
