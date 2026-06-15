@@ -18,7 +18,8 @@ export async function POST(request: NextRequest) {
   const limited = await enforceAuthRateLimit(
     request,
     "send-otp",
-    parsed.data.email
+    parsed.data.email,
+    { skipIp: true }
   );
   if (limited) return limited;
 

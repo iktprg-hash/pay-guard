@@ -20,7 +20,8 @@ async function checkKeys(keys: string[], rule: RateLimitRule) {
 export async function enforceAuthRateLimit(
   request: NextRequest,
   action: string,
-  email?: string
+  email?: string,
+  options?: { skipIp?: boolean }
 ) {
   if (skipRateLimit) return null;
 
@@ -64,8 +65,10 @@ export async function enforceAuthRateLimit(
     { limit: 20, windowMs: 15 * 60_000 },
   ];
 
-  const ipBlocked = await checkKeys(ipKeys, ipRule);
-  if (ipBlocked) return rateLimitError(ipBlocked.resetAt);
+  if (!options?.skipIp) {
+    const ipBlocked = await checkKeys(ipKeys, ipRule);
+    if (ipBlocked) return rateLimitError(ipBlocked.resetAt);
+  }
 
   if (email && emailRule) {
     const emailBlocked = await checkKeys(emailKeys, emailRule);

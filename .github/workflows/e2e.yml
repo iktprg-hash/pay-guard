@@ -32,6 +32,8 @@ jobs:
       # Required for `npm run start:prod` (instrumentation asserts Upstash in production).
       UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
       UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+      # Isolate CI rate-limit keys from production Upstash counters.
+      RATE_LIMIT_PREFIX: payguard:e2e:ci
 
     steps:
       - name: Checkout

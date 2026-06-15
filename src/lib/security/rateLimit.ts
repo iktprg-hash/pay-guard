@@ -81,10 +81,11 @@ function getUpstashLimiter(limit: number, windowMs: number): Ratelimit {
   const cacheKey = `${limit}:${windowMs}`;
   let limiter = limiterCache.get(cacheKey);
   if (!limiter) {
+    const prefix = process.env.RATE_LIMIT_PREFIX?.trim() || "payguard:rl";
     limiter = new Ratelimit({
       redis: Redis.fromEnv(),
       limiter: Ratelimit.slidingWindow(limit, msToDuration(windowMs)),
-      prefix: "payguard:rl",
+      prefix,
     });
     limiterCache.set(cacheKey, limiter);
   }
