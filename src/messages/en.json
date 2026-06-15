@@ -135,9 +135,10 @@
     "exportPdfPro": "PDF — Pro",
     "downloadPdf": "Download PDF",
     "generatingPdf": "Generating PDF…",
-    "pdfSuccess": "PDF downloaded",
-    "pdfFailed": "Could not generate PDF",
-    "pdfProOnly": "PDF export is available on Pro",
+    "pdfSuccess": "PDF downloaded successfully",
+    "pdfFailed": "Could not generate PDF. Please try again.",
+    "pdfProOnly": "PDF export is a Pro feature. Upgrade to download professional reports.",
+    "pdfGoPro": "Go to Pro",
     "pdfMissing": "This consultation has no saved recommendation"
   },
   "manual": {

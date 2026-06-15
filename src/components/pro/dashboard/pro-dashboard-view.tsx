@@ -6,14 +6,13 @@ import {
   AlertOctagon,
   AlertTriangle,
   ArrowRight,
-  Download,
   LayoutDashboard,
-  Loader2,
   Sparkles,
   TrendingDown,
   TrendingUp,
   Wallet,
 } from "lucide-react";
+import { PdfDownloadButton } from "@/components/pdf/pdf-download-button";
 import { analyzeDebt, runPriorityEngine } from "@/services/priorityEngine";
 import { useProFinancialSummary } from "@/hooks/useProFinancial";
 import { useRecommendationPdfDownload, PRO_DASHBOARD_PDF_KEY } from "@/hooks/use-recommendation-pdf";
@@ -119,8 +118,8 @@ export function ProDashboardView() {
   const locale = useLocale() as Locale;
   const { summary, isLoading, isError, error, refetch } =
     useProFinancialSummary();
-  const { downloadPdf, isGeneratingForSession, isPro } = useRecommendationPdfDownload();
-  const isGeneratingPdf = isGeneratingForSession(PRO_DASHBOARD_PDF_KEY);
+  const { downloadPdf, isGeneratingForKey, isPro } = useRecommendationPdfDownload();
+  const isGeneratingPdf = isGeneratingForKey(PRO_DASHBOARD_PDF_KEY);
 
   const handleDownloadPdf = () => {
     if (!summary.profile) return;
@@ -186,20 +185,16 @@ export function ProDashboardView() {
         description={t("subtitle")}
         action={
           canExportPdf ? (
-            <Button
+            <PdfDownloadButton
               variant="outline"
               size="sm"
               className="gap-2"
-              disabled={isGeneratingPdf}
+              iconClassName="h-4 w-4"
+              isGenerating={isGeneratingPdf}
+              downloadLabel={t("downloadPdf")}
+              generatingLabel={t("generatingPdf")}
               onClick={handleDownloadPdf}
-            >
-              {isGeneratingPdf ? (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-              ) : (
-                <Download className="h-4 w-4" aria-hidden />
-              )}
-              {isGeneratingPdf ? t("generatingPdf") : t("downloadPdf")}
-            </Button>
+            />
           ) : undefined
         }
       />

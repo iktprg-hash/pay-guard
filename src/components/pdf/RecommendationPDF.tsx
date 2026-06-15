@@ -160,13 +160,35 @@ export function RecommendationPDF({
   labels,
   generatedAt,
 }: RecommendationPDFProps) {
-  const dateStr =
-    generatedAt ??
-    new Date().toLocaleDateString(getIntlLocale(locale), {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
+  const headerDate =
+    generatedAt != null
+      ? new Date(generatedAt).toLocaleDateString(getIntlLocale(locale), {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        })
+      : new Date().toLocaleDateString(getIntlLocale(locale), {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        });
+
+  const footerDateTime =
+    generatedAt != null
+      ? new Date(generatedAt).toLocaleString(getIntlLocale(locale), {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : new Date().toLocaleString(getIntlLocale(locale), {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
 
   const availableFunds = profileAvailableFunds(profile);
 
@@ -176,7 +198,7 @@ export function RecommendationPDF({
         <View style={styles.header}>
           <Text style={styles.title}>{labels.title}</Text>
           <Text style={styles.subtitle}>
-            {labels.generatedAt}: {dateStr}
+            {labels.generatedAt}: {headerDate}
           </Text>
         </View>
 
@@ -286,7 +308,7 @@ export function RecommendationPDF({
         )}
 
         <Text style={styles.footer} fixed>
-          {labels.footer}
+          {labels.footer} · {labels.generatedAt}: {footerDateTime}
         </Text>
       </Page>
     </Document>

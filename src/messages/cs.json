@@ -135,9 +135,10 @@
     "exportPdfPro": "PDF — Pro",
     "downloadPdf": "Stáhnout PDF",
     "generatingPdf": "Generuji PDF…",
-    "pdfSuccess": "PDF bylo staženo",
-    "pdfFailed": "PDF se nepodařilo vygenerovat",
-    "pdfProOnly": "PDF export je dostupný v tarifu Pro",
+    "pdfSuccess": "PDF bylo úspěšně staženo",
+    "pdfFailed": "PDF se nepodařilo vygenerovat. Zkuste to znovu.",
+    "pdfProOnly": "Export PDF je součástí tarifu Pro. Upgradujte pro stažení reportů.",
+    "pdfGoPro": "Přejít na Pro",
     "pdfMissing": "V této konzultaci není uložené doporučení"
   },
   "manual": {

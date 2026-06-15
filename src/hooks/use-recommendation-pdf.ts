@@ -1,8 +1,11 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { useTranslations } from "next-intl";
-import { downloadRecommendationPdf } from "@/lib/export/downloadRecommendationPdf";
+import { useLocale, useTranslations } from "next-intl";
+import {
+  downloadRecommendationPdf,
+  isPdfProRequiredError,
+} from "@/lib/export/downloadRecommendationPdf";
 import { downloadPriorityReport } from "@/lib/export/pdfReport";
 import { toast } from "@/components/ui/toast-provider";
 import { useSubscriptionTier } from "@/hooks/use-subscription-tier";
@@ -34,13 +37,23 @@ export type RecommendationPdfInputResolver = () => Promise<
 /** Pro → server PDF; Free → legacy client jsPDF fallback where allowed. */
 export function useRecommendationPdfDownload() {
   const t = useTranslations("recommendation");
+  const locale = useLocale() as Locale;
   const { pro } = useSubscriptionTier();
   const [generatingKey, setGeneratingKey] = useState<string | null>(null);
 
-  const isGeneratingForSession = useCallback(
-    (sessionId: string) => generatingKey === sessionId,
+  const isAnyPdfGenerating = generatingKey !== null;
+
+  const isGeneratingForKey = useCallback(
+    (key: string) => generatingKey === key,
     [generatingKey]
   );
+
+  const showProRequiredToast = useCallback(() => {
+    toast(t("pdfProOnly"), "error", {
+      label: t("pdfGoPro"),
+      href: `/${locale}/pricing`,
+    });
+  }, [locale, t]);
 
   const downloadPdf = useCallback(
     async (
@@ -48,7 +61,7 @@ export function useRecommendationPdfDownload() {
       { allowFreeFallback = false, downloadKey = "default" }: DownloadPdfOptions = {}
     ) => {
       if (!pro && !allowFreeFallback) {
-        toast(t("pdfProOnly"), "error");
+        showProRequiredToast();
         return false;
       }
 
@@ -66,19 +79,27 @@ export function useRecommendationPdfDownload() {
         return true;
       } catch (error) {
         console.error("[pdf] download failed", error);
-        toast(t("pdfFailed"), "error");
+        if (isPdfProRequiredError(error)) {
+          showProRequiredToast();
+        } else {
+          toast(t("pdfFailed"), "error");
+        }
         return false;
       } finally {
         setGeneratingKey(null);
       }
     },
-    [pro, t]
+    [pro, showProRequiredToast, t]
   );
 
   return {
     downloadPdf,
-    isGenerating: generatingKey !== null,
-    isGeneratingForSession,
+    isAnyPdfGenerating,
+    /** @deprecated Use isGeneratingForKey */
+    isGenerating: isAnyPdfGenerating,
+    isGeneratingForKey,
+    /** @deprecated Use isGeneratingForKey */
+    isGeneratingForSession: isGeneratingForKey,
     isPro: pro,
   };
 }

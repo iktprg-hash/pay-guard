@@ -1,10 +1,11 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { AlertTriangle, CheckCircle2, Download, Loader2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { useLocale } from "next-intl";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { PdfDownloadButton } from "@/components/pdf/pdf-download-button";
 import type { Locale } from "@/i18n/routing";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -45,8 +46,8 @@ export function RecommendationCard({
   const tCat = useTranslations("categories");
   const appLocale = useLocale() as Locale;
   const { pro } = useSubscriptionTier();
-  const { downloadPdf, isGeneratingForSession } = useRecommendationPdfDownload();
-  const isGenerating = isGeneratingForSession(downloadKey);
+  const { downloadPdf, isGeneratingForKey } = useRecommendationPdfDownload();
+  const isGenerating = isGeneratingForKey(downloadKey);
 
   return (
     <Card className="border-primary/20 bg-primary/5">
@@ -58,11 +59,13 @@ export function RecommendationCard({
         <div className="flex items-start justify-between gap-2">
           <p className="text-sm font-medium text-foreground">{result.summary}</p>
           {pro ? (
-            <Button
+            <PdfDownloadButton
               variant="outline"
               size="sm"
-              className="shrink-0 gap-1.5 text-xs"
-              disabled={isGenerating}
+              className="shrink-0 text-xs"
+              isGenerating={isGenerating}
+              downloadLabel={t("downloadPdf")}
+              generatingLabel={t("generatingPdf")}
               onClick={() =>
                 void downloadPdf(
                   {
@@ -73,14 +76,7 @@ export function RecommendationCard({
                   { downloadKey }
                 )
               }
-            >
-              {isGenerating ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Download className="h-3.5 w-3.5" />
-              )}
-              {isGenerating ? t("generatingPdf") : t("downloadPdf")}
-            </Button>
+            />
           ) : (
             <Button
               variant="outline"

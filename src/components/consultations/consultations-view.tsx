@@ -6,14 +6,13 @@ import { useLocale, useTranslations } from "next-intl";
 import {
   AlertTriangle,
   Cloud,
-  Download,
-  Loader2,
   MessageSquare,
   Plus,
   RefreshCw,
   Sparkles,
   Smartphone,
 } from "lucide-react";
+import { PdfDownloadButton } from "@/components/pdf/pdf-download-button";
 import { useAuth } from "@/components/providers/auth-provider";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -131,20 +130,15 @@ function SessionCard({
           </Link>
         </Button>
         {session.hasRecommendation && isPro && (
-          <Button
+          <PdfDownloadButton
             variant="outline"
             size="sm"
-            className="w-full gap-1.5 sm:w-auto"
-            disabled={isGeneratingPdf}
+            className="w-full sm:w-auto"
+            isGenerating={isGeneratingPdf}
+            downloadLabel={downloadPdfLabel}
+            generatingLabel={generatingPdfLabel}
             onClick={() => onDownloadPdf(session.sessionId)}
-          >
-            {isGeneratingPdf ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-            ) : (
-              <Download className="h-3.5 w-3.5" aria-hidden />
-            )}
-            {isGeneratingPdf ? generatingPdfLabel : downloadPdfLabel}
-          </Button>
+          />
         )}
       </div>
     </article>
@@ -158,7 +152,7 @@ export function ConsultationsView() {
   const locale = useLocale() as Locale;
   const { user, loading: authLoading } = useAuth();
   const { pro: hasProCloud } = useSubscriptionTier();
-  const { downloadPdf, isGeneratingForSession, isPro } = useRecommendationPdfDownload();
+  const { downloadPdf, isGeneratingForKey, isPro } = useRecommendationPdfDownload();
 
   const [sessions, setSessions] = useState<ConsultationSessionItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -299,7 +293,7 @@ export function ConsultationsView() {
                 downloadPdfLabel={tRec("downloadPdf")}
                 generatingPdfLabel={tRec("generatingPdf")}
                 isPro={isPro}
-                isGeneratingPdf={isGeneratingForSession(session.sessionId)}
+                isGeneratingPdf={isGeneratingForKey(session.sessionId)}
                 onDownloadPdf={(sessionId) => void handleDownloadPdf(sessionId)}
               />
             </li>

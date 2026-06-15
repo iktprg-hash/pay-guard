@@ -8,20 +8,32 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { CheckCircle2, AlertCircle, Info, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type ToastVariant = "default" | "success" | "error";
 
+export interface ToastAction {
+  label: string;
+  href: string;
+}
+
+export interface ToastOptions {
+  variant?: ToastVariant;
+  action?: ToastAction;
+}
+
 export interface ToastItem {
   id: string;
   message: string;
   variant: ToastVariant;
+  action?: ToastAction;
 }
 
 interface ToastContextValue {
-  push: (message: string, variant?: ToastVariant) => void;
+  push: (message: string, variant?: ToastVariant, action?: ToastAction) => void;
 }
 
 const ToastContext = createContext<ToastContextValue>({
@@ -35,8 +47,12 @@ export function useToast() {
 /** Imperative toast from non-React code */
 let pushToast: ToastContextValue["push"] = () => {};
 
-export function toast(message: string, variant: ToastVariant = "default") {
-  pushToast(message, variant);
+export function toast(
+  message: string,
+  variant: ToastVariant = "default",
+  action?: ToastAction
+) {
+  pushToast(message, variant, action);
 }
 
 const ICONS = {
@@ -54,10 +70,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const push = useCallback(
-    (message: string, variant: ToastVariant = "default") => {
+    (
+      message: string,
+      variant: ToastVariant = "default",
+      action?: ToastAction
+    ) => {
       const id = crypto.randomUUID();
-      setItems((prev) => [...prev.slice(-4), { id, message, variant }]);
-      window.setTimeout(() => dismiss(id), 5000);
+      setItems((prev) => [...prev.slice(-4), { id, message, variant, action }]);
+      window.setTimeout(() => dismiss(id), action ? 8000 : 5000);
     },
     [dismiss]
   );
@@ -97,7 +117,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 )}
                 aria-hidden
               />
-              <p className="flex-1 text-sm">{item.message}</p>
+              <div className="flex min-w-0 flex-1 flex-col gap-2">
+                <p className="text-sm">{item.message}</p>
+                {item.action && (
+                  <Link
+                    href={item.action.href}
+                    onClick={() => dismiss(item.id)}
+                    className="inline-flex w-fit rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+                  >
+                    {item.action.label}
+                  </Link>
+                )}
+              </div>
               <button
                 type="button"
                 onClick={() => dismiss(item.id)}

@@ -23,6 +23,7 @@ export async function renderRecommendationPdfBuffer(
   ensurePdfFontsRegistered();
 
   const labels = getPdfLabels(input.locale);
+  const generatedAt = new Date().toISOString();
 
   const buffer = await renderToBuffer(
     <RecommendationPDF
@@ -30,6 +31,7 @@ export async function renderRecommendationPdfBuffer(
       profile={input.profile}
       locale={input.locale}
       labels={labels}
+      generatedAt={generatedAt}
     />
   );
 

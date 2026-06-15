@@ -1,9 +1,9 @@
 import type { Locale } from "@/i18n/routing";
 
 const FILENAME_STEM: Record<Locale, string> = {
-  cs: "pay-guard-doporuceni",
-  ru: "pay-guard-rekomendacii",
-  en: "pay-guard-recommendation",
+  cs: "doporuceni",
+  ru: "rekomendacii",
+  en: "recommendation",
 };
 
 /** Localized attachment name for recommendation PDF export. */

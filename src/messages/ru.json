@@ -135,9 +135,10 @@
     "exportPdfPro": "PDF — Pro",
     "downloadPdf": "Скачать PDF",
     "generatingPdf": "Генерация PDF…",
-    "pdfSuccess": "PDF загружен",
-    "pdfFailed": "Не удалось создать PDF",
-    "pdfProOnly": "PDF доступен в тарифе Pro",
+    "pdfSuccess": "PDF успешно загружен",
+    "pdfFailed": "Не удалось создать PDF. Попробуйте ещё раз.",
+    "pdfProOnly": "Экспорт PDF доступен в тарифе Pro. Оформите подписку для скачивания отчётов.",
+    "pdfGoPro": "Перейти на Pro",
     "pdfMissing": "В этой консультации нет сохранённой рекомендации"
   },
   "manual": {

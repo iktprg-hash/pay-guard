@@ -6,6 +6,8 @@ import type {
 import type { Locale } from "@/i18n/routing";
 import { getRecommendationPdfFilename } from "@/lib/pdf/filename";
 
+export const PDF_ERROR_PRO_REQUIRED = "PRO_REQUIRED";
+
 export class PdfDownloadError extends Error {
   constructor(
     message: string,
@@ -14,6 +16,13 @@ export class PdfDownloadError extends Error {
     super(message);
     this.name = "PdfDownloadError";
   }
+}
+
+export function isPdfProRequiredError(error: unknown): boolean {
+  return (
+    error instanceof PdfDownloadError &&
+    error.code === PDF_ERROR_PRO_REQUIRED
+  );
 }
 
 export interface DownloadRecommendationPdfOptions {
@@ -35,7 +44,10 @@ export async function downloadRecommendationPdf(
 
   if (res.status === 403) {
     const data = (await res.json().catch(() => ({}))) as { code?: string };
-    throw new PdfDownloadError("Pro subscription required", data.code ?? "PRO_REQUIRED");
+    throw new PdfDownloadError(
+      "Pro subscription required for PDF export",
+      data.code ?? PDF_ERROR_PRO_REQUIRED
+    );
   }
 
   if (!res.ok) {
