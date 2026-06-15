@@ -113,10 +113,8 @@ Varianta B — service role (bez DATABASE_URL):
     process.exit(1);
   }
 
-  const { createClient } = await import("@supabase/supabase-js");
-  const supabase = createClient(url, serviceKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  const { createSupabaseAdminClient } = await import("./supabase-node-client.mjs");
+  const supabase = await createSupabaseAdminClient(url, serviceKey);
 
   const data = {};
   const counts = {};

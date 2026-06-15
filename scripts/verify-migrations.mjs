@@ -6,6 +6,7 @@
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { getProjectRef, loadEnvLocal } from "./load-env-local.mjs";
+import { createSupabaseAdminClient } from "./supabase-node-client.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 loadEnvLocal(root);
@@ -38,10 +39,7 @@ async function verifyMigrations() {
     };
   }
 
-  const { createClient } = await import("@supabase/supabase-js");
-  const admin = createClient(url, key, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
+  const admin = await createSupabaseAdminClient(url, key);
 
   const probes = [
     { id: "001", label: "financial_sessions table", table: "financial_sessions", columns: "id" },
