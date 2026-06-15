@@ -86,8 +86,12 @@
       "loading": "Loading Pro profile…",
       "loadFromPro": "Load from Pro",
       "saveToPro": "Save to Pro",
+      "synced": "Synced",
       "savedToCloud": "Saved to cloud",
       "syncing": "Syncing…",
+      "offline": "Offline",
+      "offlineHint": "Cloud sync requires an internet connection.",
+      "syncRegion": "Pro cloud sync",
       "syncFailed": "Sync failed",
       "saveSuccess": "Profile saved to Pro",
       "saveFailed": "Could not save to Pro",
@@ -339,6 +343,7 @@
       "bannerDescription": "Unlock debt catalog, cloud sync, consultations history, and financial forecasts.",
       "cta": "Upgrade to Pro",
       "lockedHint": "Pro features are preview-only on the Free plan.",
+      "loadingGate": "Checking subscription…",
       "mutationBlocked": "Pro subscription required for this action."
     },
     "nav": {

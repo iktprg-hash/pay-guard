@@ -1,8 +1,40 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import type { SubscriptionTier } from "@/lib/types/financial";
 import { isProEnabledForSubscription } from "@/lib/supabase/pro-access";
+
+export const subscriptionTierKeys = {
+  all: ["subscription-tier"] as const,
+};
+
+interface SubscriptionTierData {
+  tier: SubscriptionTier;
+  expiresAt: string | null;
+}
+
+async function fetchSubscriptionTier(): Promise<SubscriptionTierData> {
+  const res = await fetch("/api/auth/tier", { credentials: "include" });
+
+  if (!res.ok) {
+    return { tier: "free", expiresAt: null };
+  }
+
+  const data = (await res.json()) as {
+    tier?: SubscriptionTier;
+    expiresAt?: string | null;
+  };
+
+  const tier =
+    data.tier === "pro_max" ? "pro_max" : data.tier === "pro" ? "pro" : "free";
+
+  return { tier, expiresAt: data.expiresAt ?? null };
+}
+
+/** Invalidate TanStack Query cache after webhook/checkout subscription changes. */
+export function invalidateSubscriptionTier(queryClient: QueryClient): void {
+  void queryClient.invalidateQueries({ queryKey: subscriptionTierKeys.all });
+}
 
 export interface SubscriptionTierState {
   tier: SubscriptionTier;
@@ -17,47 +49,15 @@ export interface SubscriptionTierState {
 
 /** Load subscription tier from /api/auth/tier (Stripe-backed profiles). */
 export function useSubscriptionTier(): SubscriptionTierState {
-  const [tier, setTier] = useState<SubscriptionTier>("free");
-  const [expiresAt, setExpiresAt] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const query = useQuery({
+    queryKey: subscriptionTierKeys.all,
+    queryFn: fetchSubscriptionTier,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+  });
 
-  const fetchTier = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/auth/tier", { credentials: "include" });
-      if (!res.ok) {
-        setTier("free");
-        setExpiresAt(null);
-        return;
-      }
-
-      const data = (await res.json()) as {
-        tier?: SubscriptionTier;
-        pro?: boolean;
-        expiresAt?: string | null;
-      };
-
-      const nextTier =
-        data.tier === "pro_max"
-          ? "pro_max"
-          : data.tier === "pro"
-            ? "pro"
-            : "free";
-
-      setTier(nextTier);
-      setExpiresAt(data.expiresAt ?? null);
-    } catch {
-      setTier("free");
-      setExpiresAt(null);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void fetchTier();
-  }, [fetchTier]);
-
+  const tier = query.data?.tier ?? "free";
+  const expiresAt = query.data?.expiresAt ?? null;
   const isProEnabled = isProEnabledForSubscription(tier, expiresAt);
 
   return {
@@ -66,7 +66,15 @@ export function useSubscriptionTier(): SubscriptionTierState {
     pro: isProEnabled,
     isProEnabled,
     expiresAt,
-    loading,
-    refetch: fetchTier,
+    loading: query.isLoading,
+    refetch: async () => {
+      await query.refetch();
+    },
   };
+}
+
+/** Hook for components that need to bust subscription cache (e.g. after checkout). */
+export function useInvalidateSubscriptionTier(): () => void {
+  const queryClient = useQueryClient();
+  return () => invalidateSubscriptionTier(queryClient);
 }

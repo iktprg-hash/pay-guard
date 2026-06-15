@@ -54,8 +54,16 @@ npm run db:verify    # ověření schématu (vyžaduje DATABASE_URL nebo Supabas
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Anon key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Service role (server only) |
 | `XAI_API_KEY` | xAI Grok — bez klíče demo režim |
-| `UPSTASH_REDIS_REST_URL` | Rate limiting (prod) |
-| `UPSTASH_REDIS_REST_TOKEN` | Rate limiting (prod) |
+| `XAI_MODEL` | Grok model (volitelné, default `grok-3-mini`) |
+| `UPSTASH_REDIS_REST_URL` | Rate limiting (prod, povinné) |
+| `UPSTASH_REDIS_REST_TOKEN` | Rate limiting (prod, povinné) |
+| `STRIPE_SECRET_KEY` | Stripe secret (test/live) |
+| `STRIPE_WEBHOOK_SECRET` | Webhook signing secret (fallback) |
+| `STRIPE_WEBHOOK_SECRET_TEST` | Test-mode webhook secret |
+| `STRIPE_WEBHOOK_SECRET_LIVE` | Live-mode webhook secret |
+| `STRIPE_PRO_PRICE_ID` | Recurring CZK price id (`price_…`) |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe publishable key |
+| `NEXT_PUBLIC_SITE_URL` | Veřejná URL (checkout redirect, metadata) |
 
 `.env.local` nikdy necommitujte.
 
@@ -69,8 +77,19 @@ Spusťte v SQL Editoru **v pořadí**:
 4. `supabase/migrations/004_session_sync.sql`
 5. `supabase/migrations/005_normalize_debts.sql`
 6. `supabase/migrations/006_protect_subscription_tier.sql`
+7. `supabase/migrations/007_grok_consent.sql`
+8. `supabase/migrations/008_stripe_billing.sql`
+9. `supabase/migrations/009_stripe_webhook_events.sql`
+10. `supabase/migrations/20260615_pro_schema.sql` — Pro financial tables (debts, incomes, expenses)
 
 Nebo s `DATABASE_URL`: `npm run db:apply:003` / `npm run db:hint`.
+
+### RLS a Pro gating
+
+- Všechny Pro finanční tabulky mají RLS — uživatel vidí jen vlastní řádky.
+- Trigger `guard_profile_subscription_fields()` brání eskalaci `subscription_tier` z klienta.
+- Pro CRUD běží přes Supabase client (`pro-financial.ts`) s `ensureProAccess()` — ne přes REST `/api/pro/*`.
+- Pro-gated REST API: `/api/pdf/*`, `/api/sessions*`, `/api/chat/history` — vyžadují `requireProApiUser()` + rate limit.
 
 ### Auth konfigurace
 
@@ -83,26 +102,86 @@ Nebo s `DATABASE_URL`: `npm run db:apply:003` / `npm run db:hint`.
 
 1. Propojte repozitář s Vercel
 2. Nastavte env proměnné (viz tabulka výše)
-3. Ověřte migrace 001–006 v Supabase
+3. Ověřte migrace **001–010** v Supabase
 4. `npm run prod:checklist` lokálně před prvním deployem
 5. Po deployi: Auth redirect URLs + Site URL na produkční doménu
+6. Stripe webhook endpoint: `https://<domain>/api/billing/webhook` (nebo `/api/webhooks/stripe` dle konfigurace)
+7. `npm run verify:upstash` v produkčním env
 
 ```bash
 npm run verify:upstash      # ověření Redis + rate limiter
 npm run prod:checklist      # checklist před deployem
+npm run build               # finální build před releasem
 ```
 
-### Production checklist
+### Production deploy checklist
 
-- Migrace **001–006** aplikované
-- **Upstash** v env produkce
-- **Custom SMTP** (Auth → Email)
-- **Confirm email: ON** (prod)
-- **`AUTH_DEV_REGISTER` unset** v produkci
-- Redirect URLs: produkční doména + `/auth/confirm`
-- Trigger `guard_profile_subscription_fields()` — uživatel nemůže sám eskalovat na Pro
+**Infrastruktura**
+
+- [ ] Migrace **001–010** aplikované v Supabase SQL Editoru
+- [ ] **Upstash Redis** (`UPSTASH_REDIS_REST_URL` + `TOKEN`) v produkčním env
+- [ ] **Custom SMTP** (Supabase Auth → Email)
+- [ ] **Confirm email: ON** (prod)
+- [ ] **`AUTH_DEV_REGISTER` unset** v produkci
+- [ ] Redirect URLs: produkční doména + `/auth/confirm`
+- [ ] `NEXT_PUBLIC_SITE_URL` = produkční URL
+
+**Stripe**
+
+- [ ] Live `STRIPE_SECRET_KEY` + `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
+- [ ] `STRIPE_PRO_PRICE_ID` (CZK recurring)
+- [ ] Webhook secrets: `STRIPE_WEBHOOK_SECRET_LIVE` (+ test pro preview deploye)
+- [ ] Webhook events: `checkout.session.completed`, `customer.subscription.*`, `invoice.*`
+- [ ] Customer portal enabled (billing portal route)
+
+**Bezpečnost**
+
+- [ ] Trigger `guard_profile_subscription_fields()` aktivní
+- [ ] RLS zapnuté na všech tabulkách s PII
+- [ ] Rate limits aktivní (Upstash) — auth, chat, **Pro API** (30/min sessions/history, **10/min PDF**)
+- [ ] `ProFeatureGate` + `ensureProAccess()` — Free uživatelé nemohou mutovat Pro data
+- [ ] Service role key pouze na serveru (Vercel env, ne `NEXT_PUBLIC_*`)
+- [ ] Webhook raw body + idempotence (`009_stripe_webhook_events.sql`)
+
+**PWA**
+
+- [ ] `/[locale]/manifest.webmanifest` vrací lokalizovaný manifest
+- [ ] Ikony v `/public/icons/` + splash v `/public/splash/`
+- [ ] Service worker registrován (Serwist) — `/api/*` NetworkOnly, fonty/icons cache-first
+
+### Production security notes
+
+- **Rate limits** (`lib/security/rateLimit.ts`, `pro-rate-limit.ts`): klíče `pro:<action>:<userId>:<ip>`. Bez Upstash v produkci se limiter fail-closed.
+- **Pro gating**: UI blur přes `ProFeatureGate`; server-side `requireProApiUser()` na PDF/sessions/history; Supabase RLS + `ensureProAccess()` na finanční CRUD.
+- **Webhook secrets**: nikdy do klienta; test/live odděleně; handler vrací 200 i při interních chybách (Stripe retry), loguje structured errors.
+- **Offline data**: IndexedDB + AES-GCM (`ensureLocalStorageCrypto`); `/api/*` se nekachuje ve SW.
+
+### Testování před releasem
+
+**Pro flow**
+
+1. Free účet → `/cs/pro/dashboard` — skeleton, upgrade banner, blurred preview
+2. Checkout → Stripe test card `4242…` → webhook → tier `pro` v profilu
+3. Pro dashboard — debts/incomes/expenses CRUD, forecast, PDF export
+4. Chat → Load/Save to Pro, sync badge (Synced / Offline / Failed)
+5. Consultations — seznam, otevření session, PDF u doporučení
+
+**Offline režim**
+
+1. Vygenerujte doporučení online (chat nebo manual)
+2. DevTools → Network → Offline
+3. Ověřte `OfflineBanner`, `OfflineRecommendationCard`, cache-first doporučení
+4. Pro sync tlačítka disabled + badge „Offline“
+5. `persistRecommendationOffline` — data v IndexedDB, šifrovaná po prvním consent
+
+**Rate limits (volitelně)**
+
+- Opakované volání `/api/pdf/recommendation` → 429 po 10 req/min
+- Opakované GET `/api/sessions` → 429 po 30 req/min
+
+### Původní checklist (zkrácený)
+
 - **Zálohy DB** — lokálně na disk (`npm run db:backup`), viz níže
-
 ## Zálohy databáze (pouze lokální disk)
 
 Zálohy **zůstávají jen na vašem počítači**. Skript nic nenahrává do GitHubu, Supabase Storage ani jiného cloudu.
@@ -170,20 +249,22 @@ npm run db:restore -- ~/PayGuard-backups/pay-guard-<timestamp>/pay-guard-<timest
 src/
 ├── app/
 │   ├── [locale]/          # Stránky (cs, ru, en)
-│   │   ├── error.tsx      # Error boundary (locale)
-│   │   └── (protected)/   # Auth-required routes + loading.tsx
+│   │   ├── (pro)/         # Pro shell + loading.tsx skeletons
+│   │   ├── (protected)/   # Auth-required routes + consultations
+│   │   └── error.tsx      # Error boundary (locale)
 │   ├── global-error.tsx   # Root error boundary
-│   ├── api/               # chat, auth, sessions, prioritize
+│   ├── api/               # chat, auth, sessions, pdf, billing
 │   └── auth/confirm/      # E-mail / PKCE potvrzení
 ├── components/
-│   ├── chat/              # Chat, consent gate, doporučení
+│   ├── pro/               # ProFeatureGate, skeletons, views
+│   ├── chat/              # Chat, ProSyncBar, doporučení
 │   ├── layout/            # Header, footer, skip link, app shell
 │   ├── pwa/               # SW, offline, instalace
 │   └── ui/                # toast, page loader, shadcn
-├── lib/                   # auth, chat, grok, debts, security
-├── sw.ts                  # Service worker (API bez cache)
+├── lib/                   # auth, billing, security, offline
+├── sw.ts                  # Service worker (API NetworkOnly)
 └── messages/              # cs.json, ru.json, en.json
-supabase/migrations/       # 001–006
+supabase/migrations/       # 001–010 + pro schema
 ```
 
 ## Auth flow (dev)
@@ -195,24 +276,49 @@ supabase/migrations/       # 001–006
 ## PWA a offline
 
 - Service worker **nekachuje** `/api/*` — citlivá data zůstávají jen na síti
-- Poslední doporučení a konverzace se ukládají lokálně (IndexedDB)
+- **Kachuje**: ikony, splash, `/fonts/*` (PDF), Next static chunks
+- Poslední doporučení a konverzace se ukládají lokálně (IndexedDB, AES-GCM)
 - Toast upozorní při přechodu online/offline
-- Instalace: Chrome „Nainstalovat“ / Safari „Přidat na plochu“
+- Dynamický manifest: `/[locale]/manifest.webmanifest` (shortcuts: Chat, Manual, Consultations, Pro)
+
+### Instalace PWA
+
+**Chrome / Edge (desktop & Android)**
+
+1. Otevřete `https://<domain>/cs`
+2. Adresní řádek → ikona „Instalovat“ / menu → „Nainstalovat Pay Guard“
+3. Po instalaci: standalone okno, offline fallback na `/~offline`
+
+**Safari (iOS)**
+
+1. Otevřete web v Safari
+2. Sdílet → „Přidat na plochu“
+3. Apple touch icon + splash screens z `<head>` v layoutu
+
+**Ověření**
+
+- DevTools → Application → Service Workers — aktivní SW
+- Application → Manifest — ikony, shortcuts, screenshots
+- Network offline → `OfflineBanner` + cached recommendation
 
 ## Bezpečnost a soukromí
 
 - Lokální PII (chat, profil, dluhy) se ukládají šifrovaně (AES-GCM). Při odhlášení se smažou.
 - Grok chat vyžaduje explicitní souhlas (`GrokConsentGate`).
-- Rate limiting na auth a API v produkci (Upstash).
+- Rate limiting na auth, chat a **Pro API** v produkci (Upstash) — viz `PRO_RATE_LIMITS` v `pro-rate-limit.ts`.
+- PDF export: 10 req/min; sessions/history: 30 req/min (per user + IP).
 - Bez `XAI_API_KEY` funguje demo režim s mock odpověďmi.
 
 ## Přístupnost
 
 - Skip link „Přeskočit na obsah“
-- `aria-live` pro chat a toast notifikace
-- Loading stavy se `role="status"`
+- `lang` + `dir="ltr"` na `<html>` (next-intl locale)
+- Per-page `<title>` / meta na Pro stránkách a konzultacích (`generateMetadata`)
+- `aria-live`, `aria-busy`, `role="status"` na skeletons, PDF tlačítkách, Pro sync baru
+- Loading stavy se `role="status"` (`ProGateSkeleton`, `ConsultationsSkeleton`)
 - Error boundaries s tlačítkem obnovení
 - Mobilní menu s `aria-expanded` a Escape pro zavření
+- Pro upgrade banner — focus ring, `aria-label` na CTA
 
 ## Licence
 

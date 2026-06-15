@@ -3,6 +3,18 @@ export function isStripeBillingConfigured(): boolean {
   return Boolean(getStripeSecretKey() && getStripeProPriceId());
 }
 
+function isPlaceholderSecret(value: string | undefined): boolean {
+  return !value || value.includes("whsec_xxx");
+}
+
+function isStripeTestMode(): boolean {
+  const key = process.env.STRIPE_SECRET_KEY?.trim() ?? "";
+  if (!key || key.includes("sk_test_xxx") || key.includes("sk_live_xxx")) {
+    return true;
+  }
+  return key.startsWith("sk_test_");
+}
+
 export function getStripeSecretKey(): string | undefined {
   const key = process.env.STRIPE_SECRET_KEY?.trim();
   if (!key || key.includes("sk_test_xxx") || key.includes("sk_live_xxx")) {
@@ -11,10 +23,24 @@ export function getStripeSecretKey(): string | undefined {
   return key;
 }
 
+/**
+ * Webhook signing secret aligned with STRIPE_SECRET_KEY mode.
+ * Prefer STRIPE_WEBHOOK_SECRET_TEST / _LIVE; STRIPE_WEBHOOK_SECRET is fallback.
+ */
 export function getStripeWebhookSecret(): string | undefined {
-  const secret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
-  if (!secret || secret.includes("whsec_xxx")) return undefined;
-  return secret;
+  const legacy = process.env.STRIPE_WEBHOOK_SECRET?.trim();
+  const test = process.env.STRIPE_WEBHOOK_SECRET_TEST?.trim();
+  const live = process.env.STRIPE_WEBHOOK_SECRET_LIVE?.trim();
+
+  if (isStripeTestMode()) {
+    if (!isPlaceholderSecret(test)) return test;
+    if (!isPlaceholderSecret(legacy)) return legacy;
+    return undefined;
+  }
+
+  if (!isPlaceholderSecret(live)) return live;
+  if (!isPlaceholderSecret(legacy)) return legacy;
+  return undefined;
 }
 
 /** Stripe Price id for Pay Guard Pro (CZK monthly) — Czech market */

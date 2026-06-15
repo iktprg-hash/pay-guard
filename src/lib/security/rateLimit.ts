@@ -124,3 +124,12 @@ export function getClientIp(headers: Headers): string {
     "unknown"
   );
 }
+
+/** Pro-gated API rate limits — see {@link checkProRateLimit}. */
+export {
+  checkProRateLimit,
+  proRateLimitKey,
+  PRO_RATE_LIMITS,
+  PRO_RATE_LIMIT_WINDOW_MS,
+  type ProRateLimitAction,
+} from "@/lib/security/pro-rate-limit";

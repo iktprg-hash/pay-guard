@@ -2,13 +2,16 @@
 
 import { useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { toast } from "@/components/ui/toast-provider";
+import { invalidateSubscriptionTier } from "@/hooks/use-subscription-tier";
 
 /** After Stripe Checkout: confirm/sync Pro and show toast. */
 export function CheckoutResultToast() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const t = useTranslations("pricing");
   const tToast = useTranslations("toast");
   const handled = useRef(false);
@@ -52,6 +55,7 @@ export function CheckoutResultToast() {
         });
 
         if (res.ok) {
+          invalidateSubscriptionTier(queryClient);
           toast(t("checkoutSuccess"), "success");
           router.refresh();
         } else {
@@ -64,7 +68,7 @@ export function CheckoutResultToast() {
         cleanupUrl();
       }
     })();
-  }, [searchParams, t, tToast, router]);
+  }, [searchParams, t, tToast, router, queryClient]);
 
   return null;
 }

@@ -16,7 +16,7 @@ import { PdfDownloadButton } from "@/components/pdf/pdf-download-button";
 import { useAuth } from "@/components/providers/auth-provider";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { PageLoader } from "@/components/ui/page-loader";
+import { ConsultationsSkeleton } from "@/components/pro/pro-skeletons";
 import {
   ProEmptyState,
   ProPageHeader,
@@ -254,7 +254,7 @@ export function ConsultationsView() {
       )}
 
       {loading ? (
-        <PageLoader label={t("loading")} />
+        <ConsultationsSkeleton label={t("loading")} />
       ) : error && sessions.length === 0 ? (
         <ProEmptyState
           icon={<AlertTriangle className="h-6 w-6 text-destructive/70" />}

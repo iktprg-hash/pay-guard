@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useAuth } from "@/components/providers/auth-provider";
+import { useNetworkStatus } from "@/components/pwa/NetworkProvider";
 import { toast } from "@/components/ui/toast-provider";
 import {
   useCreateFinancialSession,
@@ -28,7 +29,7 @@ import {
   type PrioritizationResult,
 } from "@/lib/types/financial";
 
-export type ProSyncStatus = "idle" | "loading" | "saved" | "error";
+export type ProSyncStatus = "idle" | "syncing" | "synced" | "failed";
 
 export interface UseChatWithProOptions {
   locale: Locale;
@@ -45,6 +46,7 @@ export interface UseChatWithProOptions {
 export interface UseChatWithProResult {
   isProEnabled: boolean;
   isProLoading: boolean;
+  isOnline: boolean;
   syncStatus: ProSyncStatus;
   isSyncing: boolean;
   lastSyncedAt: Date | null;
@@ -66,6 +68,7 @@ export function useChatWithPro({
 }: UseChatWithProOptions): UseChatWithProResult {
   const t = useTranslations("chat.pro");
   const { user, loading: authLoading } = useAuth();
+  const { isOnline } = useNetworkStatus();
   const { pro: hasProApi, loading: tierLoading } = useSubscriptionTier();
 
   const proProfileQuery = useUserFinancialProfile();
@@ -95,14 +98,14 @@ export function useChatWithPro({
     tierLoading || (isProEnabled && proProfileQuery.isLoading);
 
   const isSyncing =
-    syncStatus === "loading" ||
+    syncStatus === "syncing" ||
     isSavingDebts ||
     isSavingIncomes ||
     isSavingExpenses ||
     isCreatingSession;
 
-  const markSaved = useCallback(() => {
-    setSyncStatus("saved");
+  const markSynced = useCallback(() => {
+    setSyncStatus("synced");
     setLastSyncedAt(new Date());
     if (resetTimerRef.current) {
       window.clearTimeout(resetTimerRef.current);
@@ -112,8 +115,8 @@ export function useChatWithPro({
     }, 5000);
   }, []);
 
-  const markError = useCallback(() => {
-    setSyncStatus("error");
+  const markFailed = useCallback(() => {
+    setSyncStatus("failed");
   }, []);
 
   useEffect(() => {
@@ -126,7 +129,11 @@ export function useChatWithPro({
   const saveToPro = useCallback(
     async (profileToSave: FinancialProfile = profile) => {
       if (!isProEnabled) return;
-      setSyncStatus("loading");
+      if (!isOnline) {
+        toast(t("offlineHint"), "default");
+        return;
+      }
+      setSyncStatus("syncing");
       try {
         await saveDebtsAsync(profileToSave.debts);
         if (proProfile?.recurringIncomes.length) {
@@ -135,10 +142,10 @@ export function useChatWithPro({
         if (proProfile?.recurringExpenses.length) {
           await saveExpensesAsync(proProfile.recurringExpenses);
         }
-        markSaved();
+        markSynced();
         toast(t("saveSuccess"), "success");
       } catch (error) {
-        markError();
+        markFailed();
         toast(
           error instanceof Error ? error.message : t("saveFailed"),
           "error"
@@ -148,13 +155,14 @@ export function useChatWithPro({
     },
     [
       isProEnabled,
+      isOnline,
       profile,
       proProfile,
       saveDebtsAsync,
       saveIncomesAsync,
       saveExpensesAsync,
-      markSaved,
-      markError,
+      markSynced,
+      markFailed,
       t,
     ]
   );
@@ -162,16 +170,20 @@ export function useChatWithPro({
   /** Merge Pro cloud profile into the active chat profile. */
   const loadFromPro = useCallback(async () => {
     if (!isProEnabled) return;
-    setSyncStatus("loading");
+    if (!isOnline) {
+      toast(t("offlineHint"), "default");
+      return;
+    }
+    setSyncStatus("syncing");
     try {
       const result = await proProfileQuery.refetch();
       const data = result.data ?? proProfile;
       if (!data) throw new Error(t("loadFailed"));
       setProfile(toFinancialProfile(data));
-      markSaved();
+      markSynced();
       toast(t("loadSuccess"), "success");
     } catch (error) {
-      markError();
+      markFailed();
       toast(
         error instanceof Error ? error.message : t("loadFailed"),
         "error"
@@ -180,11 +192,12 @@ export function useChatWithPro({
     }
   }, [
     isProEnabled,
+    isOnline,
     proProfileQuery,
     proProfile,
     setProfile,
-    markSaved,
-    markError,
+    markSynced,
+    markFailed,
     t,
   ]);
 
@@ -195,7 +208,8 @@ export function useChatWithPro({
       recommendation: PrioritizationResult
     ) => {
       if (!isProEnabled) return;
-      setSyncStatus("loading");
+      if (!isOnline) return;
+      setSyncStatus("syncing");
       try {
         await saveDebtsAsync(sessionProfile.debts);
         await createSessionAsync({
@@ -207,20 +221,21 @@ export function useChatWithPro({
             title: t("sessionTitle"),
           },
         });
-        markSaved();
+        markSynced();
       } catch (error) {
-        markError();
+        markFailed();
         console.error("[useChatWithPro] persistRecommendation", error);
         toast(t("sessionFailed"), "error");
       }
     },
     [
       isProEnabled,
+      isOnline,
       saveDebtsAsync,
       createSessionAsync,
       locale,
-      markSaved,
-      markError,
+      markSynced,
+      markFailed,
       t,
     ]
   );
@@ -229,6 +244,7 @@ export function useChatWithPro({
   useEffect(() => {
     if (
       !isProEnabled ||
+      !isOnline ||
       !autoLoadWhenEmpty ||
       !chatHydrated ||
       !isEmpty ||
@@ -251,21 +267,23 @@ export function useChatWithPro({
 
     autoLoadedRef.current = true;
     setProfile(toFinancialProfile(data));
-    markSaved();
+    markSynced();
   }, [
     isProEnabled,
+    isOnline,
     autoLoadWhenEmpty,
     chatHydrated,
     isEmpty,
     proProfileQuery.isLoading,
     proProfileQuery.data,
     setProfile,
-    markSaved,
+    markSynced,
   ]);
 
   return {
     isProEnabled,
     isProLoading,
+    isOnline,
     syncStatus,
     isSyncing,
     lastSyncedAt,

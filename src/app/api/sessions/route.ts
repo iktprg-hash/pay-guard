@@ -4,13 +4,9 @@ import {
   createUserSession,
   listUserSessions,
 } from "@/lib/chat/persistence";
-import { requireProApiUser } from "@/lib/auth/require-pro";
+import { requireProApiWithRateLimit } from "@/lib/api/pro-route-guard";
 import { createClient } from "@/lib/supabase/server";
-import {
-  rateLimitError,
-  validationError,
-} from "@/lib/api/errors";
-import { checkRateLimit, getClientIp } from "@/lib/security/rateLimit";
+import { validationError } from "@/lib/api/errors";
 
 const createSchema = z.object({
   locale: z.enum(["cs", "ru", "en"]).default("cs"),
@@ -18,26 +14,18 @@ const createSchema = z.object({
 
 /** GET — seznam konzultací uživatele */
 export async function GET(request: NextRequest) {
-  const auth = await requireProApiUser();
-  if ("error" in auth) return auth.error;
-
-  const ip = getClientIp(request.headers);
-  const limit = await checkRateLimit(`sessions-list:${auth.user.id}:${ip}`, 60, 60_000);
-  if (!limit.allowed) return rateLimitError(limit.resetAt);
+  const guard = await requireProApiWithRateLimit(request, "sessions-read");
+  if (!guard.ok) return guard.response;
 
   const supabase = await createClient();
-  const sessions = await listUserSessions(supabase, auth.user.id);
+  const sessions = await listUserSessions(supabase, guard.user.id);
   return NextResponse.json({ sessions });
 }
 
 /** POST — vytvoří novou finanční relaci */
 export async function POST(request: NextRequest) {
-  const auth = await requireProApiUser();
-  if ("error" in auth) return auth.error;
-
-  const ip = getClientIp(request.headers);
-  const limit = await checkRateLimit(`sessions-create:${auth.user.id}:${ip}`, 30, 60_000);
-  if (!limit.allowed) return rateLimitError(limit.resetAt);
+  const guard = await requireProApiWithRateLimit(request, "sessions-write");
+  if (!guard.ok) return guard.response;
 
   try {
     const body = await request.json().catch(() => ({}));
@@ -47,7 +35,7 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient();
     const created = await createUserSession(
       supabase,
-      auth.user.id,
+      guard.user.id,
       parsed.data.locale
     );
     if (!created) {

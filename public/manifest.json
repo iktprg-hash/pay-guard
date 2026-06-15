@@ -3,7 +3,7 @@
   "name": "Pay Guard",
   "short_name": "PayGuard",
   "description": "Chytrý pomocník pro prioritizaci plateb v České republice.",
-  "start_url": "/cs",
+  "start_url": "/cs?source=pwa",
   "scope": "/",
   "display": "standalone",
   "display_override": ["standalone", "minimal-ui", "browser"],
@@ -20,8 +20,19 @@
     { "src": "/icons/icon-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "/icons/icon-maskable-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
+  "screenshots": [
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Pay Guard — prioritizace plateb"
+    }
+  ],
   "shortcuts": [
     { "name": "Chat", "url": "/cs", "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }] },
-    { "name": "Ruční zadání", "url": "/cs/manual", "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }] }
+    { "name": "Ruční zadání", "url": "/cs/manual", "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }] },
+    { "name": "Konzultace", "url": "/cs/consultations", "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }] },
+    { "name": "Pro", "url": "/cs/pro/dashboard", "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }] }
   ]
 }

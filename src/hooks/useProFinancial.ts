@@ -39,6 +39,7 @@ import {
 import { useTranslations } from "next-intl";
 import { useAuth } from "@/components/providers/auth-provider";
 import { toast } from "@/components/ui/toast-provider";
+import { useSubscriptionTier } from "@/hooks/use-subscription-tier";
 import {
   createFinancialSession,
   deleteDebt,
@@ -123,6 +124,18 @@ function useProUserId(): string | undefined {
   return user.id;
 }
 
+function useProQueriesEnabled(): boolean {
+  const userId = useProUserId();
+  const { isProEnabled, loading: tierLoading } = useSubscriptionTier();
+  return Boolean(userId) && isProEnabled && !tierLoading;
+}
+
+export function isProRequiredError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const code = (error as Error & { code?: string }).code;
+  return code === "PRO_REQUIRED" || code === "pro_required";
+}
+
 function useProMutationErrors() {
   const t = useTranslations("toast");
   const tPro = useTranslations("pro.upgrade");
@@ -136,25 +149,15 @@ function useProMutationErrors() {
         | "proSessionFailed"
         | "proRequired"
     ) => {
-      const code =
-        error instanceof Error &&
-        "code" in error &&
-        typeof (error as Error & { code?: string }).code === "string"
-          ? (error as Error & { code: string }).code
-          : error instanceof Error
-            ? error.message
-            : "";
-
-      const message =
-        code === "PRO_REQUIRED" || fallbackKey === "proRequired"
-          ? tPro("mutationBlocked")
-          : error instanceof Error && error.message.trim().length > 0
-            ? error.message
-            : fallbackKey === "proDeleteFailed"
-              ? t("proDeleteFailed")
-              : fallbackKey === "proSessionFailed"
-                ? t("proSessionFailed")
-                : t("proSaveFailed");
+      const message = isProRequiredError(error)
+        ? tPro("mutationBlocked")
+        : error instanceof Error && error.message.trim().length > 0
+          ? error.message
+          : fallbackKey === "proDeleteFailed"
+            ? t("proDeleteFailed")
+            : fallbackKey === "proSessionFailed"
+              ? t("proSessionFailed")
+              : t("proSaveFailed");
 
       console.error("[useProFinancial]", message, error);
       toast(message, "error");
@@ -239,37 +242,54 @@ function createOptimisticListMutationHandlers<T extends { id: string }>(
     onError: (error: unknown, fallbackKey: "proSaveFailed" | "proDeleteFailed" | "proRequired") => void;
   }
 ) {
+  const snapshotProfile = () =>
+    options.userId
+      ? queryClient.getQueryData<UserFinancialProfile>(
+          proFinancialKeys.profile(options.userId)
+        )
+      : undefined;
+
+  const rollbackProfile = (previousProfile?: UserFinancialProfile) => {
+    if (options.userId && previousProfile !== undefined) {
+      queryClient.setQueryData(
+        proFinancialKeys.profile(options.userId),
+        previousProfile
+      );
+    }
+  };
+
   return {
     onMutateSave: async (items: T[]) => {
       await queryClient.cancelQueries({ queryKey });
       const previous = queryClient.getQueryData<T[]>(queryKey);
+      const previousProfile = snapshotProfile();
       queryClient.setQueryData(queryKey, items);
       options.onProfilePatch?.(items);
-      return { previous };
+      return { previous, previousProfile };
     },
     onMutateDelete: async (itemId: string) => {
       await queryClient.cancelQueries({ queryKey });
       const previous = queryClient.getQueryData<T[]>(queryKey);
+      const previousProfile = snapshotProfile();
       const optimistic = (previous ?? []).filter((item) => item.id !== itemId);
       queryClient.setQueryData(queryKey, optimistic);
       options.onProfilePatch?.(optimistic);
-      return { previous };
+      return { previous, previousProfile };
     },
     onError: (
       error: unknown,
       _variables: unknown,
-      context: { previous?: T[] } | undefined,
+      context:
+        | { previous?: T[]; previousProfile?: UserFinancialProfile }
+        | undefined,
       fallbackKey: "proSaveFailed" | "proDeleteFailed" | "proRequired"
     ) => {
       if (context?.previous !== undefined) {
         queryClient.setQueryData(queryKey, context.previous);
         options.onProfilePatch?.(context.previous);
       }
-      const key =
-        error instanceof Error &&
-        (error as Error & { code?: string }).code === "PRO_REQUIRED"
-          ? "proRequired"
-          : fallbackKey;
+      rollbackProfile(context?.previousProfile);
+      const key = isProRequiredError(error) ? "proRequired" : fallbackKey;
       options.onError(error, key);
     },
     onSuccess: (data: T[]) => {
@@ -387,11 +407,12 @@ export function useUserFinancialProfile(): UseQueryResult<
   Error
 > {
   const userId = useProUserId();
+  const queriesEnabled = useProQueriesEnabled();
 
   return useQuery<UserFinancialProfile, Error>({
     queryKey: proFinancialKeys.profile(userId ?? ""),
     queryFn: () => unwrapProResult(getUserFinancialProfile(userId!)),
-    enabled: Boolean(userId),
+    enabled: queriesEnabled,
     ...proQueryDefaults,
   });
 }
@@ -467,6 +488,7 @@ export interface UseDebtsResult extends ProListHookBase<Debt> {
  */
 export function useDebts(options: UseDebtsOptions = {}): UseDebtsResult {
   const userId = useProUserId();
+  const queriesEnabled = useProQueriesEnabled();
   const queryClient = useQueryClient();
   const reportError = useProMutationErrors();
   const { sessionId, showErrorToast = true } = options;
@@ -477,7 +499,7 @@ export function useDebts(options: UseDebtsOptions = {}): UseDebtsResult {
   const query = useQuery({
     queryKey,
     queryFn: () => unwrapProResult(getDebts(userId!, sessionId)),
-    enabled: Boolean(userId),
+    enabled: queriesEnabled,
     ...proQueryDefaults,
   });
 
@@ -490,14 +512,10 @@ export function useDebts(options: UseDebtsOptions = {}): UseDebtsResult {
         ? (debts) => userId && patchProfileDebts(queryClient, userId, debts)
         : undefined,
       onError: (error) => {
-        const code =
-          error instanceof Error
-            ? (error as Error & { code?: string }).code
-            : undefined;
         if (showErrorToast) {
           reportError(
             error,
-            code === "PRO_REQUIRED" ? "proRequired" : "proSaveFailed"
+            isProRequiredError(error) ? "proRequired" : "proSaveFailed"
           );
         }
       },
@@ -577,6 +595,7 @@ export function useRecurringIncomes(
   options: UseRecurringIncomesOptions = {}
 ): UseRecurringIncomesResult {
   const userId = useProUserId();
+  const queriesEnabled = useProQueriesEnabled();
   const queryClient = useQueryClient();
   const reportError = useProMutationErrors();
   const { showErrorToast = true } = options;
@@ -586,7 +605,7 @@ export function useRecurringIncomes(
   const query = useQuery({
     queryKey,
     queryFn: () => unwrapProResult(getRecurringIncomes(userId!)),
-    enabled: Boolean(userId),
+    enabled: queriesEnabled,
     ...proQueryDefaults,
   });
 
@@ -598,14 +617,10 @@ export function useRecurringIncomes(
       onProfilePatch: (incomes) =>
         userId && patchProfileIncomes(queryClient, userId, incomes),
       onError: (error) => {
-        const code =
-          error instanceof Error
-            ? (error as Error & { code?: string }).code
-            : undefined;
         if (showErrorToast) {
           reportError(
             error,
-            code === "PRO_REQUIRED" ? "proRequired" : "proSaveFailed"
+            isProRequiredError(error) ? "proRequired" : "proSaveFailed"
           );
         }
       },
@@ -687,6 +702,7 @@ export function useRecurringExpenses(
   options: UseRecurringExpensesOptions = {}
 ): UseRecurringExpensesResult {
   const userId = useProUserId();
+  const queriesEnabled = useProQueriesEnabled();
   const queryClient = useQueryClient();
   const reportError = useProMutationErrors();
   const { showErrorToast = true } = options;
@@ -696,7 +712,7 @@ export function useRecurringExpenses(
   const query = useQuery({
     queryKey,
     queryFn: () => unwrapProResult(getRecurringExpenses(userId!)),
-    enabled: Boolean(userId),
+    enabled: queriesEnabled,
     ...proQueryDefaults,
   });
 
@@ -708,14 +724,10 @@ export function useRecurringExpenses(
       onProfilePatch: (expenses) =>
         userId && patchProfileExpenses(queryClient, userId, expenses),
       onError: (error) => {
-        const code =
-          error instanceof Error
-            ? (error as Error & { code?: string }).code
-            : undefined;
         if (showErrorToast) {
           reportError(
             error,
-            code === "PRO_REQUIRED" ? "proRequired" : "proSaveFailed"
+            isProRequiredError(error) ? "proRequired" : "proSaveFailed"
           );
         }
       },
@@ -831,14 +843,10 @@ export function useCreateFinancialSession(options?: {
       });
     },
     onError: (error) => {
-      const code =
-        error instanceof Error
-          ? (error as Error & { code?: string }).code
-          : undefined;
       if (showErrorToast) {
         reportError(
           error,
-          code === "PRO_REQUIRED" ? "proRequired" : "proSessionFailed"
+          isProRequiredError(error) ? "proRequired" : "proSessionFailed"
         );
       }
     },

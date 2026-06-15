@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireApiUser } from "@/lib/auth/session";
-import { userHasProAccess } from "@/lib/auth/subscription";
-import { rateLimitError, validationError } from "@/lib/api/errors";
+import { requireProApiWithRateLimit } from "@/lib/api/pro-route-guard";
+import { validationError } from "@/lib/api/errors";
 import { renderRecommendationPdfBuffer } from "@/lib/pdf/renderRecommendationPdf";
 import { getRecommendationPdfFilename } from "@/lib/pdf/filename";
-import { checkRateLimit, getClientIp } from "@/lib/security/rateLimit";
 import type { FinancialProfile, PrioritizationResult } from "@/lib/types/financial";
 import { pdfRecommendationRequestSchema } from "@/lib/validation/schemas";
 
@@ -12,24 +10,8 @@ export const runtime = "nodejs";
 
 /** Pro-only server PDF export for payment recommendations. */
 export async function POST(request: NextRequest) {
-  const auth = await requireApiUser();
-  if ("error" in auth) return auth.error;
-
-  const hasPro = await userHasProAccess(auth.user.id);
-  if (!hasPro) {
-    return NextResponse.json(
-      { error: "Pro subscription required", code: "PRO_REQUIRED" },
-      { status: 403 }
-    );
-  }
-
-  const ip = getClientIp(request.headers);
-  const limit = await checkRateLimit(
-    `pdf-recommendation:${auth.user.id}:${ip}`,
-    20,
-    60_000
-  );
-  if (!limit.allowed) return rateLimitError(limit.resetAt);
+  const guard = await requireProApiWithRateLimit(request, "pdf");
+  if (!guard.ok) return guard.response;
 
   const body = await request.json().catch(() => null);
   const parsed = pdfRecommendationRequestSchema.safeParse(body);

@@ -29,6 +29,7 @@ export function PdfDownloadButton({
       disabled={busy}
       aria-busy={isGenerating}
       aria-disabled={busy}
+      aria-label={isGenerating ? generatingLabel : downloadLabel}
       className={cn(
         "relative gap-1.5 transition-opacity",
         isGenerating && "opacity-80",

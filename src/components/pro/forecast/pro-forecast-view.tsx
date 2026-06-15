@@ -29,7 +29,7 @@ export function ProForecastView() {
   const { summary, isLoading, isError, error, refetch } =
     useProFinancialSummary();
 
-  if (isLoading) return <DashboardSkeleton />;
+  if (isLoading) return <DashboardSkeleton label={t("title")} />;
 
   if (isError) {
     return (

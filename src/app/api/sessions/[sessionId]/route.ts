@@ -1,25 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { loadUserSessionBundle } from "@/lib/chat/persistence";
-import { requireProApiUser } from "@/lib/auth/require-pro";
+import { requireProApiWithRateLimit } from "@/lib/api/pro-route-guard";
 import { createClient } from "@/lib/supabase/server";
-import { rateLimitError, validationError } from "@/lib/api/errors";
-import { checkRateLimit, getClientIp } from "@/lib/security/rateLimit";
+import { validationError } from "@/lib/api/errors";
 import { sessionIdSchema } from "@/lib/validation/schemas";
 
 type RouteContext = { params: Promise<{ sessionId: string }> };
 
 /** GET — načte jednu konzultaci (zprávy + profil); token se nevrací klientovi */
 export async function GET(request: NextRequest, context: RouteContext) {
-  const auth = await requireProApiUser();
-  if ("error" in auth) return auth.error;
-
-  const ip = getClientIp(request.headers);
-  const limit = await checkRateLimit(
-    `sessions-get:${auth.user.id}:${ip}`,
-    60,
-    60_000
-  );
-  if (!limit.allowed) return rateLimitError(limit.resetAt);
+  const guard = await requireProApiWithRateLimit(request, "sessions-read");
+  if (!guard.ok) return guard.response;
 
   const { sessionId: rawSessionId } = await context.params;
   const parsedId = sessionIdSchema.safeParse(rawSessionId);
@@ -28,7 +19,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const sessionId = parsedId.data;
 
   const supabase = await createClient();
-  const bundle = await loadUserSessionBundle(supabase, sessionId, auth.user.id);
+  const bundle = await loadUserSessionBundle(supabase, sessionId, guard.user.id);
   if (!bundle) {
     return NextResponse.json({ error: "Session not found" }, { status: 404 });
   }

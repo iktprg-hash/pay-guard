@@ -21,6 +21,8 @@ export function PageLoader({ label }: { label?: string }) {
       className="flex flex-1 flex-col items-center justify-center gap-3 py-16"
       role="status"
       aria-live="polite"
+      aria-busy="true"
+      aria-label={label ?? "Loading"}
     >
       <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden />
       {label && (

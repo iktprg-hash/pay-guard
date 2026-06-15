@@ -20,7 +20,7 @@ import { useProFinancialSummary } from "@/hooks/useProFinancial";
 import { useProAccess } from "@/hooks/use-pro-access";
 import {
   ProFeatureGate,
-} from "@/components/pro/pro-upgrade-banner";
+} from "@/components/pro/ProFeatureGate";
 import { cn } from "@/lib/utils";
 import type { SubscriptionTier } from "@/lib/types/financial";
 import type { Locale } from "@/i18n/routing";
@@ -243,7 +243,10 @@ export function ProShell({ children }: { children: React.ReactNode }) {
 
         <OfflineBanner />
 
-        <main className="flex-1 overflow-y-auto pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-8">
+        <main
+          className="flex-1 overflow-y-auto pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-8"
+          aria-busy={accessLoading || undefined}
+        >
           <div className="mx-auto w-full max-w-6xl px-4 py-6 md:px-8 md:py-8">
             <ProFeatureGate
               isProEnabled={isProEnabled}

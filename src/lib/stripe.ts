@@ -16,7 +16,10 @@ import {
   getStripeProPriceId,
   isStripeBillingConfigured,
 } from "@/lib/billing/config";
-import { getUserBillingRecord } from "@/lib/billing/profile-billing";
+import {
+  applyStripeSubscriptionToUser,
+  getUserBillingRecord,
+} from "@/lib/billing/profile-billing";
 import { getStripeClient } from "@/lib/billing/stripe-client";
 import type { SubscriptionTier } from "@/lib/types/financial";
 import type { Locale } from "@/i18n/routing";
@@ -239,4 +242,64 @@ export async function createCustomerPortalSession(
   }
 
   return { url: session.url };
+}
+
+/**
+ * Force-sync subscription tier from Stripe into profiles.
+ * Uses stored subscription id, or falls back to the customer's latest subscription.
+ */
+export async function syncSubscriptionStatus(
+  userId: string
+): Promise<SubscriptionStatus> {
+  if (!isStripeBillingConfigured()) {
+    return getSubscriptionStatus(userId);
+  }
+
+  const billing = await getUserBillingRecord(userId);
+  if (!billing?.stripeSubscriptionId && !billing?.stripeCustomerId) {
+    return getSubscriptionStatus(userId);
+  }
+
+  const stripe = getStripeClient();
+  let subscription: StripeNS.Subscription | null = null;
+
+  if (billing.stripeSubscriptionId) {
+    try {
+      subscription = await stripe.subscriptions.retrieve(
+        billing.stripeSubscriptionId
+      );
+    } catch (error) {
+      console.error("[stripe] sync retrieve subscription failed", {
+        userId,
+        subscriptionId: billing.stripeSubscriptionId,
+        error,
+      });
+    }
+  }
+
+  if (!subscription && billing.stripeCustomerId) {
+    try {
+      const list = await stripe.subscriptions.list({
+        customer: billing.stripeCustomerId,
+        status: "all",
+        limit: 1,
+      });
+      subscription = list.data[0] ?? null;
+    } catch (error) {
+      console.error("[stripe] sync list subscriptions failed", {
+        userId,
+        customerId: billing.stripeCustomerId,
+        error,
+      });
+    }
+  }
+
+  if (subscription) {
+    const applied = await applyStripeSubscriptionToUser(userId, subscription);
+    if (!applied) {
+      console.error("[stripe] sync profile update failed", { userId });
+    }
+  }
+
+  return getSubscriptionStatus(userId);
 }

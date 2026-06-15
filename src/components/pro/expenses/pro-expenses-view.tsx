@@ -6,7 +6,7 @@ import { Pencil, Plus, Trash2, TrendingDown } from "lucide-react";
 import { useRecurringExpenses } from "@/hooks/useProFinancial";
 import { ExpenseFormSheet } from "@/components/pro/expenses/expense-form-sheet";
 import { ProEmptyState, ProPageHeader } from "@/components/pro/pro-page";
-import { ListTableSkeleton } from "@/components/pro/pro-skeletons";
+import { ProListPageSkeleton } from "@/components/pro/pro-skeletons";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -69,12 +69,7 @@ export function ProExpensesView() {
   };
 
   if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="h-8 w-48 animate-pulse rounded bg-muted" />
-        <ListTableSkeleton />
-      </div>
-    );
+    return <ProListPageSkeleton label={t("title")} />;
   }
 
   return (

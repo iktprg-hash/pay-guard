@@ -10,8 +10,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RecommendationCard } from "@/components/chat/recommendation-card";
 import { OfflineRecommendationCard } from "@/components/pwa/OfflineRecommendationCard";
 import { Spinner } from "@/components/ui/page-loader";
-import { persistRecommendationOffline } from "@/lib/pwa/persistRecommendation";
-import { runPriorityEngine } from "@/services/priorityEngine";
+import { persistChatRecommendation } from "@/lib/chat/persist-recommendation";
+import { resolvePrioritization } from "@/lib/recommendation/resolve-prioritization";
+import { useSubscriptionTier } from "@/hooks/use-subscription-tier";
+import { useCreateFinancialSession, useDebts } from "@/hooks/useProFinancial";
 import type { Debt, DebtCategory, FinancialProfile, PrioritizationResult } from "@/lib/types/financial";
 import { DEBT_CATEGORIES } from "@/lib/types/financial";
 import type { Locale } from "@/i18n/routing";
@@ -31,6 +33,9 @@ export function ManualForm() {
   const t = useTranslations("manual");
   const tCat = useTranslations("categories");
   const locale = useLocale() as Locale;
+  const { isProEnabled } = useSubscriptionTier();
+  const { saveDebtsAsync } = useDebts({ showErrorToast: false });
+  const { createSessionAsync } = useCreateFinancialSession({ showErrorToast: false });
 
   const [profile, setProfile] = useState<FinancialProfile>({
     availableFunds: 0,
@@ -69,26 +74,25 @@ export function ManualForm() {
     setError(null);
     setResult(null);
     try {
-      let data: PrioritizationResult;
+      const data = await resolvePrioritization(profile, locale);
 
-      if (!navigator.onLine) {
-        data = runPriorityEngine(profile, locale);
-      } else {
-        const res = await fetch("/api/prioritize", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ profile, locale }),
-        });
-        const json = await res.json();
-        if (!res.ok) {
-          setError(json.error ?? t("error"));
-          return;
-        }
-        data = json;
-      }
-
-      await persistRecommendationOffline(locale, profile, data, "manual");
+      await persistChatRecommendation({
+        locale,
+        profile,
+        recommendation: data,
+        source: "manual",
+        isProEnabled,
+        persistRecommendationToPro: isProEnabled
+          ? async (sessionProfile, recommendation) => {
+              await saveDebtsAsync(sessionProfile.debts);
+              await createSessionAsync({
+                profile: sessionProfile,
+                recommendation,
+                options: { source: "manual", locale, title: t("title") },
+              });
+            }
+          : undefined,
+      });
       setResult(data);
     } catch {
       setError(t("error"));

@@ -28,6 +28,22 @@ declare global {
 
 declare const self: ServiceWorkerGlobalScope;
 
+/** Local fonts (PDF export, UI) — cache-first for offline repeat loads */
+const localFontsCache: typeof defaultCache[number] = {
+  matcher({ url }) {
+    return url.pathname.startsWith("/fonts/");
+  },
+  handler: new CacheFirst({
+    cacheName: "payguard-fonts",
+    plugins: [
+      new ExpirationPlugin({
+        maxEntries: 32,
+        maxAgeSeconds: 60 * 24 * 60 * 60,
+      }),
+    ],
+  }),
+};
+
 /** Authenticated API — always network, no cache (prevents cross-user data bleed) */
 const apiNetworkOnly: typeof defaultCache[number] = {
   matcher({ url }) {
@@ -97,6 +113,7 @@ const serwist = new Serwist({
   runtimeCaching: [
     apiNetworkOnly,
     staticPwaCache,
+    localFontsCache,
     nextStaticCache,
     googleFontsCache,
     ...defaultCache,

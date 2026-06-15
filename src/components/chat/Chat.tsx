@@ -15,11 +15,10 @@ import { useAuth } from "@/components/providers/auth-provider";
 import { useFinancialProfile } from "@/hooks/use-financial-profile";
 import { useChatWithPro } from "@/hooks/use-chat-with-pro";
 import { useChatHistory } from "@/hooks/use-chat-history";
-import { useNetworkStatus } from "@/components/pwa/NetworkProvider";
 import { getOrCreateSessionCredentials, createNewLocalSession, listLocalSessions } from "@/lib/chat/storage";
 import { persistChatRecommendation } from "@/lib/chat/persist-recommendation";
 import { mergeProfileUpdate } from "@/lib/types/financial";
-import { runPriorityEngine } from "@/services/priorityEngine";
+import { resolvePrioritization } from "@/lib/recommendation/resolve-prioritization";
 import { GrokConsentGate } from "./GrokConsentGate";
 import { ProSyncBar } from "./pro-sync-bar";
 import { OfflineRecommendationCard } from "@/components/pwa/OfflineRecommendationCard";
@@ -38,7 +37,6 @@ export function Chat() {
   const searchParams = useSearchParams();
   const paramSessionId = searchParams.get("session");
   const { user, loading: authLoading } = useAuth();
-  const { isOnline } = useNetworkStatus();
   const dateLocale = getIntlLocale(locale);
 
   const { profile, setProfile, isReady, reset: resetProfile } =
@@ -65,6 +63,7 @@ export function Chat() {
   const {
     isProEnabled,
     isProLoading,
+    isOnline,
     syncStatus,
     isSyncing,
     loadFromPro,
@@ -272,21 +271,7 @@ export function Chat() {
   const getRecommendation = useCallback(async () => {
     setIsLoading(true);
     try {
-      let result: PrioritizationResult;
-
-      if (!isOnline) {
-        result = runPriorityEngine(profileRef.current, locale);
-      } else {
-        const res = await fetch("/api/prioritize", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ profile: profileRef.current, locale }),
-        });
-
-        if (!res.ok) throw new Error("Prioritize failed");
-        result = await res.json();
-      }
+      const result = await resolvePrioritization(profileRef.current, locale);
 
       await persistChatRecommendation({
         locale,
@@ -326,7 +311,7 @@ export function Chat() {
     } finally {
       setIsLoading(false);
     }
-  }, [isOnline, locale, t, isProEnabled, persistRecommendationToPro, saveSession, sessionId]);
+  }, [locale, t, isProEnabled, persistRecommendationToPro, saveSession, sessionId]);
 
   const handleSaveConsultation = useCallback(async () => {
     if (!messagesRef.current.length || isSavingConsultation) return;
@@ -366,6 +351,7 @@ export function Chat() {
           <ProSyncBar
             isProEnabled={isProEnabled}
             isProLoading={isProLoading}
+            isOnline={isOnline}
             syncStatus={syncStatus}
             isSyncing={isSyncing}
             onLoadFromPro={() => void loadFromPro()}

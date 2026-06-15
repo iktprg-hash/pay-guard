@@ -26,7 +26,14 @@ import {
   DEFAULT_APP_CURRENCY,
   createEmptyUserFinancialProfile,
 } from "@/lib/types/financial";
-import { isProEnabledForProfile } from "@/lib/supabase/pro-access";
+import { ensureProAccess } from "@/lib/supabase/ensure-pro-access";
+
+function guardProAccess(
+  access: Awaited<ReturnType<typeof ensureProAccess>>
+): ProResult<never> | null {
+  if (access.ok) return null;
+  return failure(access.error?.message ?? "Pro subscription required", access.error?.code);
+}
 
 // ---------------------------------------------------------------------------
 // Result types
@@ -61,32 +68,7 @@ function getClient(): SupabaseClient {
   return createBrowserSupabaseClient();
 }
 
-async function ensureProAccess(userId: string): Promise<ProResult<void>> {
-  const supabase = getClient();
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("subscription_tier, subscription_expires_at")
-    .eq("id", userId)
-    .maybeSingle();
-
-  if (error) {
-    return fromSupabaseError(error, "Failed to verify subscription");
-  }
-
-  const tier = (data?.subscription_tier as SubscriptionTier) ?? "free";
-  const expiresAt = data?.subscription_expires_at ?? null;
-
-  if (
-    !isProEnabledForProfile({
-      subscriptionTier: tier,
-      subscriptionExpiresAt: expiresAt,
-    })
-  ) {
-    return failure("Pro subscription required", "PRO_REQUIRED");
-  }
-
-  return success(undefined);
-}
+export { ensureProAccess };
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -335,6 +317,9 @@ const EXPENSE_SELECT =
 export async function getUserFinancialProfile(
   userId: string
 ): Promise<ProResult<UserFinancialProfile>> {
+  const blocked = guardProAccess(await ensureProAccess(userId));
+  if (blocked) return blocked;
+
   const supabase = getClient();
 
   const { data: profileRow, error: profileError } = await supabase
@@ -398,8 +383,8 @@ export async function saveDebts(
   userId: string,
   debts: Debt[]
 ): Promise<ProResult<Debt[]>> {
-  const access = await ensureProAccess(userId);
-  if (!access.ok) return access;
+  const blocked = guardProAccess(await ensureProAccess(userId));
+  if (blocked) return blocked;
 
   const supabase = getClient();
   const rows = debts.map((d) => debtToRow(d, userId, null));
@@ -416,8 +401,8 @@ export async function deleteDebt(
   debtId: string,
   sessionId?: string
 ): Promise<ProResult<Debt[]>> {
-  const access = await ensureProAccess(userId);
-  if (!access.ok) return access;
+  const blocked = guardProAccess(await ensureProAccess(userId));
+  if (blocked) return blocked;
 
   if (!sessionId) {
     const current = await getDebts(userId);
@@ -444,6 +429,9 @@ export async function getDebts(
   userId: string,
   sessionId?: string
 ): Promise<ProResult<Debt[]>> {
+  const blocked = guardProAccess(await ensureProAccess(userId));
+  if (blocked) return blocked;
+
   const supabase = getClient();
 
   let query = supabase
@@ -468,8 +456,8 @@ export async function saveRecurringIncomes(
   userId: string,
   incomes: RecurringIncome[]
 ): Promise<ProResult<RecurringIncome[]>> {
-  const access = await ensureProAccess(userId);
-  if (!access.ok) return access;
+  const blocked = guardProAccess(await ensureProAccess(userId));
+  if (blocked) return blocked;
 
   const supabase = getClient();
   const rows = incomes.map((i) => recurringIncomeToRow(i, userId));
@@ -522,6 +510,9 @@ export async function deleteRecurringIncome(
 export async function getRecurringIncomes(
   userId: string
 ): Promise<ProResult<RecurringIncome[]>> {
+  const blocked = guardProAccess(await ensureProAccess(userId));
+  if (blocked) return blocked;
+
   const supabase = getClient();
 
   const { data, error } = await supabase
@@ -540,8 +531,8 @@ export async function saveRecurringExpenses(
   userId: string,
   expenses: RecurringExpense[]
 ): Promise<ProResult<RecurringExpense[]>> {
-  const access = await ensureProAccess(userId);
-  if (!access.ok) return access;
+  const blocked = guardProAccess(await ensureProAccess(userId));
+  if (blocked) return blocked;
 
   const supabase = getClient();
   const rows = expenses.map((e) => recurringExpenseToRow(e, userId));
@@ -594,6 +585,9 @@ export async function deleteRecurringExpense(
 export async function getRecurringExpenses(
   userId: string
 ): Promise<ProResult<RecurringExpense[]>> {
+  const blocked = guardProAccess(await ensureProAccess(userId));
+  if (blocked) return blocked;
+
   const supabase = getClient();
 
   const { data, error } = await supabase
@@ -627,8 +621,8 @@ export async function createFinancialSession(
   recommendation: PrioritizationResult | null,
   options: CreateFinancialSessionOptions = {}
 ): Promise<ProResult<FinancialSessionRecord>> {
-  const access = await ensureProAccess(userId);
-  if (!access.ok) return access;
+  const blocked = guardProAccess(await ensureProAccess(userId));
+  if (blocked) return blocked;
 
   const supabase = getClient();
   const sessionId = crypto.randomUUID();

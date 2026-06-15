@@ -5,14 +5,12 @@ import {
   saveSessionToSupabase,
 } from "@/lib/chat/persistence";
 import type { StoredMessage } from "@/lib/chat/storage";
-import { requireProApiUser } from "@/lib/auth/require-pro";
+import { requireProApiWithRateLimit } from "@/lib/api/pro-route-guard";
 import { createClient } from "@/lib/supabase/server";
 import {
-  rateLimitError,
   unauthorizedError,
   validationError,
 } from "@/lib/api/errors";
-import { checkRateLimit, getClientIp } from "@/lib/security/rateLimit";
 import {
   historyGetSchema,
   historyPostSchema,
@@ -21,12 +19,8 @@ import {
 
 /** Uloží celou historii konverzace */
 export async function POST(request: NextRequest) {
-  const auth = await requireProApiUser();
-  if ("error" in auth) return auth.error;
-
-  const ip = getClientIp(request.headers);
-  const limit = await checkRateLimit(`history-post:${auth.user.id}:${ip}`, 30, 60_000);
-  if (!limit.allowed) return rateLimitError(limit.resetAt);
+  const guard = await requireProApiWithRateLimit(request, "history-write");
+  if (!guard.ok) return guard.response;
 
   try {
     const body = await request.json().catch(() => null);
@@ -43,7 +37,7 @@ export async function POST(request: NextRequest) {
       messages as StoredMessage[],
       normalizeProfile(profile),
       locale,
-      auth.user.id
+      guard.user.id
     );
 
     if (!saved) {
@@ -59,18 +53,14 @@ export async function POST(request: NextRequest) {
 
 /** Načte historii — ?latest=1 nebo ?sessionId= (auth + ownership) */
 export async function GET(request: NextRequest) {
-  const auth = await requireProApiUser();
-  if ("error" in auth) return auth.error;
-
-  const ip = getClientIp(request.headers);
-  const limit = await checkRateLimit(`history-get:${auth.user.id}:${ip}`, 30, 60_000);
-  if (!limit.allowed) return rateLimitError(limit.resetAt);
+  const guard = await requireProApiWithRateLimit(request, "history-read");
+  if (!guard.ok) return guard.response;
 
   const latest = request.nextUrl.searchParams.get("latest") === "1";
 
   if (latest) {
     const supabase = await createClient();
-    const bundle = await loadLatestUserSession(supabase, auth.user.id);
+    const bundle = await loadLatestUserSession(supabase, guard.user.id);
     if (!bundle) {
       return NextResponse.json({ messages: [], profile: null, session: null });
     }
@@ -93,7 +83,7 @@ export async function GET(request: NextRequest) {
     const messages = await loadSessionFromSupabase(
       supabase,
       parsed.data.sessionId,
-      auth.user.id
+      guard.user.id
     );
 
     if (messages === null) {

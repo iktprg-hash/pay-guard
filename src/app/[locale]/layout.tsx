@@ -99,6 +99,7 @@ export default async function LocaleLayout({
   return (
     <html
       lang={locale}
+      dir="ltr"
       className={`${geistSans.variable} ${geistMono.variable} h-full`}
     >
       <head>

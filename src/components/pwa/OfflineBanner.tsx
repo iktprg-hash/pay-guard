@@ -49,6 +49,7 @@ export function OfflineBanner() {
     <div
       role="status"
       aria-live="polite"
+      aria-label={t("bannerTitle")}
       className="border-b border-amber-500/30 bg-amber-500/10"
     >
       <div className="mx-auto flex max-w-5xl flex-col gap-2 px-4 py-2.5">
@@ -72,6 +73,8 @@ export function OfflineBanner() {
             className="shrink-0 text-amber-900 hover:bg-amber-500/20 dark:text-amber-100"
             onClick={() => setExpanded((v) => !v)}
             aria-expanded={expanded}
+            aria-controls="offline-banner-details"
+            aria-label={expanded ? t("hideData") : t("showData")}
           >
             {expanded ? (
               <>
@@ -88,7 +91,10 @@ export function OfflineBanner() {
         </div>
 
         {expanded && (
-          <div className="space-y-3 border-t border-amber-500/20 pt-3">
+          <div
+            id="offline-banner-details"
+            className="space-y-3 border-t border-amber-500/20 pt-3"
+          >
             {data?.recommendation ? (
               <div className="space-y-2">
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">

@@ -35,18 +35,39 @@ export const PWA_SHORTCUT_LABELS = {
     chat: "Chat",
     manual: "Ruční zadání",
     consultations: "Konzultace",
+    pro: "Pro",
   },
   ru: {
     chat: "Чат",
     manual: "Ручной ввод",
     consultations: "Консультации",
+    pro: "Pro",
   },
   en: {
     chat: "Chat",
     manual: "Manual entry",
     consultations: "Consultations",
+    pro: "Pro",
   },
 } as const;
+
+/** PWA store listing screenshots (reuse high-res icon until dedicated shots exist). */
+export const PWA_SCREENSHOTS = [
+  {
+    src: "/icons/icon-512x512.png",
+    sizes: "512x512",
+    type: "image/png",
+    form_factor: "narrow" as const,
+    label: "Pay Guard — payment prioritization",
+  },
+  {
+    src: "/icons/icon-512x512.png",
+    sizes: "512x512",
+    type: "image/png",
+    form_factor: "wide" as const,
+    label: "Pay Guard Pro dashboard",
+  },
+] as const;
 
 /** iOS startup images (width x height @ scale) */
 export const IOS_SPLASH_SCREENS = [
@@ -115,7 +136,14 @@ export function buildManifest(locale: PwaLocale) {
         url: `/${locale}/consultations`,
         icons: [{ src: "/icons/icon-192x192.png", sizes: "192x192" }],
       },
+      {
+        name: labels.pro,
+        short_name: labels.pro,
+        url: `/${locale}/pro/dashboard`,
+        icons: [{ src: "/icons/icon-192x192.png", sizes: "192x192" }],
+      },
     ],
+    screenshots: [...PWA_SCREENSHOTS],
     icons: [
       {
         src: "/icons/icon-72x72.png",

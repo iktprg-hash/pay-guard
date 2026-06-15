@@ -150,7 +150,7 @@ export function ProDashboardView() {
     });
 
   if (isLoading) {
-    return <DashboardSkeleton />;
+    return <DashboardSkeleton label={t("title")} />;
   }
 
   if (isError) {

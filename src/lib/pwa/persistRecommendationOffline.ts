@@ -1,4 +1,5 @@
 import type { FinancialProfile, PrioritizationResult } from "@/lib/types/financial";
+import { ensureLocalStorageCrypto } from "@/lib/security/local-crypto";
 import { saveOfflineRecommendation } from "@/lib/offline/storage";
 import { emitRecommendationSaved } from "@/lib/pwa/events";
 import type { Locale } from "@/i18n/routing";
@@ -23,6 +24,7 @@ export async function persistRecommendationOffline(
   source: RecommendationSource
 ): Promise<void> {
   try {
+    await ensureLocalStorageCrypto();
     await saveOfflineRecommendation({
       locale,
       result: recommendation,

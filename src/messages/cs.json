@@ -86,8 +86,12 @@
       "loading": "Načítání Pro profilu…",
       "loadFromPro": "Načíst z Pro",
       "saveToPro": "Uložit do Pro",
+      "synced": "Synchronizováno",
       "savedToCloud": "Uloženo v cloudu",
       "syncing": "Synchronizace…",
+      "offline": "Offline",
+      "offlineHint": "Cloud sync vyžaduje připojení k internetu.",
+      "syncRegion": "Pro cloud sync",
       "syncFailed": "Synchronizace selhala",
       "saveSuccess": "Profil uložen do Pro",
       "saveFailed": "Profil se nepodařilo uložit",
@@ -339,6 +343,7 @@
       "bannerDescription": "Odblokujte katalog dluhů, cloud sync, historii konzultací a finanční prognózy.",
       "cta": "Přejít na Pro",
       "lockedHint": "Pro funkce jsou na Free plánu jen náhled.",
+      "loadingGate": "Kontrola předplatného…",
       "mutationBlocked": "Tato akce vyžaduje předplatné Pro."
     },
     "nav": {
