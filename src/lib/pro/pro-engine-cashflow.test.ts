@@ -1,0 +1,95 @@
+import { describe, expect, it } from "vitest";
+import {
+  buildProEngineCashFlowContext,
+  inferEffectiveStability,
+} from "./pro-engine-cashflow";
+import type { FinancialProfile } from "@/lib/types/financial";
+
+describe("pro-engine-cashflow", () => {
+  it("prefers recurring streams over snapshots", () => {
+    const profile: FinancialProfile = {
+      availableFunds: 10_000,
+      monthlyIncome: 5_000,
+      monthlyExpenses: 4_000,
+      incomeStability: "stable",
+      debts: [],
+      recurringIncomes: [
+        {
+          id: "1",
+          source: "Salary",
+          amount: 40_000,
+          frequency: "monthly",
+          category: "salary",
+          nextDate: "2026-06-15",
+          createdAt: "2026-06-01",
+        },
+      ],
+      recurringExpenses: [
+        {
+          id: "2",
+          name: "Rent",
+          amount: 15_000,
+          frequency: "monthly",
+          category: "housing",
+          nextDate: "2026-06-01",
+          createdAt: "2026-06-01",
+        },
+      ],
+    };
+
+    const ctx = buildProEngineCashFlowContext(profile);
+    expect(ctx.monthlyIncome).toBe(40_000);
+    expect(ctx.monthlyExpenses).toBe(15_000);
+    expect(ctx.incomeFromRecurring).toBe(true);
+  });
+
+  it("detects projected deficit within forecast horizon", () => {
+    const profile: FinancialProfile = {
+      availableFunds: 5_000,
+      incomeStability: "stable",
+      debts: [
+        {
+          id: "d1",
+          creditor: "Loan",
+          amount: 20_000,
+          minimumPayment: 3_000,
+          category: "loans",
+        },
+      ],
+      recurringIncomes: [
+        {
+          id: "i1",
+          source: "Job",
+          amount: 10_000,
+          frequency: "monthly",
+          category: "salary",
+          nextDate: "2026-06-01",
+          createdAt: "2026-06-01",
+        },
+      ],
+      recurringExpenses: [
+        {
+          id: "e1",
+          name: "Living",
+          amount: 9_000,
+          frequency: "monthly",
+          category: "food",
+          nextDate: "2026-06-01",
+          createdAt: "2026-06-01",
+        },
+      ],
+    };
+
+    const ctx = buildProEngineCashFlowContext(
+      profile,
+      new Date(2026, 5, 1)
+    );
+    expect(ctx.netMonthlyCashFlow).toBe(-2_000);
+    expect(ctx.projectedDeficitMonthIndex).toBe(2);
+  });
+
+  it("downgrades stability under sustained deficit", () => {
+    expect(inferEffectiveStability("stable", 20_000, -5_000)).toBe("variable");
+    expect(inferEffectiveStability("variable", 10_000, -3_000)).toBe("uncertain");
+  });
+});

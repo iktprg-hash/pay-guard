@@ -424,7 +424,11 @@
       "upgradeCta": "Перейти на Pro",
       "errorTitle": "Не удалось загрузить дашборд",
       "errorGeneric": "Ошибка при загрузке данных.",
-      "retry": "Повторить"
+      "retry": "Повторить",
+      "engineInsightTitle": "Приоритизация платежей",
+      "engineInsightDescription": "Учитывает регулярный cash flow, стабильность дохода и прогноз на 3 месяца.",
+      "engineLifeBuffer": "Резерв на жизнь",
+      "engineSpendable": "Доступно на долги"
     },
     "debts": {
       "title": "Долги",

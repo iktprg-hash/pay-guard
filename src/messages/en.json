@@ -424,7 +424,11 @@
       "upgradeCta": "Upgrade to Pro",
       "errorTitle": "Could not load dashboard",
       "errorGeneric": "Something went wrong while loading your data.",
-      "retry": "Try again"
+      "retry": "Try again",
+      "engineInsightTitle": "Payment priority insight",
+      "engineInsightDescription": "Uses recurring cash flow, income stability, and 3-month forecast.",
+      "engineLifeBuffer": "Life buffer",
+      "engineSpendable": "Spendable for debts"
     },
     "debts": {
       "title": "Debts",

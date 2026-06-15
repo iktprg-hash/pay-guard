@@ -38,18 +38,25 @@
  *   na nejdražší dluh (úrok + prodlení + mikropůjčky); greedy dle ceny peněz.
  * - **2026-06-12 (level-1 mikropůjčky)** — 70–90 % poolu u mikropůjček (>30 %
  *   nebo SMS/rychlá půjčka); 50–70 % u běžných úvěrů; emergency buffer max 10 %.
+ * - **2026-06-15 (Pro cash flow)** — recurring incomes/expenses, effective stability,
+ *   expense-based buffer floor, deficit spendable guard, 3-month forecast warnings.
  *
  * ## Exportované API
  *
  * `runPriorityEngine`, `analyzeDebt`, `buildExplanation`, `isExecutionRisk`,
  * `calculateLifeBufferPercent`, `resolveLifeBufferPercent`, `daysBetween`,
  * `nearestDeadlineDays`, `hasMultipleDeadlines`, `PRIORITY_CONSTANTS`
+ * Pro: pass `recurringIncomes` / `recurringExpenses` on {@link FinancialProfile}.
  */
 
 import {
   formatMoney,
   roundMoney,
 } from "@/lib/financial/locale-config";
+import {
+  buildProEngineCashFlowContext,
+  type ProEngineCashFlowContext,
+} from "@/lib/pro/pro-engine-cashflow";
 import type {
   Debt,
   DebtCategory,
@@ -99,6 +106,11 @@ type PriorityConstantsShape = {
   readonly MICROLOAN_KEYWORDS: RegExp;
   readonly ALLOCATION_DEBT_CAP: number;
   readonly MIN_ALLOCATION_WEIGHT: number;
+  readonly BUFFER_DEFICIT_BONUS_STABLE: number;
+  readonly BUFFER_DEFICIT_BONUS_VARIABLE: number;
+  readonly BUFFER_DEFICIT_BONUS_UNCERTAIN: number;
+  readonly MAX_BUFFER_PERCENT: number;
+  readonly DEFICIT_SPENDABLE_REDUCTION: number;
 };
 
 /** Immutable konfigurace Priority Engine — jediný zdroj pravdy pro váhy a prahy. */
@@ -151,6 +163,11 @@ export const PRIORITY_CONSTANTS = {
     /mikro|payday|rychl|fast.?loan|online.?půj|sms|mini.?půj|z[aá]jm|půjč|займ|микрозайм|быстр.*займ/i,
   ALLOCATION_DEBT_CAP: 50_000,
   MIN_ALLOCATION_WEIGHT: 5,
+  BUFFER_DEFICIT_BONUS_STABLE: 0.05,
+  BUFFER_DEFICIT_BONUS_VARIABLE: 0.08,
+  BUFFER_DEFICIT_BONUS_UNCERTAIN: 0.1,
+  MAX_BUFFER_PERCENT: 0.45,
+  DEFICIT_SPENDABLE_REDUCTION: 0.25,
 } as const satisfies PriorityConstantsShape;
 
 /** Typ odvozený z {@link PRIORITY_CONSTANTS} — plná typová bezpečnost konfigurace. */
@@ -206,6 +223,16 @@ function sanitizeProfile(profile: FinancialProfile): FinancialProfile {
       profile.monthlyIncome !== undefined
         ? sanitizeAmount(profile.monthlyIncome)
         : profile.monthlyIncome,
+    monthlyExpenses:
+      profile.monthlyExpenses !== undefined
+        ? sanitizeAmount(profile.monthlyExpenses)
+        : profile.monthlyExpenses,
+    recurringIncomes: Array.isArray(profile.recurringIncomes)
+      ? profile.recurringIncomes
+      : undefined,
+    recurringExpenses: Array.isArray(profile.recurringExpenses)
+      ? profile.recurringExpenses
+      : undefined,
     debts: debts.map((debt) => ({
       ...debt,
       amount: sanitizeAmount(debt.amount),
@@ -377,13 +404,75 @@ export function resolveLifeBufferPercent(
     hasLevel0Debt: boolean;
     availableFunds: number;
     level0Count?: number;
+    /** Pro cash flow — adjusts stability and adds deficit buffer bonus. */
+    cashFlow?: ProEngineCashFlowContext;
   }
 ): number {
   const funds = sanitizeAmount(options.availableFunds);
   const level0Count = options.level0Count ?? (options.hasLevel0Debt ? 1 : 0);
   const mode = resolveBufferMode(options.hasLevel0Debt, level0Count, funds);
-  return bufferPercentForStability(stability, mode);
+  const effectiveStability =
+    options.cashFlow?.effectiveStability ?? stability;
+  let percent = bufferPercentForStability(effectiveStability, mode);
+
+  if (options.cashFlow && options.cashFlow.netMonthlyCashFlow < 0) {
+    const hasSignal =
+      options.cashFlow.incomeFromRecurring ||
+      options.cashFlow.expensesFromRecurring ||
+      options.cashFlow.monthlyIncome > 0 ||
+      options.cashFlow.monthlyExpenses > 0;
+    if (hasSignal) {
+      const bonus =
+        effectiveStability === "uncertain"
+          ? PRIORITY_CONSTANTS.BUFFER_DEFICIT_BONUS_UNCERTAIN
+          : effectiveStability === "variable"
+            ? PRIORITY_CONSTANTS.BUFFER_DEFICIT_BONUS_VARIABLE
+            : PRIORITY_CONSTANTS.BUFFER_DEFICIT_BONUS_STABLE;
+      percent = Math.min(
+        PRIORITY_CONSTANTS.MAX_BUFFER_PERCENT,
+        percent + bonus
+      );
+    }
+  }
+
+  return percent;
 }
+
+/**
+ * Absolute life buffer: max(percent × funds, ~2 weeks recurring expenses),
+ * capped at available funds.
+ */
+export function resolveLifeBufferAmount(
+  availableFunds: number,
+  bufferPercent: number,
+  cashFlow?: ProEngineCashFlowContext
+): number {
+  const funds = sanitizeAmount(availableFunds);
+  const percentBased = funds * bufferPercent;
+  const floor = cashFlow?.expenseBasedMinBuffer ?? 0;
+  return roundMoney(Math.min(funds, Math.max(percentBased, floor)));
+}
+
+/**
+ * When monthly net cash flow is negative, reserve part of spendable for next month.
+ */
+function applyDeficitSpendableGuard(
+  spendable: number,
+  cashFlow: ProEngineCashFlowContext
+): number {
+  if (cashFlow.netMonthlyCashFlow >= 0) return spendable;
+  const hasSignal =
+    cashFlow.incomeFromRecurring ||
+    cashFlow.expensesFromRecurring ||
+    cashFlow.monthlyIncome > 0 ||
+    cashFlow.monthlyExpenses > 0;
+  if (!hasSignal) return spendable;
+  const reduction = spendable * PRIORITY_CONSTANTS.DEFICIT_SPENDABLE_REDUCTION;
+  return roundMoney(Math.max(0, spendable - reduction));
+}
+
+export { buildProEngineCashFlowContext };
+export type { ProEngineCashFlowContext };
 
 // ─── Určení úrovně priority ────────────────────────────────────────────────
 
@@ -1227,9 +1316,20 @@ export function runPriorityEngine(
 
   // ── Fáze 2: prázdný profil ──
   if (safeProfile.debts.length === 0) {
-    const bufferPercent = calculateLifeBufferPercent(safeProfile.incomeStability);
-    const lifeBuffer = roundMoney(availableFunds * bufferPercent);
-    return emptyResult(availableFunds, lifeBuffer, bufferPercent, locale);
+    const cashFlow = buildProEngineCashFlowContext(safeProfile, today);
+    const bufferPercent = resolveLifeBufferPercent(safeProfile.incomeStability, {
+      hasLevel0Debt: false,
+      availableFunds,
+      cashFlow,
+    });
+    const lifeBuffer = resolveLifeBufferAmount(
+      availableFunds,
+      bufferPercent,
+      cashFlow
+    );
+    const result = emptyResult(availableFunds, lifeBuffer, bufferPercent, locale);
+    result.warnings = collectProCashFlowWarnings(cashFlow, locale);
+    return result;
   }
 
   // ── Fáze 3: nulové prostředky ──
@@ -1243,14 +1343,23 @@ export function runPriorityEngine(
   const hasLevel0Debt = level0Debts.length > 0;
   const level0Count = level0Debts.length;
 
+  // ── Fáze 4b: Pro cash flow (recurring income/expense, forecast) ──
+  const cashFlow = buildProEngineCashFlowContext(safeProfile, today);
+
   // ── Fáze 5: life buffer ──
   const bufferPercent = resolveLifeBufferPercent(safeProfile.incomeStability, {
     hasLevel0Debt,
     availableFunds: safeProfile.availableFunds,
     level0Count,
+    cashFlow,
   });
-  const lifeBuffer = roundMoney(availableFunds * bufferPercent);
-  const spendableStart = Math.max(0, availableFunds - lifeBuffer);
+  const lifeBuffer = resolveLifeBufferAmount(
+    availableFunds,
+    bufferPercent,
+    cashFlow
+  );
+  let spendableStart = Math.max(0, availableFunds - lifeBuffer);
+  spendableStart = applyDeficitSpendableGuard(spendableStart, cashFlow);
 
   const emergencyBuffer = isEmergencyBufferMode(
     hasLevel0Debt,
@@ -1299,6 +1408,7 @@ export function runPriorityEngine(
   const warningScan = scanStatesForWarnings(states, allocations);
   const warnings = [
     ...bufferWarnings,
+    ...collectProCashFlowWarnings(cashFlow, locale),
     ...collectWarnings(warningScan, {
       locale,
       availableFunds,
@@ -1492,6 +1602,78 @@ function msgMultipleCritical(count: number, locale: Locale): string {
   if (locale === "ru")
     return `⚠ ${count} критических обязательств — средств не хватает на все. Обратитесь к кредиторам.`;
   return `⚠ ${count} critical obligations — funds won't cover all. Consider negotiating with creditors.`;
+}
+
+function collectProCashFlowWarnings(
+  cashFlow: ProEngineCashFlowContext,
+  locale: Locale
+): string[] {
+  const warnings: string[] = [];
+
+  if (
+    cashFlow.incomeFromRecurring ||
+    cashFlow.expensesFromRecurring ||
+    cashFlow.monthlyIncome > 0 ||
+    cashFlow.monthlyExpenses > 0
+  ) {
+    if (cashFlow.netMonthlyCashFlow < 0) {
+      warnings.push(msgNegativeCashFlow(cashFlow.netMonthlyCashFlow, locale));
+    }
+
+    if (cashFlow.projectedDeficitMonthIndex !== null) {
+      warnings.push(
+        msgForecastDeficit(
+          cashFlow.projectedDeficitMonthIndex,
+          cashFlow.forecastMonths[cashFlow.projectedDeficitMonthIndex]
+            ?.endingBalance ?? 0,
+          locale
+        )
+      );
+    }
+
+    if (
+      cashFlow.effectiveStability !== undefined &&
+      cashFlow.netMonthlyCashFlow < 0
+    ) {
+      warnings.push(msgEffectiveStability(cashFlow.effectiveStability, locale));
+    }
+  }
+
+  return warnings;
+}
+
+function msgNegativeCashFlow(net: number, locale: Locale): string {
+  const amount = formatMoney(Math.abs(net), locale);
+  if (locale === "cs")
+    return `⚠ Měsíční cash flow je záporný (−${amount}) — alokace omezena, prioritizujte kritické dluhy.`;
+  if (locale === "ru")
+    return `⚠ Месячный cash flow отрицательный (−${amount}) — аллокация ограничена, приоритет критическим долгам.`;
+  return `⚠ Monthly cash flow is negative (−${amount}) — allocation reduced; prioritize critical debts.`;
+}
+
+function msgForecastDeficit(
+  monthIndex: number,
+  deficitAmount: number,
+  locale: Locale
+): string {
+  const monthNum = monthIndex + 1;
+  const amount = formatMoney(Math.abs(deficitAmount), locale);
+  if (locale === "cs")
+    return `⚠ Prognóza: deficit ${amount} do ${monthNum}. měsíce — zvažte snížení výdajů nebo navýšení příjmů.`;
+  if (locale === "ru")
+    return `⚠ Прогноз: дефицит ${amount} к ${monthNum}-му месяцу — сократите расходы или увеличьте доходы.`;
+  return `⚠ Forecast: deficit of ${amount} by month ${monthNum} — reduce expenses or increase income.`;
+}
+
+function msgEffectiveStability(
+  stability: IncomeStability,
+  locale: Locale
+): string {
+  if (locale === "cs")
+    return `Rezerva navýšena dle efektivní stability příjmu (${stability}) a záporného cash flow.`;
+  if (locale === "ru")
+    return `Резерв увеличен с учётом эффективной стабильности дохода (${stability}) и отрицательного cash flow.`;
+  return `Buffer increased using effective income stability (${stability}) and negative cash flow.`;
 }
 
 function msgExecutionRisk(locale: Locale): string {

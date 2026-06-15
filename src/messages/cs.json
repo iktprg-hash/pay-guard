@@ -424,7 +424,11 @@
       "upgradeCta": "Přejít na Pro",
       "errorTitle": "Dashboard se nepodařilo načíst",
       "errorGeneric": "Při načítání dat došlo k chybě.",
-      "retry": "Zkusit znovu"
+      "retry": "Zkusit znovu",
+      "engineInsightTitle": "Prioritizace plateb",
+      "engineInsightDescription": "Zohledňuje pravidelný cash flow, stabilitu příjmu a 3měsíční prognózu.",
+      "engineLifeBuffer": "Rezerva na život",
+      "engineSpendable": "K dispozici na dluhy"
     },
     "debts": {
       "title": "Dluhy",

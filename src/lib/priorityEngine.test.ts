@@ -892,5 +892,54 @@ describe("Priority Engine", () => {
         expect(recommendation.reason.length).toBeGreaterThan(0);
       }
     });
+
+    it("uses Pro recurring cash flow for buffer and warnings", () => {
+      const result = runPriorityEngine(
+        {
+          availableFunds: 12_000,
+          incomeStability: "stable",
+          debts: [
+            debt({
+              id: "rent",
+              creditor: "Rent",
+              amount: 15_000,
+              category: "housing",
+              dueDate: "2026-06-20",
+              minimumPayment: 12_000,
+            }),
+          ],
+          recurringIncomes: [
+            {
+              id: "salary",
+              source: "Employer",
+              amount: 18_000,
+              frequency: "monthly",
+              category: "salary",
+              nextDate: "2026-06-05",
+              createdAt: "2026-06-01",
+            },
+          ],
+          recurringExpenses: [
+            {
+              id: "food",
+              name: "Groceries",
+              amount: 8_000,
+              frequency: "monthly",
+              category: "food",
+              nextDate: "2026-06-10",
+              createdAt: "2026-06-01",
+            },
+          ],
+        },
+        "cs",
+        TODAY
+      );
+
+      expect(result.lifeBuffer).toBeGreaterThan(2_400);
+      expect(result.warnings.some((w) => w.includes("cash flow") || w.includes("Prognóza"))).toBe(
+        true
+      );
+      expect(result.totalAllocated).toBeLessThanOrEqual(result.spendableFunds);
+    });
   });
 });

@@ -16,6 +16,7 @@ import {
 import { PdfDownloadButton } from "@/components/pdf/pdf-download-button";
 import { analyzeDebt, runPriorityEngine } from "@/services/priorityEngine";
 import { useProFinancialSummary, type ProFinancialSummary } from "@/hooks/useProFinancial";
+import { buildEngineProfileFromUser } from "@/lib/pro/pro-engine-cashflow";
 import { useRecommendationPdfDownload, PRO_DASHBOARD_PDF_KEY } from "@/hooks/use-recommendation-pdf";
 import { ProPageSkeleton } from "@/components/pro/pro-skeletons";
 import { ProEmptyState, ProPageHeader, StatCard } from "@/components/pro/pro-page";
@@ -38,7 +39,7 @@ import {
 } from "@/components/ui/table";
 import { formatDate, formatMoney } from "@/lib/utils";
 import { isPaidTier } from "@/lib/types/financial";
-import type { Debt, FinancialProfile } from "@/lib/types/financial";
+import type { Debt } from "@/lib/types/financial";
 import type { Locale } from "@/i18n/routing";
 import { hasMinimumRecommendationData } from "@/lib/grok/recommendation-readiness";
 
@@ -136,13 +137,7 @@ export function ProDashboardView() {
   const handleDownloadPdf = useCallback(() => {
     if (!summary.profile) return;
 
-    const profile: FinancialProfile = {
-      availableFunds: summary.profile.availableFunds,
-      monthlyIncome: summary.profile.monthlyIncome,
-      monthlyExpenses: summary.profile.monthlyExpenses,
-      incomeStability: summary.profile.incomeStability,
-      debts: summary.profile.debts,
-    };
+    const profile = buildEngineProfileFromUser(summary.profile);
 
     if (!hasMinimumRecommendationData(profile)) return;
 
@@ -152,6 +147,13 @@ export function ProDashboardView() {
       { downloadKey: PRO_DASHBOARD_PDF_KEY }
     );
   }, [downloadPdf, locale, summary.profile]);
+
+  const prioritization = useMemo(() => {
+    if (!summary.profile || summary.debtCount === 0) return null;
+    const profile = buildEngineProfileFromUser(summary.profile);
+    if (!hasMinimumRecommendationData(profile)) return null;
+    return runPriorityEngine(profile, locale);
+  }, [summary.profile, summary.debtCount, locale]);
 
   const paid = useMemo(
     () => isPaidTier(summary.subscriptionTier),
@@ -360,6 +362,42 @@ export function ProDashboardView() {
               </CardContent>
             </Card>
           </section>
+
+          {prioritization && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">{t("engineInsightTitle")}</CardTitle>
+                <CardDescription>{t("engineInsightDescription")}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                <p>{prioritization.summary}</p>
+                {prioritization.warnings.length > 0 && (
+                  <ul className="space-y-2 text-muted-foreground">
+                    {prioritization.warnings.slice(0, 4).map((warning, i) => (
+                      <li key={i} className="flex gap-2">
+                        <span className="shrink-0 text-amber-600">•</span>
+                        <span>{warning}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="flex flex-wrap gap-4 border-t pt-3 text-xs text-muted-foreground">
+                  <span>
+                    {t("engineLifeBuffer")}:{" "}
+                    <strong className="text-foreground">
+                      {formatMoney(prioritization.lifeBuffer, locale)}
+                    </strong>
+                  </span>
+                  <span>
+                    {t("engineSpendable")}:{" "}
+                    <strong className="text-foreground">
+                      {formatMoney(prioritization.spendableFunds, locale)}
+                    </strong>
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Critical debts */}
           <Card className="border-destructive/20">

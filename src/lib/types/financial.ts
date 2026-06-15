@@ -175,16 +175,17 @@ export interface RecurringExpense {
 // Profiles
 // ---------------------------------------------------------------------------
 
-/**
- * Lightweight profile for chat, manual entry, and Priority Engine.
- * Kept backward-compatible with existing API routes and local storage.
- */
+/** Lightweight profile for chat, manual entry, and Priority Engine. */
 export interface FinancialProfile {
   availableFunds: number;
   monthlyIncome?: number;
   monthlyExpenses?: number;
   incomeStability?: IncomeStability;
   debts: Debt[];
+  /** Pro recurring income catalog (preferred over monthlyIncome snapshot). */
+  recurringIncomes?: RecurringIncome[];
+  /** Pro recurring expense catalog (preferred over monthlyExpenses snapshot). */
+  recurringExpenses?: RecurringExpense[];
 }
 
 /**
@@ -288,7 +289,7 @@ export function createEmptyUserFinancialProfile(
   };
 }
 
-/** Map full Pro profile → lightweight engine/chat profile */
+/** Map full Pro profile → Priority Engine input (includes recurring streams). */
 export function toFinancialProfile(
   profile: UserFinancialProfile
 ): FinancialProfile {
@@ -298,6 +299,8 @@ export function toFinancialProfile(
     monthlyExpenses: profile.monthlyExpenses,
     incomeStability: profile.incomeStability,
     debts: profile.debts,
+    recurringIncomes: profile.recurringIncomes,
+    recurringExpenses: profile.recurringExpenses,
   };
 }
 
