@@ -1,8 +1,11 @@
+import path from "node:path";
 import { Font } from "@react-pdf/renderer";
 
 let registered = false;
 
-/** Noto Sans — Cyrillic + Latin + Czech diacritics for server PDF render. */
+const FONTS_DIR = path.join(process.cwd(), "public", "fonts");
+
+/** Noto Sans from public/fonts — Cyrillic + Latin + Czech diacritics (Vercel-safe). */
 export function ensurePdfFontsRegistered(): void {
   if (registered) return;
 
@@ -10,11 +13,11 @@ export function ensurePdfFontsRegistered(): void {
     family: "NotoSans",
     fonts: [
       {
-        src: "https://raw.githubusercontent.com/googlefonts/noto-fonts/main/hinted/ttf/NotoSans/NotoSans-Regular.ttf",
+        src: path.join(FONTS_DIR, "NotoSans-Regular.ttf"),
         fontWeight: 400,
       },
       {
-        src: "https://raw.githubusercontent.com/googlefonts/noto-fonts/main/hinted/ttf/NotoSans/NotoSans-Bold.ttf",
+        src: path.join(FONTS_DIR, "NotoSans-Bold.ttf"),
         fontWeight: 700,
       },
     ],

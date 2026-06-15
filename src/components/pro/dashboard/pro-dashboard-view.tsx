@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { analyzeDebt, runPriorityEngine } from "@/services/priorityEngine";
 import { useProFinancialSummary } from "@/hooks/useProFinancial";
-import { useRecommendationPdfDownload } from "@/hooks/use-recommendation-pdf";
+import { useRecommendationPdfDownload, PRO_DASHBOARD_PDF_KEY } from "@/hooks/use-recommendation-pdf";
 import { DashboardSkeleton } from "@/components/pro/pro-skeletons";
 import { ProEmptyState, ProPageHeader, StatCard } from "@/components/pro/pro-page";
 import { Button } from "@/components/ui/button";
@@ -119,7 +119,8 @@ export function ProDashboardView() {
   const locale = useLocale() as Locale;
   const { summary, isLoading, isError, error, refetch } =
     useProFinancialSummary();
-  const { downloadPdf, isGenerating, isPro } = useRecommendationPdfDownload();
+  const { downloadPdf, isGeneratingForSession, isPro } = useRecommendationPdfDownload();
+  const isGeneratingPdf = isGeneratingForSession(PRO_DASHBOARD_PDF_KEY);
 
   const handleDownloadPdf = () => {
     if (!summary.profile) return;
@@ -135,7 +136,10 @@ export function ProDashboardView() {
     if (!hasMinimumRecommendationData(profile)) return;
 
     const recommendation = runPriorityEngine(profile, locale);
-    void downloadPdf({ recommendation, profile, locale });
+    void downloadPdf(
+      { recommendation, profile, locale },
+      { downloadKey: PRO_DASHBOARD_PDF_KEY }
+    );
   };
 
   const canExportPdf =
@@ -186,15 +190,15 @@ export function ProDashboardView() {
               variant="outline"
               size="sm"
               className="gap-2"
-              disabled={isGenerating}
+              disabled={isGeneratingPdf}
               onClick={handleDownloadPdf}
             >
-              {isGenerating ? (
+              {isGeneratingPdf ? (
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
               ) : (
                 <Download className="h-4 w-4" aria-hidden />
               )}
-              {isGenerating ? t("generatingPdf") : t("downloadPdf")}
+              {isGeneratingPdf ? t("generatingPdf") : t("downloadPdf")}
             </Button>
           ) : undefined
         }

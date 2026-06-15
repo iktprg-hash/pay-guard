@@ -10,6 +10,7 @@ interface MessageProps {
   message: ChatMessage;
   locale?: string;
   profile?: FinancialProfile;
+  downloadKey?: string;
 }
 
 /** Jednoduchý markdown: **bold**, *italic*, odrážky */
@@ -48,7 +49,7 @@ function formatContent(text: string) {
   });
 }
 
-export function Message({ message, locale, profile }: MessageProps) {
+export function Message({ message, locale, profile, downloadKey }: MessageProps) {
   const t = useTranslations("chat");
   const isUser = message.role === "user";
 
@@ -95,6 +96,7 @@ export function Message({ message, locale, profile }: MessageProps) {
             <RecommendationCard
               result={message.recommendation}
               profile={profile}
+              downloadKey={downloadKey}
             />
           )}
 

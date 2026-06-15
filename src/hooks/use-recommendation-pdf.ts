@@ -13,31 +13,54 @@ import type {
 } from "@/lib/types/financial";
 import type { Locale } from "@/i18n/routing";
 
+export const PRO_DASHBOARD_PDF_KEY = "pro-dashboard";
+
 export interface RecommendationPdfInput {
   recommendation: PrioritizationResult;
   profile?: FinancialProfile | UserFinancialProfile;
   locale: Locale;
 }
 
+export interface DownloadPdfOptions {
+  allowFreeFallback?: boolean;
+  /** Scope loading state to this id (session, dashboard, chat, …). */
+  downloadKey?: string;
+}
+
+export type RecommendationPdfInputResolver = () => Promise<
+  RecommendationPdfInput | null
+>;
+
 /** Pro → server PDF; Free → legacy client jsPDF fallback where allowed. */
 export function useRecommendationPdfDownload() {
   const t = useTranslations("recommendation");
   const { pro } = useSubscriptionTier();
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [generatingKey, setGeneratingKey] = useState<string | null>(null);
+
+  const isGeneratingForSession = useCallback(
+    (sessionId: string) => generatingKey === sessionId,
+    [generatingKey]
+  );
 
   const downloadPdf = useCallback(
-    async (input: RecommendationPdfInput, { allowFreeFallback = false } = {}) => {
+    async (
+      input: RecommendationPdfInput | RecommendationPdfInputResolver,
+      { allowFreeFallback = false, downloadKey = "default" }: DownloadPdfOptions = {}
+    ) => {
       if (!pro && !allowFreeFallback) {
         toast(t("pdfProOnly"), "error");
         return false;
       }
 
-      setIsGenerating(true);
+      setGeneratingKey(downloadKey);
       try {
+        const resolved = typeof input === "function" ? await input() : input;
+        if (!resolved) return false;
+
         if (pro) {
-          await downloadRecommendationPdf(input);
+          await downloadRecommendationPdf(resolved);
         } else {
-          await downloadPriorityReport(input.recommendation, input.locale);
+          await downloadPriorityReport(resolved.recommendation, resolved.locale);
         }
         toast(t("pdfSuccess"), "success");
         return true;
@@ -46,11 +69,16 @@ export function useRecommendationPdfDownload() {
         toast(t("pdfFailed"), "error");
         return false;
       } finally {
-        setIsGenerating(false);
+        setGeneratingKey(null);
       }
     },
     [pro, t]
   );
 
-  return { downloadPdf, isGenerating, isPro: pro };
+  return {
+    downloadPdf,
+    isGenerating: generatingKey !== null,
+    isGeneratingForSession,
+    isPro: pro,
+  };
 }

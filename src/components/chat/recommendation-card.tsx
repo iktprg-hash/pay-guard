@@ -32,14 +32,21 @@ const LEVEL_VARIANT: Record<number, "default" | "warning" | "secondary" | "outli
 interface RecommendationCardProps {
   result: PrioritizationResult;
   profile?: FinancialProfile | UserFinancialProfile;
+  /** Scopes PDF loading spinner (e.g. chat session id). */
+  downloadKey?: string;
 }
 
-export function RecommendationCard({ result, profile }: RecommendationCardProps) {
+export function RecommendationCard({
+  result,
+  profile,
+  downloadKey = "chat-recommendation",
+}: RecommendationCardProps) {
   const t = useTranslations("recommendation");
   const tCat = useTranslations("categories");
   const appLocale = useLocale() as Locale;
   const { pro } = useSubscriptionTier();
-  const { downloadPdf, isGenerating } = useRecommendationPdfDownload();
+  const { downloadPdf, isGeneratingForSession } = useRecommendationPdfDownload();
+  const isGenerating = isGeneratingForSession(downloadKey);
 
   return (
     <Card className="border-primary/20 bg-primary/5">
@@ -57,11 +64,14 @@ export function RecommendationCard({ result, profile }: RecommendationCardProps)
               className="shrink-0 gap-1.5 text-xs"
               disabled={isGenerating}
               onClick={() =>
-                void downloadPdf({
-                  recommendation: result,
-                  profile,
-                  locale: appLocale,
-                })
+                void downloadPdf(
+                  {
+                    recommendation: result,
+                    profile,
+                    locale: appLocale,
+                  },
+                  { downloadKey }
+                )
               }
             >
               {isGenerating ? (

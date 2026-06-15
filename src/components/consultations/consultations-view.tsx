@@ -158,10 +158,7 @@ export function ConsultationsView() {
   const locale = useLocale() as Locale;
   const { user, loading: authLoading } = useAuth();
   const { pro: hasProCloud } = useSubscriptionTier();
-  const { downloadPdf, isGenerating, isPro } = useRecommendationPdfDownload();
-  const [downloadingSessionId, setDownloadingSessionId] = useState<string | null>(
-    null
-  );
+  const { downloadPdf, isGeneratingForSession, isPro } = useRecommendationPdfDownload();
 
   const [sessions, setSessions] = useState<ConsultationSessionItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -204,28 +201,27 @@ export function ConsultationsView() {
   const messagesLabel = (count: number) => t("messages", { count });
 
   const handleDownloadPdf = useCallback(
-    async (sessionId: string) => {
-      setDownloadingSessionId(sessionId);
-      try {
-        const saved = await restore(sessionId);
-        const recommendation = saved
-          ? extractRecommendationFromMessages(saved.messages)
-          : null;
+    (sessionId: string) =>
+      downloadPdf(
+        async () => {
+          const saved = await restore(sessionId);
+          const recommendation = saved
+            ? extractRecommendationFromMessages(saved.messages)
+            : null;
 
-        if (!saved || !recommendation) {
-          toast(tRec("pdfMissing"), "error");
-          return;
-        }
+          if (!saved || !recommendation) {
+            toast(tRec("pdfMissing"), "error");
+            return null;
+          }
 
-        await downloadPdf({
-          recommendation,
-          profile: saved.profile,
-          locale,
-        });
-      } finally {
-        setDownloadingSessionId(null);
-      }
-    },
+          return {
+            recommendation,
+            profile: saved.profile,
+            locale,
+          };
+        },
+        { downloadKey: sessionId }
+      ),
     [downloadPdf, locale, restore, tRec]
   );
 
@@ -303,9 +299,7 @@ export function ConsultationsView() {
                 downloadPdfLabel={tRec("downloadPdf")}
                 generatingPdfLabel={tRec("generatingPdf")}
                 isPro={isPro}
-                isGeneratingPdf={
-                  isGenerating && downloadingSessionId === session.sessionId
-                }
+                isGeneratingPdf={isGeneratingForSession(session.sessionId)}
                 onDownloadPdf={(sessionId) => void handleDownloadPdf(sessionId)}
               />
             </li>

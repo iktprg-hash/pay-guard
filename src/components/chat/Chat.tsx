@@ -425,6 +425,7 @@ export function Chat() {
                 message={msg}
                 locale={dateLocale}
                 profile={profile}
+                downloadKey={sessionId || "chat-recommendation"}
               />
             ))}
             {isLoading && <TypingIndicator label={t("thinking")} />}

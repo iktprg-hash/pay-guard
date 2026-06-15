@@ -3,6 +3,7 @@ import { requireApiUser } from "@/lib/auth/session";
 import { userHasProAccess } from "@/lib/auth/subscription";
 import { rateLimitError, validationError } from "@/lib/api/errors";
 import { renderRecommendationPdfBuffer } from "@/lib/pdf/renderRecommendationPdf";
+import { getRecommendationPdfFilename } from "@/lib/pdf/filename";
 import { checkRateLimit, getClientIp } from "@/lib/security/rateLimit";
 import type { FinancialProfile, PrioritizationResult } from "@/lib/types/financial";
 import { pdfRecommendationRequestSchema } from "@/lib/validation/schemas";
@@ -42,8 +43,8 @@ export async function POST(request: NextRequest) {
       locale,
     });
 
-    const date = new Date().toISOString().split("T")[0];
-    const filename = `pay-guard-${date}.pdf`;
+    const date = new Date().toISOString().slice(0, 10);
+    const filename = getRecommendationPdfFilename(locale, date);
 
     return new NextResponse(new Uint8Array(pdfBuffer), {
       status: 200,

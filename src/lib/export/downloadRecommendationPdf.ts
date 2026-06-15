@@ -4,6 +4,7 @@ import type {
   UserFinancialProfile,
 } from "@/lib/types/financial";
 import type { Locale } from "@/i18n/routing";
+import { getRecommendationPdfFilename } from "@/lib/pdf/filename";
 
 export class PdfDownloadError extends Error {
   constructor(
@@ -43,10 +44,16 @@ export async function downloadRecommendationPdf(
   }
 
   const blob = await res.blob();
+  const disposition = res.headers.get("Content-Disposition");
+  const headerMatch = disposition?.match(/filename="([^"]+)"/);
+  const filename =
+    headerMatch?.[1] ??
+    getRecommendationPdfFilename(options.locale);
+
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = `pay-guard-${new Date().toISOString().split("T")[0]}.pdf`;
+  anchor.download = filename;
   anchor.click();
   URL.revokeObjectURL(url);
 }
