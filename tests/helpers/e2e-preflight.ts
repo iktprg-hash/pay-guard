@@ -27,12 +27,20 @@ async function fetchProbe(
   }
 }
 
+function isSupabaseConfigured(): boolean {
+  return Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
+}
+
 async function waitForHealth(
   baseURL: string,
   attempts = 30,
   delayMs = 2000
 ): Promise<void> {
   const healthUrl = `${baseURL}/api/health`;
+  const isCi = Boolean(process.env.CI);
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
@@ -44,7 +52,7 @@ async function waitForHealth(
         if (body.ok) return;
       }
     } catch {
-      // dev still booting
+      // server still booting
     }
 
     if (attempt < attempts) {
@@ -52,11 +60,17 @@ async function waitForHealth(
     }
   }
 
-  fail([
-    `E2E preflight: ${healthUrl} not ready after ${attempts} attempts.`,
-    "Dev may be stuck (EMFILE / corrupt .next).",
-    `Fix: ulimit -n 10240 && ${DEV_CACHE_FIX_HINT}`,
-  ]);
+  fail(
+    [
+      `E2E preflight: ${healthUrl} not ready after ${attempts} attempts.`,
+      isCi
+        ? "In CI, start the server in the same step as preflight (background jobs do not survive across GitHub Actions steps)."
+        : "Dev may be stuck (EMFILE / corrupt .next).",
+      isCi
+        ? "Fix: run `npm run start:prod &` then preflight in one shell step."
+        : `Fix: ulimit -n 10240 && ${DEV_CACHE_FIX_HINT}`,
+    ].filter(Boolean)
+  );
 }
 
 /** Cache integrity + critical route readiness before E2E. */
@@ -71,7 +85,8 @@ export async function runE2ePreflight(
     ]);
   }
 
-  await waitForHealth(baseURL);
+  const attempts = process.env.CI ? 60 : 30;
+  await waitForHealth(baseURL, attempts);
 
   const healthUrl = `${baseURL}/api/health`;
   const healthRes = await fetchProbe(healthUrl);
@@ -109,6 +124,15 @@ export async function runE2ePreflight(
   }
 
   const otpUrl = `${baseURL}/api/auth/send-otp`;
+  if (!isSupabaseConfigured()) {
+    if (process.env.CI) {
+      console.warn(
+        "E2E preflight: skipping send-otp probe — Supabase secrets not configured in CI."
+      );
+      return;
+    }
+  }
+
   const otpRes = await fetchProbe(otpUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

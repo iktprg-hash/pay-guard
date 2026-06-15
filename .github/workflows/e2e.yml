@@ -57,14 +57,13 @@ jobs:
       - name: Build application
         run: npm run build
 
-      - name: Start production server
-        run: npm run start:prod &
-
-      - name: E2E preflight (health + routes)
-        run: npm run test:e2e:preflight
-
-      - name: Run Playwright E2E (chromium only)
-        run: npm run test:e2e -- --project=chromium
+      # Server must stay in the same step as preflight/tests — GHA kills background jobs between steps.
+      - name: Start server and run E2E
+        run: |
+          npm run start:prod > server.log 2>&1 &
+          echo $! > server.pid
+          npm run test:e2e:preflight
+          npm run test:e2e -- --project=chromium
 
       - name: Upload HTML report
         uses: actions/upload-artifact@v4
@@ -82,4 +81,13 @@ jobs:
           name: playwright-test-results-chromium
           path: test-results/
           retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Upload server log
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: server-log
+          path: server.log
+          retention-days: 3
           if-no-files-found: ignore
