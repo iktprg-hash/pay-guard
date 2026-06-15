@@ -9,7 +9,7 @@
 ## Шаг 0. Предварительные требования
 
 - Репозиторий на GitHub: `iktprg-hash/pay-guard`
-- Supabase project с применёнными миграциями **001–010** + `20260615_pro_schema.sql`
+- Supabase project с применёнными миграциями **001–010** + `20260615110800_pro_schema.sql`
 - Upstash Redis database
 - xAI API key (Grok)
 - Stripe account с CZK recurring Price (Pro)
@@ -164,6 +164,7 @@ npm run prod:checklist
 | Rate limits не работают | Upstash env на Vercel + `NODE_ENV=production` (Vercel ставит автоматически) |
 | Stripe webhook 400/500 | Проверьте signing secret и Recent deliveries в Stripe Dashboard |
 | Auth redirect loop | Supabase Site URL + Redirect URLs = production domain |
+| `Remote migration versions not found in local migrations directory` | Pro schema must be `20260615110800_pro_schema.sql` for Supabase CLI. Then: `supabase migration repair --status applied 20260615110800`. Pay Guard workflow: SQL Editor + `npm run db:verify` |
 
 ---
 

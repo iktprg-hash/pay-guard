@@ -46,6 +46,9 @@ server.log
 # vercel
 .vercel
 
+# Supabase CLI local link state
+supabase/.temp/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

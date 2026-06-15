@@ -198,7 +198,7 @@ Spusťte v SQL Editoru **v pořadí**:
 7. `supabase/migrations/007_grok_consent.sql`
 8. `supabase/migrations/008_stripe_billing.sql`
 9. `supabase/migrations/009_stripe_webhook_events.sql`
-10. `supabase/migrations/20260615_pro_schema.sql` — Pro financial tables (debts, incomes, expenses)
+10. `supabase/migrations/20260615110800_pro_schema.sql` — Pro financial tables (debts, incomes, expenses)
 
 Nebo s `DATABASE_URL`: `npm run db:apply:003` / `npm run db:hint`.
 
@@ -478,7 +478,7 @@ Soukromý projekt — kontaktujte autora pro použití mimo osobní účely.
 - [ ] **Все env-переменные заданы в Vercel** — скопируйте из [`.env.example`](./.env.example) ([DEPLOY.md](./DEPLOY.md)): `NEXT_PUBLIC_SITE_URL`, Supabase, Upstash, XAI, Stripe
 - [ ] **`npm run build` успешен** — без ошибок TypeScript / Next.js (Next.js 16 использует `src/proxy.ts`, не `middleware.ts`)
 - [ ] **`npm run prod:checklist` пройден** — env, Supabase, Stripe, безопасность
-- [ ] **Supabase миграции 001–010 + pro_schema применены** — включая `20260615_pro_schema.sql`; проверка: `npm run db:verify`
+- [ ] **Supabase миграции 001–010 + pro_schema применены** — включая `20260615110800_pro_schema.sql`; проверка: `npm run db:verify`
 - [ ] **Stripe webhook настроен и протестирован** — endpoint на production-домене; `npm run verify:webhook` + `npm run verify:stripe`
 - [ ] **Rate limits проверены** — `UPSTASH_REDIS_REST_URL` + `TOKEN` в production; `npm run verify:upstash`
 - [ ] **PWA assets обновлены** — `npm run pwa:assets` (иконки + splash в `/public/icons/` и `/public/splash/`)
