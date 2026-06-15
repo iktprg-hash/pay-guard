@@ -14,6 +14,7 @@ import {
 import { useCashFlowForecast } from "@/hooks/useCashFlowForecast";
 import { ProEmptyState, ProPageHeader, StatCard } from "@/components/pro/pro-page";
 import { ProPageSkeleton } from "@/components/pro/pro-skeletons";
+import { ProRefreshingIndicator } from "@/components/pro/pro-refreshing-indicator";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -233,7 +234,7 @@ function RecommendationList({
 export function ProForecastView() {
   const t = useTranslations("pro.forecast");
   const locale = useLocale() as Locale;
-  const { summary, forecast, isLoading, isError, error, refetch } =
+  const { summary, forecast, isLoading, isFetching, isError, error, refetch } =
     useCashFlowForecast();
 
   const firstMonth = forecast.months[0];
@@ -274,6 +275,11 @@ export function ProForecastView() {
   return (
     <div className="space-y-8">
       <ProPageHeader title={t("title")} description={t("subtitle")} />
+
+      <ProRefreshingIndicator
+        visible={isFetching && !isLoading}
+        label={t("refreshingData")}
+      />
 
       {!forecast.hasData ? (
         <ProEmptyState

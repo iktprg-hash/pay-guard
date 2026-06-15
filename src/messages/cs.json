@@ -451,7 +451,14 @@
       "forecastHealthySummary": "Projekce zůstatku {amount} do {month}.",
       "forecastEndBalance": "Zůstatek za 3 měsíce",
       "forecastEndBalanceHint": "projekce koncového zůstatku",
-      "planningFundsLabel": "Plánovací prostředky"
+      "planningFundsLabel": "Plánovací prostředky",
+      "refreshingData": "Aktualizuji finanční data…",
+      "gettingStartedStep1": "Přidejte pravidelné příjmy (mzda, brigády).",
+      "gettingStartedStep2": "Přidejte pravidelné výdaje (nájem, jídlo, služby).",
+      "gettingStartedStep3": "Přidejte dluhy pro doporučení Priority Engine.",
+      "forecastEmptyDescription": "Přidejte recurring data pro 3měsíční prognózu.",
+      "forecastEmptyHint": "Prognóza používá stejný cash flow jako Dashboard — změny se projeví okamžitě.",
+      "engineNoDebtsDescription": "Přidejte dluhy pro doporučení plateb dle pravidelného cash flow."
     },
     "debts": {
       "title": "Dluhy",
@@ -613,7 +620,8 @@
       "debtsDescription": "Kritické a naléhavé závazky ovlivňující cash flow.",
       "errorTitle": "Prognózu se nepodařilo načíst",
       "errorGeneric": "Při načítání dat došlo k chybě.",
-      "retry": "Zkusit znovu"
+      "retry": "Zkusit znovu",
+      "refreshingData": "Aktualizuji prognózu z nejnovějších dat…"
     }
   }
 }

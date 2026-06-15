@@ -46,6 +46,8 @@ interface ProEmptyStateProps {
   title: string;
   description: string;
   action?: ReactNode;
+  /** Optional numbered setup steps (Pro onboarding). */
+  steps?: string[];
 }
 
 /** Empty state placeholder for Pro list pages. */
@@ -54,6 +56,7 @@ export function ProEmptyState({
   title,
   description,
   action,
+  steps,
 }: ProEmptyStateProps) {
   return (
     <Card className="border-dashed">
@@ -62,9 +65,19 @@ export function ProEmptyState({
           {icon}
         </div>
         <h3 className="mb-1 text-base font-semibold">{title}</h3>
-        <p className="mb-4 max-w-sm text-sm text-muted-foreground">
-          {description}
-        </p>
+        <p className="mb-4 max-w-md text-sm text-muted-foreground">{description}</p>
+        {steps && steps.length > 0 && (
+          <ol className="mb-6 w-full max-w-sm space-y-2 text-left text-sm">
+            {steps.map((step, i) => (
+              <li key={i} className="flex gap-3 rounded-lg border bg-muted/30 px-3 py-2">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                  {i + 1}
+                </span>
+                <span className="text-muted-foreground">{step}</span>
+              </li>
+            ))}
+          </ol>
+        )}
         {action}
       </CardContent>
     </Card>
@@ -78,7 +91,18 @@ interface StatCardProps {
   trend?: "positive" | "negative" | "neutral";
   icon?: LucideIcon;
   iconClassName?: string;
+  /** Top accent stripe — used on Pro dashboard metric cards. */
+  accent?: "emerald" | "blue" | "amber" | "destructive" | "violet" | "neutral";
 }
+
+const ACCENT_STRIPE: Record<NonNullable<StatCardProps["accent"]>, string> = {
+  emerald: "border-t-emerald-500",
+  blue: "border-t-blue-500",
+  amber: "border-t-amber-500",
+  destructive: "border-t-destructive",
+  violet: "border-t-violet-500",
+  neutral: "border-t-border",
+};
 
 /** Metric card for Pro dashboard. */
 export function StatCard({
@@ -88,9 +112,15 @@ export function StatCard({
   trend = "neutral",
   icon: Icon,
   iconClassName,
+  accent = "neutral",
 }: StatCardProps) {
   return (
-    <Card className="overflow-hidden transition-shadow hover:shadow-md">
+    <Card
+      className={cn(
+        "overflow-hidden border-t-2 transition-shadow hover:shadow-md",
+        ACCENT_STRIPE[accent]
+      )}
+    >
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between gap-2">
           <CardDescription>{label}</CardDescription>

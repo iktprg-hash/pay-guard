@@ -451,7 +451,14 @@
       "forecastHealthySummary": "Прогноз баланса {amount} к {month}.",
       "forecastEndBalance": "Баланс через 3 мес.",
       "forecastEndBalanceHint": "прогноз конечного баланса",
-      "planningFundsLabel": "Планируемые средства"
+      "planningFundsLabel": "Планируемые средства",
+      "refreshingData": "Обновляем финансовые данные…",
+      "gettingStartedStep1": "Добавьте регулярные доходы (зарплата, подработки).",
+      "gettingStartedStep2": "Добавьте регулярные расходы (аренда, еда, коммуналка).",
+      "gettingStartedStep3": "Добавьте долги для рекомендаций Priority Engine.",
+      "forecastEmptyDescription": "Добавьте recurring-данные для прогноза на 3 месяца.",
+      "forecastEmptyHint": "Прогноз использует тот же cash flow, что Dashboard — изменения синхронизируются сразу.",
+      "engineNoDebtsDescription": "Добавьте долги для рекомендаций по платежам на основе recurring cash flow."
     },
     "debts": {
       "title": "Долги",
@@ -613,7 +620,8 @@
       "debtsDescription": "Критические и срочные обязательства, влияющие на cash flow.",
       "errorTitle": "Не удалось загрузить прогноз",
       "errorGeneric": "Ошибка при загрузке данных.",
-      "retry": "Повторить"
+      "retry": "Повторить",
+      "refreshingData": "Обновляем прогноз по последним данным…"
     }
   }
 }

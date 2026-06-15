@@ -30,7 +30,10 @@ import { ProDashboardQuickActions } from "@/components/pro/dashboard/pro-dashboa
 import { ProDashboardHealthBanner } from "@/components/pro/dashboard/pro-dashboard-health-banner";
 import { ProDashboardForecastSummary } from "@/components/pro/dashboard/pro-dashboard-forecast-summary";
 import { ProDashboardEngineInsight } from "@/components/pro/dashboard/pro-dashboard-engine-insight";
+import { ProDashboardForecastEmpty } from "@/components/pro/dashboard/pro-dashboard-forecast-empty";
+import { ProDashboardEngineEmpty } from "@/components/pro/dashboard/pro-dashboard-engine-empty";
 import { ProDashboardDebtTable } from "@/components/pro/dashboard/pro-dashboard-debt-table";
+import { ProRefreshingIndicator } from "@/components/pro/pro-refreshing-indicator";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -58,7 +61,7 @@ function isProfileEmpty(summary: ProFinancialSummary) {
 export function ProDashboardView() {
   const t = useTranslations("pro.dashboard");
   const locale = useLocale() as Locale;
-  const { summary, isLoading, isError, error, refetch } =
+  const { summary, isLoading, isFetching, isError, error, refetch } =
     useProFinancialSummary();
   const { forecast } = useCashFlowForecast();
   const { downloadPdf, isGeneratingForKey, isPro } = useRecommendationPdfDownload();
@@ -156,6 +159,11 @@ export function ProDashboardView() {
         }
       />
 
+      <ProRefreshingIndicator
+        visible={isFetching && !isLoading}
+        label={t("refreshingData")}
+      />
+
       {!paid && (
         <Card className="overflow-hidden border-primary/30 bg-gradient-to-r from-primary/5 to-transparent">
           <CardContent className="flex flex-col gap-4 py-5 sm:flex-row sm:items-center sm:justify-between">
@@ -178,24 +186,32 @@ export function ProDashboardView() {
       )}
 
       {empty ? (
-        <ProEmptyState
-          icon={<LayoutDashboard className="h-6 w-6" />}
-          title={t("emptyProfileTitle")}
-          description={t("emptyProfileDescription")}
-          action={
-            <div className="flex flex-wrap justify-center gap-2">
-              <Button asChild>
-                <Link href={`/${locale}/pro/debts`}>{t("addDebt")}</Link>
-              </Button>
-              <Button variant="outline" asChild>
-                <Link href={`/${locale}/pro/incomes`}>{t("quickIncomes")}</Link>
-              </Button>
-              <Button variant="outline" asChild>
-                <Link href={`/${locale}/manual`}>{t("addViaManual")}</Link>
-              </Button>
-            </div>
-          }
-        />
+        <>
+          <ProDashboardQuickActions
+            debtCount={0}
+            incomeTotal={0}
+            expenseTotal={0}
+          />
+          <ProEmptyState
+            icon={<LayoutDashboard className="h-6 w-6" />}
+            title={t("emptyProfileTitle")}
+            description={t("emptyProfileDescription")}
+            steps={[t("gettingStartedStep1"), t("gettingStartedStep2"), t("gettingStartedStep3")]}
+            action={
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button asChild>
+                  <Link href={`/${locale}/pro/debts`}>{t("addDebt")}</Link>
+                </Button>
+                <Button variant="outline" asChild>
+                  <Link href={`/${locale}/pro/incomes`}>{t("quickIncomes")}</Link>
+                </Button>
+                <Button variant="outline" asChild>
+                  <Link href={`/${locale}/pro/expenses`}>{t("quickExpenses")}</Link>
+                </Button>
+              </div>
+            }
+          />
+        </>
       ) : (
         <>
           <ProDashboardQuickActions
@@ -231,6 +247,7 @@ export function ProDashboardView() {
                 value={formatMoney(summary.availableFunds, locale)}
                 hint={summary.currency}
                 icon={Wallet}
+                accent="emerald"
                 iconClassName="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
               />
               <StatCard
@@ -238,6 +255,7 @@ export function ProDashboardView() {
                 value={formatMoney(summary.netMonthlyCashFlow, locale)}
                 hint={t("perMonth")}
                 trend={cashFlowTrend}
+                accent="blue"
                 icon={TrendingUp}
                 iconClassName="bg-blue-500/10 text-blue-600 dark:text-blue-400"
               />
@@ -246,6 +264,7 @@ export function ProDashboardView() {
                 value={String(summary.urgentDebts.length)}
                 hint={t("urgentCountHint")}
                 trend={summary.urgentDebts.length > 0 ? "negative" : "neutral"}
+                accent={summary.urgentDebts.length > 0 ? "amber" : "neutral"}
                 icon={AlertTriangle}
                 iconClassName="bg-amber-500/10 text-amber-600 dark:text-amber-400"
               />
@@ -254,6 +273,7 @@ export function ProDashboardView() {
                 value={String(summary.criticalDebts.length)}
                 hint={t("criticalDebtsHint")}
                 trend={summary.criticalDebts.length > 0 ? "negative" : "neutral"}
+                accent={summary.criticalDebts.length > 0 ? "destructive" : "neutral"}
                 icon={AlertOctagon}
                 iconClassName="bg-destructive/10 text-destructive"
               />
@@ -272,6 +292,7 @@ export function ProDashboardView() {
                       ? "positive"
                       : "neutral"
                 }
+                accent="violet"
                 icon={LineChart}
                 iconClassName="bg-violet-500/10 text-violet-600 dark:text-violet-400"
               />
@@ -280,7 +301,11 @@ export function ProDashboardView() {
 
           <section className="grid gap-4 xl:grid-cols-5">
             <div className="xl:col-span-3">
-              <ProDashboardForecastSummary forecast={forecast} />
+              {forecast.hasData && forecast.months.length > 0 ? (
+                <ProDashboardForecastSummary forecast={forecast} />
+              ) : (
+                <ProDashboardForecastEmpty />
+              )}
             </div>
             <div className="xl:col-span-2">
               {prioritization ? (
@@ -289,11 +314,7 @@ export function ProDashboardView() {
                   locale={locale}
                 />
               ) : (
-                <Card className="flex h-full items-center justify-center border-dashed">
-                  <CardContent className="py-10 text-center text-sm text-muted-foreground">
-                    {t("engineNoRecommendations")}
-                  </CardContent>
-                </Card>
+                <ProDashboardEngineEmpty summary={summary} locale={locale} />
               )}
             </div>
           </section>

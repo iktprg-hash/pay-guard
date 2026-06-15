@@ -451,7 +451,14 @@
       "forecastHealthySummary": "Projected balance {amount} by {month}.",
       "forecastEndBalance": "3-month balance",
       "forecastEndBalanceHint": "projected ending balance",
-      "planningFundsLabel": "Planning funds"
+      "planningFundsLabel": "Planning funds",
+      "refreshingData": "Updating your financial data…",
+      "gettingStartedStep1": "Add recurring incomes (salary, side gigs).",
+      "gettingStartedStep2": "Add recurring expenses (rent, food, utilities).",
+      "gettingStartedStep3": "Add debts to unlock Priority Engine recommendations.",
+      "forecastEmptyDescription": "Add recurring data to see a 3-month projection.",
+      "forecastEmptyHint": "Forecast uses the same cash flow as Dashboard and Priority Engine — changes sync instantly.",
+      "engineNoDebtsDescription": "Add debts to get payment recommendations based on your recurring cash flow."
     },
     "debts": {
       "title": "Debts",
@@ -613,7 +620,8 @@
       "debtsDescription": "Critical and urgent obligations affecting your cash flow.",
       "errorTitle": "Could not load forecast",
       "errorGeneric": "Something went wrong while loading data.",
-      "retry": "Try again"
+      "retry": "Try again",
+      "refreshingData": "Updating forecast from your latest data…"
     }
   }
 }

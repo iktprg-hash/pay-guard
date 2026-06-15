@@ -71,25 +71,38 @@ export function ProGateSkeleton({ label, className }: SkeletonProps) {
   );
 }
 
-/** Full dashboard loading skeleton. */
+/** Full dashboard loading skeleton — matches command-center layout. */
 export function DashboardSkeleton({ label, className }: SkeletonProps) {
   return (
     <div
-      className={cn("space-y-6", className)}
+      className={cn("space-y-8", className)}
       role="status"
       aria-busy="true"
       aria-live="polite"
       aria-label={label ?? "Loading dashboard"}
     >
       <PageHeaderSkeleton wide />
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
+          <div
+            key={i}
+            className="h-24 animate-pulse rounded-xl border border-border/60 bg-muted/40"
+            aria-hidden
+          />
+        ))}
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        {Array.from({ length: 5 }).map((_, i) => (
           <StatCardSkeleton key={i} />
         ))}
       </div>
+      <div className="grid gap-4 xl:grid-cols-5">
+        <div className="h-72 animate-pulse rounded-xl border border-border/60 bg-muted/30 xl:col-span-3" />
+        <div className="h-72 animate-pulse rounded-xl border border-border/60 bg-muted/30 xl:col-span-2" />
+      </div>
       <div className="grid gap-4 lg:grid-cols-2">
-        <ListTableSkeleton rows={5} />
-        <CardBlockSkeleton lines={4} />
+        <CardBlockSkeleton lines={5} />
+        <CardBlockSkeleton lines={5} />
       </div>
     </div>
   );
