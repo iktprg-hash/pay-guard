@@ -33,6 +33,7 @@ export interface LocalSessionMeta {
   updatedAt: string;
   preview: string;
   messageCount: number;
+  hasRecommendation?: boolean;
 }
 
 interface SessionsIndex {
@@ -358,6 +359,7 @@ export async function saveLocalHistory(
     updatedAt: now,
     preview,
     messageCount: messages.length,
+    hasRecommendation: messages.some((m) => Boolean(m.recommendation)),
   };
   index.sessions = [
     meta,
@@ -394,6 +396,7 @@ export async function importServerSession(
       session.preview ??
       previewFromMessages(session.messages, session.locale),
     messageCount: session.messages.length,
+    hasRecommendation: session.messages.some((m) => Boolean(m.recommendation)),
   };
   index.sessions = [
     meta,

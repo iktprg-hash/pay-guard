@@ -1,5 +1,5 @@
 import { setRequestLocale } from "next-intl/server";
-import { SessionList } from "@/components/consultations/session-list";
+import { ConsultationsView } from "@/components/consultations/consultations-view";
 
 export default async function ConsultationsPage({
   params,
@@ -9,5 +9,5 @@ export default async function ConsultationsPage({
   const { locale } = await params;
   setRequestLocale(locale);
 
-  return <SessionList />;
+  return <ConsultationsView />;
 }

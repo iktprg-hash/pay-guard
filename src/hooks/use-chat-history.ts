@@ -47,6 +47,18 @@ export interface SaveSessionInput {
   profile?: FinancialProfile;
 }
 
+/** Unified session row for the consultations list UI */
+export interface ConsultationSessionItem {
+  sessionId: string;
+  locale: string;
+  updatedAt: string;
+  preview: string;
+  messageCount: number;
+  hasRecommendation: boolean;
+  /** Present in Pro cloud (financial_sessions + chat_messages) */
+  isSynced: boolean;
+}
+
 async function fetchServerSessions(): Promise<ServerSessionSummary[]> {
   const res = await fetch("/api/sessions", { credentials: "include" });
   if (!res.ok) return [];
@@ -158,6 +170,37 @@ export function useChatHistory({
   const listLocalSessions = useCallback(async (): Promise<LocalSessionMeta[]> => {
     return listLocalSessionsFromStorage(locale);
   }, [locale]);
+
+  const listSessions = useCallback(async (): Promise<ConsultationSessionItem[]> => {
+    let server: ServerSessionSummary[] = [];
+
+    if (isAuthenticated && navigator.onLine) {
+      try {
+        await syncFromServer();
+        server = await fetchServerSessions();
+      } catch (error) {
+        console.error("[useChatHistory] listSessions sync failed", error);
+      }
+    }
+
+    const local = await listLocalSessionsFromStorage(locale);
+    const merged =
+      server.length > 0 ? mergeSessionLists(server, local) : local;
+    const serverById = new Map(server.map((s) => [s.id, s]));
+
+    return merged.map((s) => ({
+      sessionId: s.sessionId,
+      locale: s.locale,
+      updatedAt: s.updatedAt,
+      preview: s.preview,
+      messageCount: s.messageCount,
+      hasRecommendation:
+        s.hasRecommendation ??
+        serverById.get(s.sessionId)?.hasRecommendation ??
+        false,
+      isSynced: serverById.has(s.sessionId),
+    }));
+  }, [isAuthenticated, locale, syncFromServer]);
 
   const saveSession = useCallback(
     async (input: SaveSessionInput = {}): Promise<void> => {
@@ -333,6 +376,7 @@ export function useChatHistory({
     createNewSession,
     saveSession,
     listLocalSessions,
+    listSessions,
     syncFromServer,
   };
 }

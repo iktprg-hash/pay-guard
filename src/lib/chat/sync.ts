@@ -53,6 +53,8 @@ export function mergeSessionLists(
         updatedAt: s.updatedAt,
         preview: s.preview,
         messageCount: s.messageCount,
+        hasRecommendation:
+          s.hasRecommendation || existing?.hasRecommendation || false,
       });
     }
   }

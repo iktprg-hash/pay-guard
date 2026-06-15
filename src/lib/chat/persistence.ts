@@ -245,15 +245,17 @@ export async function listUserSessions(
     return sessions.map((s) => {
         const profileData = s.profile_data as { locale?: string } | null;
         const locale = profileData?.locale ?? "cs";
+        const recommendation = s.recommendation as PrioritizationResult | null;
         return {
           id: s.id,
           createdAt: s.created_at,
           updatedAt: s.updated_at ?? s.created_at,
           preview:
             previewMap.get(s.id) ??
+            recommendation?.summary?.slice(0, 120) ??
             sessionPreview([], locale),
           messageCount: countMap.get(s.id) ?? 0,
-          hasRecommendation: Boolean(s.recommendation),
+          hasRecommendation: Boolean(recommendation),
           locale,
         };
       });

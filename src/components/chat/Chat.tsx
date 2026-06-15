@@ -4,8 +4,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { History, Plus, Sparkles } from "lucide-react";
+import { History, Plus, Save, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/toast-provider";
 import { Message } from "./Message";
 import { Input } from "./Input";
 import { ChatWelcome } from "./ChatWelcome";
@@ -40,7 +41,7 @@ export function Chat() {
   const { isOnline } = useNetworkStatus();
   const dateLocale = getIntlLocale(locale);
 
-  const { profile, mergeProfile, setProfile, isReady, reset: resetProfile } =
+  const { profile, setProfile, isReady, reset: resetProfile } =
     useFinancialProfile();
 
   const [sessionId, setSessionId] = useState("");
@@ -49,6 +50,7 @@ export function Chat() {
   const [isLoading, setIsLoading] = useState(false);
   const [canRecommend, setCanRecommend] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [isSavingConsultation, setIsSavingConsultation] = useState(false);
 
   const messagesRef = useRef(messages);
   const profileRef = useRef(profile);
@@ -105,9 +107,10 @@ export function Chat() {
       const saved = await restore(targetId);
       if (saved) {
         setSessionId(saved.sessionId);
+        setProfile(saved.profile);
+        profileRef.current = saved.profile;
         if (saved.messages.length) {
           setMessages(saved.messages);
-          mergeProfile(saved.profile);
           if (
             saved.profile.debts.length > 0 &&
             saved.profile.availableFunds > 0
@@ -325,6 +328,24 @@ export function Chat() {
     }
   }, [isOnline, locale, t, isProEnabled, persistRecommendationToPro, saveSession, sessionId]);
 
+  const handleSaveConsultation = useCallback(async () => {
+    if (!messagesRef.current.length || isSavingConsultation) return;
+
+    setIsSavingConsultation(true);
+    try {
+      await saveSession({
+        sessionId,
+        messages: messagesRef.current,
+        profile: profileRef.current,
+      });
+      toast(t("saveConsultationSuccess"), "success");
+    } catch {
+      toast(t("saveConsultationError"), "error");
+    } finally {
+      setIsSavingConsultation(false);
+    }
+  }, [isSavingConsultation, saveSession, sessionId, t]);
+
   const startNewChat = async () => {
     const creds = await createNewSession();
     setSessionId(creds.sessionId);
@@ -353,6 +374,18 @@ export function Chat() {
           />
         </div>
         <div className="flex shrink-0 items-center gap-1">
+          {messages.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1.5 text-xs"
+              disabled={isSavingConsultation || isLoading}
+              onClick={() => void handleSaveConsultation()}
+            >
+              <Save className="h-3.5 w-3.5" />
+              {isSavingConsultation ? t("savingConsultation") : t("saveConsultation")}
+            </Button>
+          )}
           <Button variant="ghost" size="sm" asChild className="gap-1.5 text-xs">
             <Link href={`/${locale}/consultations`}>
               <History className="h-3.5 w-3.5" />
