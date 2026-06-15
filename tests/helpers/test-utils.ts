@@ -2,6 +2,9 @@ import { expect, type Locator, type Page } from "@playwright/test";
 import { E2E_LOCALE } from "../fixtures/auth";
 import { gotoExpectOk } from "./server-health";
 
+/** Default backoff for UI state polls (TanStack Query / Stripe redirects). */
+export const POLL_INTERVALS = [300, 500, 750, 1000] as const;
+
 /** Locale-aware regex helpers for next-intl UI copy. */
 export const UI = {
   upgradeBanner:
@@ -142,6 +145,24 @@ export async function waitForProGate(page: Page): Promise<void> {
   ).toBeVisible({ timeout: 20_000 });
 }
 
+/** Open a Pro route and wait until tier gate is gone and page heading is visible. */
+export async function openProRouteExpectUnlocked(
+  page: Page,
+  segment: string,
+  heading: RegExp,
+  options: { timeout?: number } = {}
+): Promise<void> {
+  const timeout = options.timeout ?? 20_000;
+
+  await gotoExpectOk(page, proPath(segment));
+  await page.waitForResponse(
+    (res) => res.url().includes("/api/auth/tier") && res.ok(),
+    { timeout }
+  );
+  await pollForNoUpgradeGate(page, { timeout });
+  await pollUntilVisible(proPageHeading(page, heading), { timeout });
+}
+
 /** Open a Pro route and wait for the Free-tier upgrade gate. */
 export async function openProRouteExpectGate(
   page: Page,
@@ -153,6 +174,54 @@ export async function openProRouteExpectGate(
     { timeout: 20_000 }
   );
   await waitForProGate(page);
+}
+
+/** Poll until the current URL contains a query fragment. */
+export async function pollForUrlContains(
+  page: Page,
+  fragment: string,
+  options: { timeout?: number } = {}
+): Promise<void> {
+  await expect
+    .poll(async () => page.url().includes(fragment), {
+      timeout: options.timeout ?? 20_000,
+      intervals: [...POLL_INTERVALS],
+    })
+    .toBe(true);
+}
+
+/** Poll until a toast/alert with matching copy is visible. */
+export async function pollForToastVisible(
+  page: Page,
+  pattern: RegExp,
+  options: { timeout?: number } = {}
+): Promise<void> {
+  const toast = page
+    .locator('[role="alert"], [role="status"]')
+    .filter({ hasText: pattern })
+    .first();
+
+  await expect
+    .poll(async () => toast.isVisible().catch(() => false), {
+      timeout: options.timeout ?? 15_000,
+      intervals: [...POLL_INTERVALS],
+    })
+    .toBe(true);
+}
+
+/** Poll until Manage Subscription CTA is not shown (Free tier). */
+export async function pollForManageSubscriptionHidden(
+  page: Page,
+  options: { timeout?: number } = {}
+): Promise<void> {
+  const manage = page.getByRole("button", { name: UI.manageSubscription });
+
+  await expect
+    .poll(async () => !(await manage.isVisible().catch(() => false)), {
+      timeout: options.timeout ?? 15_000,
+      intervals: [...POLL_INTERVALS],
+    })
+    .toBe(true);
 }
 
 /** Poll until Pro gate is visible (Free tier). */
@@ -170,7 +239,7 @@ export async function pollForProGated(
           .catch(() => false),
       {
         timeout: options.timeout ?? 20_000,
-        intervals: [300, 500, 1000],
+        intervals: [...POLL_INTERVALS],
       }
     )
     .toBe(true);
@@ -200,7 +269,7 @@ export async function pollForProUnlocked(
       },
       {
         timeout: options.timeout ?? 25_000,
-        intervals: [300, 500, 1000],
+        intervals: [...POLL_INTERVALS],
       }
     )
     .toBe(true);
@@ -214,10 +283,13 @@ export async function pollForNoUpgradeGate(
   await expect
     .poll(
       async () =>
-        page.getByRole("region", { name: UI.upgradeBanner }).count(),
+        page
+          .getByRole("region", { name: UI.upgradeBanner })
+          .count()
+          .catch(() => -1),
       {
         timeout: options.timeout ?? 20_000,
-        intervals: [300, 500, 1000],
+        intervals: [...POLL_INTERVALS],
       }
     )
     .toBe(0);
@@ -233,7 +305,7 @@ export async function pollForOverlayHidden(
       async () => proLockedOverlay(page).isVisible().catch(() => false),
       {
         timeout: options.timeout ?? 20_000,
-        intervals: [300, 500, 1000],
+        intervals: [...POLL_INTERVALS],
       }
     )
     .toBe(false);

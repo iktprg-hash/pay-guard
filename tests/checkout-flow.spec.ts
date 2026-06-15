@@ -7,14 +7,18 @@ import {
 import {
   UI,
   openProRouteExpectGate,
+  pollForManageSubscriptionHidden,
   pollForNoUpgradeGate,
   pollForProUnlocked,
+  pollForToastVisible,
+  pollForUrlContains,
   pricingPath,
   proPageHeading,
   proPath,
   refreshSubscriptionTier,
   waitForToast,
 } from "./helpers/test-utils";
+import { gotoExpectOk } from "./helpers/server-health";
 
 test.describe.configure({ mode: "parallel" });
 
@@ -43,32 +47,22 @@ test.describe("Checkout flow", () => {
         await page.goto(pricingPath());
 
         const upgradeButton = page.getByRole("button", {
-          name: /upgrade|přejít na pro|перейти na pro/i,
+          name: /upgrade|přejít na pro|перейти на pro/i,
         });
         await expect(upgradeButton).toBeEnabled();
 
         await upgradeButton.click();
-        await page.waitForURL(/checkout=success/, { timeout: 30_000 });
+        await pollForUrlContains(page, "checkout=success", {
+          timeout: 30_000,
+        });
       });
 
       await test.step("Confirm checkout and activate Pro", async () => {
         tier.setTier("pro");
 
-        await expect
-          .poll(async () => page.url().includes("checkout=success"))
-          .toBe(true);
-
+        await pollForUrlContains(page, "checkout=success");
         await waitForToast(page, UI.checkoutSuccess);
-
-        await expect
-          .poll(async () => {
-            const toast = page
-              .locator('[role="alert"], [role="status"]')
-              .filter({ hasText: UI.checkoutSuccess })
-              .first();
-            return toast.isVisible().catch(() => false);
-          })
-          .toBe(true);
+        await pollForToastVisible(page, UI.checkoutSuccess);
       });
 
       await test.step("Pricing shows Manage Subscription for Pro", async () => {
@@ -99,7 +93,6 @@ test.describe("Checkout flow", () => {
       page,
       baseURL,
     }) => {
-      test.slow();
       test.skip(!baseURL, "baseURL is required");
 
       const tier = mockSubscriptionTier(page);
@@ -108,25 +101,15 @@ test.describe("Checkout flow", () => {
       await refreshSubscriptionTier(page);
 
       await test.step("Simulate Stripe cancel redirect", async () => {
-        await page.goto(`${pricingPath()}?checkout=cancelled`);
-
-        await expect
-          .poll(async () => page.url().includes("checkout=cancelled"))
-          .toBe(true);
+        await gotoExpectOk(page, `${pricingPath()}?checkout=cancelled`);
+        await pollForUrlContains(page, "checkout=cancelled");
       });
 
       await test.step("Shows cancelled toast and keeps Free plan", async () => {
         await waitForToast(page, UI.checkoutCancelled);
+        await pollForToastVisible(page, UI.checkoutCancelled);
         await expect.soft(page.getByText(UI.proActive)).toHaveCount(0);
-
-        await expect
-          .poll(async () => {
-            const manage = page.getByRole("button", {
-              name: UI.manageSubscription,
-            });
-            return !(await manage.isVisible().catch(() => false));
-          })
-          .toBe(true);
+        await pollForManageSubscriptionHidden(page);
       });
 
       await test.step("Pro area remains gated", async () => {

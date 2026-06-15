@@ -6,19 +6,18 @@ import {
   expectProGateWithBlur,
   latestPdfProUpsellLink,
   openProRouteExpectGate,
+  openProRouteExpectUnlocked,
   pollForGateFullyUnlocked,
-  pollForNoUpgradeGate,
-  pollForProGated,
   proBannerUpgradeLink,
   proBlurredPreview,
   proLockedOverlay,
   proOverlayUpgradeLink,
   proPageHeading,
-  proPath,
   proUpgradeBanner,
   refreshSubscriptionTier,
 } from "./helpers/test-utils";
 
+/** Serial — tier mocks + Pro routes share one dev server; parallel caused HTTP 500. */
 test.describe.configure({ mode: "serial" });
 
 const PRO_ROUTES = [
@@ -103,7 +102,7 @@ test.describe("Pro gating", () => {
         );
       }
       expect.soft(res.status()).toBeGreaterThanOrEqual(401);
-      expect(res.status()).toBeLessThanOrEqual(403);
+      expect.soft(res.status()).toBeLessThanOrEqual(403);
     });
   });
 
@@ -113,13 +112,9 @@ test.describe("Pro gating", () => {
 
     for (const route of PRO_ROUTES) {
       await test.step(`Pro route /${E2E_LOCALE}/pro/${route.path}`, async () => {
-        await page.goto(proPath(route.path));
-        await page.waitForLoadState("domcontentloaded");
+        await openProRouteExpectUnlocked(page, route.path, route.heading);
 
-        await expect.soft(proPageHeading(page, route.heading)).toBeVisible({
-          timeout: 20_000,
-        });
-        await pollForNoUpgradeGate(page);
+        await expect.soft(proPageHeading(page, route.heading)).toBeVisible();
         await expect.soft(
           page.getByRole("region", { name: UI.upgradeBanner })
         ).toHaveCount(0);
@@ -157,8 +152,7 @@ test.describe("Pro gating", () => {
     tier.setTier("free");
 
     await test.step("Gate with blur is visible on debts page", async () => {
-      await page.goto(proPath("debts"));
-      await pollForProGated(page);
+      await openProRouteExpectGate(page, "debts");
       await expectProGateWithBlur(page);
     });
 

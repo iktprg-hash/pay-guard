@@ -22,7 +22,7 @@ export default defineConfig({
   timeout: 90_000,
   maxFailures: isCI ? 3 : undefined,
   expect: { timeout: 15_000 },
-  workers: isCI ? 1 : undefined,
+  workers: isCI ? 1 : 2,
   reporter: isCI
     ? [
         ["dot"],
@@ -34,6 +34,7 @@ export default defineConfig({
       ],
   use: {
     baseURL,
+    testIdAttribute: "data-testid",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
@@ -61,7 +62,7 @@ export default defineConfig({
     },
     {
       name: "mobile",
-      dependencies: ["setup"],
+      dependencies: ["setup", "chromium-authenticated"],
       testMatch: /pro-gating\.spec\.ts/,
       use: {
         ...devices["Pixel 7"],
