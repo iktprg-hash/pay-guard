@@ -17,6 +17,10 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/components/ui/toast-provider";
 import { useProFinancialSummary } from "@/hooks/useProFinancial";
+import { useProAccess } from "@/hooks/use-pro-access";
+import {
+  ProFeatureGate,
+} from "@/components/pro/pro-upgrade-banner";
 import { cn } from "@/lib/utils";
 import type { SubscriptionTier } from "@/lib/types/financial";
 import type { Locale } from "@/i18n/routing";
@@ -188,6 +192,11 @@ export function ProShell({ children }: { children: React.ReactNode }) {
   const locale = useLocale() as Locale;
   const { signOut } = useAuth();
   const { summary, isLoading } = useProFinancialSummary();
+  const {
+    isProEnabled,
+    loading: accessLoading,
+    subscriptionTier,
+  } = useProAccess();
 
   const handleSignOut = () => {
     toast(tToast("signedOut"), "success");
@@ -197,8 +206,8 @@ export function ProShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-[100dvh] flex-col bg-gradient-to-br from-background via-background to-muted/20 md:flex-row">
       <ProShellSidebar
-        tier={summary.subscriptionTier}
-        tierLoading={isLoading}
+        tier={isProEnabled ? subscriptionTier : summary.subscriptionTier}
+        tierLoading={isLoading || accessLoading}
         onSignOut={handleSignOut}
       />
 
@@ -216,7 +225,10 @@ export function ProShell({ children }: { children: React.ReactNode }) {
           </Link>
 
           <div className="flex shrink-0 items-center gap-1.5">
-            <ProTierBadge tier={summary.subscriptionTier} loading={isLoading} />
+            <ProTierBadge
+              tier={isProEnabled ? subscriptionTier : summary.subscriptionTier}
+              loading={isLoading || accessLoading}
+            />
             <Button
               variant="ghost"
               size="icon"
@@ -233,7 +245,12 @@ export function ProShell({ children }: { children: React.ReactNode }) {
 
         <main className="flex-1 overflow-y-auto pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-8">
           <div className="mx-auto w-full max-w-6xl px-4 py-6 md:px-8 md:py-8">
-            {children}
+            <ProFeatureGate
+              isProEnabled={isProEnabled}
+              loading={accessLoading}
+            >
+              {children}
+            </ProFeatureGate>
           </div>
         </main>
       </div>

@@ -168,6 +168,8 @@ export interface UserFinancialProfile {
   incomeStability?: IncomeStability;
   lastUpdated: string;
   subscriptionTier: SubscriptionTier;
+  /** ISO expiry from Stripe / profiles.subscription_expires_at */
+  subscriptionExpiresAt?: string | null;
 }
 
 /** Partial update for Pro profile sync (API / webhook) */

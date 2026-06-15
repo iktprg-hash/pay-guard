@@ -26,6 +26,7 @@ import {
   DEFAULT_APP_CURRENCY,
   createEmptyUserFinancialProfile,
 } from "@/lib/types/financial";
+import { isProEnabledForProfile } from "@/lib/supabase/pro-access";
 
 // ---------------------------------------------------------------------------
 // Result types
@@ -58,6 +59,33 @@ function fromSupabaseError(
 
 function getClient(): SupabaseClient {
   return createBrowserSupabaseClient();
+}
+
+async function ensureProAccess(userId: string): Promise<ProResult<void>> {
+  const supabase = getClient();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("subscription_tier, subscription_expires_at")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (error) {
+    return fromSupabaseError(error, "Failed to verify subscription");
+  }
+
+  const tier = (data?.subscription_tier as SubscriptionTier) ?? "free";
+  const expiresAt = data?.subscription_expires_at ?? null;
+
+  if (
+    !isProEnabledForProfile({
+      subscriptionTier: tier,
+      subscriptionExpiresAt: expiresAt,
+    })
+  ) {
+    return failure("Pro subscription required", "PRO_REQUIRED");
+  }
+
+  return success(undefined);
 }
 
 const UUID_RE =
@@ -125,6 +153,7 @@ interface RecurringExpenseRow {
 interface ProfileRow {
   currency: AppCurrency;
   subscription_tier: SubscriptionTier;
+  subscription_expires_at: string | null;
   financial_last_updated: string | null;
 }
 
@@ -310,7 +339,9 @@ export async function getUserFinancialProfile(
 
   const { data: profileRow, error: profileError } = await supabase
     .from("profiles")
-    .select("currency, subscription_tier, financial_last_updated")
+    .select(
+      "currency, subscription_tier, subscription_expires_at, financial_last_updated"
+    )
     .eq("id", userId)
     .maybeSingle();
 
@@ -358,6 +389,7 @@ export async function getUserFinancialProfile(
     incomeStability: snapshot.incomeStability,
     lastUpdated,
     subscriptionTier: profile.subscription_tier ?? "free",
+    subscriptionExpiresAt: profile.subscription_expires_at ?? null,
   });
 }
 
@@ -366,6 +398,9 @@ export async function saveDebts(
   userId: string,
   debts: Debt[]
 ): Promise<ProResult<Debt[]>> {
+  const access = await ensureProAccess(userId);
+  if (!access.ok) return access;
+
   const supabase = getClient();
   const rows = debts.map((d) => debtToRow(d, userId, null));
 
@@ -381,6 +416,9 @@ export async function deleteDebt(
   debtId: string,
   sessionId?: string
 ): Promise<ProResult<Debt[]>> {
+  const access = await ensureProAccess(userId);
+  if (!access.ok) return access;
+
   if (!sessionId) {
     const current = await getDebts(userId);
     if (!current.ok) return current;
@@ -430,6 +468,9 @@ export async function saveRecurringIncomes(
   userId: string,
   incomes: RecurringIncome[]
 ): Promise<ProResult<RecurringIncome[]>> {
+  const access = await ensureProAccess(userId);
+  if (!access.ok) return access;
+
   const supabase = getClient();
   const rows = incomes.map((i) => recurringIncomeToRow(i, userId));
 
@@ -499,6 +540,9 @@ export async function saveRecurringExpenses(
   userId: string,
   expenses: RecurringExpense[]
 ): Promise<ProResult<RecurringExpense[]>> {
+  const access = await ensureProAccess(userId);
+  if (!access.ok) return access;
+
   const supabase = getClient();
   const rows = expenses.map((e) => recurringExpenseToRow(e, userId));
 
@@ -583,6 +627,9 @@ export async function createFinancialSession(
   recommendation: PrioritizationResult | null,
   options: CreateFinancialSessionOptions = {}
 ): Promise<ProResult<FinancialSessionRecord>> {
+  const access = await ensureProAccess(userId);
+  if (!access.ok) return access;
+
   const supabase = getClient();
   const sessionId = crypto.randomUUID();
   const currency = options.currency ?? DEFAULT_APP_CURRENCY;

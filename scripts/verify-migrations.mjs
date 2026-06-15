@@ -65,6 +65,12 @@ async function verifyMigrations() {
       columns: "stripe_customer_id",
     },
     {
+      id: "009",
+      label: "stripe_webhook_events table",
+      table: "stripe_webhook_events",
+      columns: "event_type",
+    },
+    {
       id: "pro",
       label: "profiles.currency",
       table: "profiles",

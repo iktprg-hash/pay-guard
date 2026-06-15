@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireApiUser } from "@/lib/auth/session";
+import {
+  createCustomerPortalSession,
+  StripeServiceError,
+} from "@/lib/stripe";
 import { isStripeBillingConfigured } from "@/lib/billing/config";
-import { getUserBillingRecord } from "@/lib/billing/profile-billing";
-import { getStripeClient } from "@/lib/billing/stripe-client";
 import { resolveSiteOrigin } from "@/lib/site/url";
 import {
   rateLimitError,
@@ -38,25 +40,24 @@ export async function POST(request: NextRequest) {
     const parsed = bodySchema.safeParse(json);
     if (!parsed.success) return validationError(parsed.error);
 
-    const billing = await getUserBillingRecord(auth.user.id);
-    if (!billing?.stripeCustomerId) {
-      return NextResponse.json(
-        { error: "No billing account found", code: "no_customer" },
-        { status: 404 }
-      );
-    }
-
     const { locale } = parsed.data;
     const origin = resolveSiteOrigin(request);
-    const stripe = getStripeClient();
 
-    const session = await stripe.billingPortal.sessions.create({
-      customer: billing.stripeCustomerId,
-      return_url: `${origin}/${locale}/settings`,
+    const { url } = await createCustomerPortalSession(auth.user.id, {
+      returnUrl: `${origin}/${locale}/settings`,
     });
 
-    return NextResponse.json({ url: session.url });
+    return NextResponse.json({ url });
   } catch (error) {
+    if (error instanceof StripeServiceError) {
+      if (error.code === "no_customer") {
+        return NextResponse.json(
+          { error: error.message, code: "no_customer" },
+          { status: 404 }
+        );
+      }
+    }
+
     console.error("[api/billing/portal]", error);
     return NextResponse.json({ error: "Portal failed" }, { status: 500 });
   }

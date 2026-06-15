@@ -110,7 +110,9 @@ async function unwrapProResult<T>(
 ): Promise<T> {
   const resolved = await result;
   if (!resolved.ok) {
-    throw new Error(resolved.error.message);
+    const err = new Error(resolved.error.message) as Error & { code?: string };
+    if (resolved.error.code) err.code = resolved.error.code;
+    throw err;
   }
   return resolved.data;
 }
@@ -123,17 +125,41 @@ function useProUserId(): string | undefined {
 
 function useProMutationErrors() {
   const t = useTranslations("toast");
+  const tPro = useTranslations("pro.upgrade");
 
   return useCallback(
-    (error: unknown, fallbackKey: "proSaveFailed" | "proDeleteFailed" | "proSessionFailed") => {
+    (
+      error: unknown,
+      fallbackKey:
+        | "proSaveFailed"
+        | "proDeleteFailed"
+        | "proSessionFailed"
+        | "proRequired"
+    ) => {
+      const code =
+        error instanceof Error &&
+        "code" in error &&
+        typeof (error as Error & { code?: string }).code === "string"
+          ? (error as Error & { code: string }).code
+          : error instanceof Error
+            ? error.message
+            : "";
+
       const message =
-        error instanceof Error && error.message.trim().length > 0
-          ? error.message
-          : t(fallbackKey);
+        code === "PRO_REQUIRED" || fallbackKey === "proRequired"
+          ? tPro("mutationBlocked")
+          : error instanceof Error && error.message.trim().length > 0
+            ? error.message
+            : fallbackKey === "proDeleteFailed"
+              ? t("proDeleteFailed")
+              : fallbackKey === "proSessionFailed"
+                ? t("proSessionFailed")
+                : t("proSaveFailed");
+
       console.error("[useProFinancial]", message, error);
       toast(message, "error");
     },
-    [t]
+    [t, tPro]
   );
 }
 
@@ -210,7 +236,7 @@ function createOptimisticListMutationHandlers<T extends { id: string }>(
   options: {
     userId: string | undefined;
     onProfilePatch?: (items: T[]) => void;
-    onError: (error: unknown, fallbackKey: "proSaveFailed" | "proDeleteFailed") => void;
+    onError: (error: unknown, fallbackKey: "proSaveFailed" | "proDeleteFailed" | "proRequired") => void;
   }
 ) {
   return {
@@ -233,13 +259,18 @@ function createOptimisticListMutationHandlers<T extends { id: string }>(
       error: unknown,
       _variables: unknown,
       context: { previous?: T[] } | undefined,
-      fallbackKey: "proSaveFailed" | "proDeleteFailed"
+      fallbackKey: "proSaveFailed" | "proDeleteFailed" | "proRequired"
     ) => {
       if (context?.previous !== undefined) {
         queryClient.setQueryData(queryKey, context.previous);
         options.onProfilePatch?.(context.previous);
       }
-      options.onError(error, fallbackKey);
+      const key =
+        error instanceof Error &&
+        (error as Error & { code?: string }).code === "PRO_REQUIRED"
+          ? "proRequired"
+          : fallbackKey;
+      options.onError(error, key);
     },
     onSuccess: (data: T[]) => {
       queryClient.setQueryData(queryKey, data);
@@ -458,8 +489,17 @@ export function useDebts(options: UseDebtsOptions = {}): UseDebtsResult {
       onProfilePatch: syncCatalogProfile
         ? (debts) => userId && patchProfileDebts(queryClient, userId, debts)
         : undefined,
-      onError: (error, key) => {
-        if (showErrorToast) reportError(error, key);
+      onError: (error) => {
+        const code =
+          error instanceof Error
+            ? (error as Error & { code?: string }).code
+            : undefined;
+        if (showErrorToast) {
+          reportError(
+            error,
+            code === "PRO_REQUIRED" ? "proRequired" : "proSaveFailed"
+          );
+        }
       },
     }
   );
@@ -557,8 +597,17 @@ export function useRecurringIncomes(
       userId,
       onProfilePatch: (incomes) =>
         userId && patchProfileIncomes(queryClient, userId, incomes),
-      onError: (error, key) => {
-        if (showErrorToast) reportError(error, key);
+      onError: (error) => {
+        const code =
+          error instanceof Error
+            ? (error as Error & { code?: string }).code
+            : undefined;
+        if (showErrorToast) {
+          reportError(
+            error,
+            code === "PRO_REQUIRED" ? "proRequired" : "proSaveFailed"
+          );
+        }
       },
     }
   );
@@ -658,8 +707,17 @@ export function useRecurringExpenses(
       userId,
       onProfilePatch: (expenses) =>
         userId && patchProfileExpenses(queryClient, userId, expenses),
-      onError: (error, key) => {
-        if (showErrorToast) reportError(error, key);
+      onError: (error) => {
+        const code =
+          error instanceof Error
+            ? (error as Error & { code?: string }).code
+            : undefined;
+        if (showErrorToast) {
+          reportError(
+            error,
+            code === "PRO_REQUIRED" ? "proRequired" : "proSaveFailed"
+          );
+        }
       },
     }
   );
@@ -773,7 +831,16 @@ export function useCreateFinancialSession(options?: {
       });
     },
     onError: (error) => {
-      if (showErrorToast) reportError(error, "proSessionFailed");
+      const code =
+        error instanceof Error
+          ? (error as Error & { code?: string }).code
+          : undefined;
+      if (showErrorToast) {
+        reportError(
+          error,
+          code === "PRO_REQUIRED" ? "proRequired" : "proSessionFailed"
+        );
+      }
     },
   });
 

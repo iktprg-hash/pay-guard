@@ -327,6 +327,13 @@
     "navLabel": "Pro navigace",
     "currentPlan": "Aktuální tarif",
     "backToApp": "Zpět do chatu",
+    "upgrade": {
+      "bannerTitle": "Upgradujte na Pay Guard Pro",
+      "bannerDescription": "Odblokujte katalog dluhů, cloud sync, historii konzultací a finanční prognózy.",
+      "cta": "Přejít na Pro",
+      "lockedHint": "Pro funkce jsou na Free plánu jen náhled.",
+      "mutationBlocked": "Tato akce vyžaduje předplatné Pro."
+    },
     "nav": {
       "dashboard": "Dashboard",
       "debts": "Dluhy",

@@ -327,6 +327,13 @@
     "navLabel": "Навигация Pro",
     "currentPlan": "Текущий тариф",
     "backToApp": "Вернуться в чат",
+    "upgrade": {
+      "bannerTitle": "Перейдите на Pay Guard Pro",
+      "bannerDescription": "Каталог долгов, облачная синхронизация, история консультаций и прогнозы.",
+      "cta": "Перейти на Pro",
+      "lockedHint": "Функции Pro на Free доступны только для просмотра.",
+      "mutationBlocked": "Для этого действия нужна подписка Pro."
+    },
     "nav": {
       "dashboard": "Дашборд",
       "debts": "Долги",

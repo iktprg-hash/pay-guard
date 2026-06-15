@@ -1,34 +1,72 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import type { SubscriptionTier } from "@/lib/types/financial";
+import { isProEnabledForSubscription } from "@/lib/supabase/pro-access";
 
-/** Načte subscription tier z /api/auth/tier */
-export function useSubscriptionTier() {
-  const [pro, setPro] = useState(false);
+export interface SubscriptionTierState {
+  tier: SubscriptionTier;
+  subscriptionTier: SubscriptionTier;
+  /** @deprecated Use isProEnabled */
+  pro: boolean;
+  isProEnabled: boolean;
+  expiresAt: string | null;
+  loading: boolean;
+  refetch: () => Promise<void>;
+}
+
+/** Load subscription tier from /api/auth/tier (Stripe-backed profiles). */
+export function useSubscriptionTier(): SubscriptionTierState {
+  const [tier, setTier] = useState<SubscriptionTier>("free");
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let cancelled = false;
+  const fetchTier = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/tier", { credentials: "include" });
+      if (!res.ok) {
+        setTier("free");
+        setExpiresAt(null);
+        return;
+      }
 
-    fetch("/api/auth/tier", { credentials: "include" })
-      .then(async (res) => {
-        if (!res.ok) return { pro: false };
-        return (await res.json()) as { pro?: boolean };
-      })
-      .then((data) => {
-        if (!cancelled) setPro(Boolean(data.pro));
-      })
-      .catch(() => {
-        if (!cancelled) setPro(false);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+      const data = (await res.json()) as {
+        tier?: SubscriptionTier;
+        pro?: boolean;
+        expiresAt?: string | null;
+      };
 
-    return () => {
-      cancelled = true;
-    };
+      const nextTier =
+        data.tier === "pro_max"
+          ? "pro_max"
+          : data.tier === "pro"
+            ? "pro"
+            : "free";
+
+      setTier(nextTier);
+      setExpiresAt(data.expiresAt ?? null);
+    } catch {
+      setTier("free");
+      setExpiresAt(null);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  return { pro, loading };
+  useEffect(() => {
+    void fetchTier();
+  }, [fetchTier]);
+
+  const isProEnabled = isProEnabledForSubscription(tier, expiresAt);
+
+  return {
+    tier,
+    subscriptionTier: tier,
+    pro: isProEnabled,
+    isProEnabled,
+    expiresAt,
+    loading,
+    refetch: fetchTier,
+  };
 }

@@ -327,6 +327,13 @@
     "navLabel": "Pro navigation",
     "currentPlan": "Current plan",
     "backToApp": "Back to chat",
+    "upgrade": {
+      "bannerTitle": "Upgrade to Pay Guard Pro",
+      "bannerDescription": "Unlock debt catalog, cloud sync, consultations history, and financial forecasts.",
+      "cta": "Upgrade to Pro",
+      "lockedHint": "Pro features are preview-only on the Free plan.",
+      "mutationBlocked": "Pro subscription required for this action."
+    },
     "nav": {
       "dashboard": "Dashboard",
       "debts": "Debts",

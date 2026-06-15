@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     tier: subscription.tier,
     pro: isActivePro(subscription),
+    isProEnabled: isActivePro(subscription),
     expiresAt: subscription.expiresAt,
   });
 }

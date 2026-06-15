@@ -4,7 +4,7 @@ import { processStripeWebhookRequest } from "@/lib/billing/webhook-handler";
 
 export const runtime = "nodejs";
 
-/** @deprecated Prefer POST /api/webhooks/stripe — kept for existing Stripe Dashboard URLs. */
+/** Stripe webhook — canonical path for production (idempotent profile sync). */
 export async function POST(request: NextRequest) {
   const webhookSecret = getStripeWebhookSecret();
   if (!webhookSecret) {
