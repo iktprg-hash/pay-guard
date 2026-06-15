@@ -5,10 +5,14 @@ import { enforceAuthRateLimit } from "@/lib/auth/rate-limit";
 import { isStrongPassword } from "@/lib/auth/password";
 import { createSessionRouteClient } from "@/lib/auth/supabase-route";
 import { parseJsonBody } from "@/lib/api/parse-request";
+import { assertSupabaseConfigured } from "@/lib/supabase/guard";
 import { authResetPasswordSchema } from "@/lib/validation/schemas";
 
 /** Nastaví nové heslo po recovery odkazu */
 export async function POST(request: NextRequest) {
+  const supabaseGuard = assertSupabaseConfigured();
+  if (supabaseGuard) return supabaseGuard;
+
   const parsed = await parseJsonBody(request, authResetPasswordSchema);
   if (!parsed.ok) return validationError(parsed.error);
 

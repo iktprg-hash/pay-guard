@@ -1,29 +1,18 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-
-function stripQuotes(value: string | undefined): string {
-  const v = (value ?? "").trim();
-  if (
-    (v.startsWith('"') && v.endsWith('"')) ||
-    (v.startsWith("'") && v.endsWith("'"))
-  ) {
-    return v.slice(1, -1);
-  }
-  return v;
-}
+import { getSupabasePublicConfig } from "@/lib/supabase/config";
 
 /** Supabase klient pro Server Components a Route Handlers */
 export async function createClient() {
-  const url = stripQuotes(process.env.NEXT_PUBLIC_SUPABASE_URL);
-  const key = stripQuotes(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+  const config = getSupabasePublicConfig();
 
-  if (!url || !key || url.includes("your-project")) {
+  if (!config) {
     throw new Error("Supabase is not configured");
   }
 
   const cookieStore = await cookies();
 
-  return createServerClient(url, key, {
+  return createServerClient(config.url, config.anonKey, {
     cookies: {
       getAll() {
         return cookieStore.getAll();

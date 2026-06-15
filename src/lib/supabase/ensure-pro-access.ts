@@ -10,6 +10,13 @@ export interface ProAccessResult {
 /** Verify active Pro subscription before Pro catalog reads/writes. */
 export async function ensureProAccess(userId: string): Promise<ProAccessResult> {
   const supabase = createBrowserSupabaseClient();
+  if (!supabase) {
+    return {
+      ok: false,
+      error: { message: "Supabase is not configured", code: "not_configured" },
+    };
+  }
+
   const { data, error } = await supabase
     .from("profiles")
     .select("subscription_tier, subscription_expires_at")

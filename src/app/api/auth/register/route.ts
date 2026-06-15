@@ -11,10 +11,14 @@ import { createSessionRouteClient } from "@/lib/auth/supabase-route";
 import { authConfirmUrl } from "@/lib/site/url";
 import { createServiceClient } from "@/lib/supabase/service";
 import { parseJsonBody } from "@/lib/api/parse-request";
+import { assertSupabaseConfigured } from "@/lib/supabase/guard";
 import { authRegisterSchema } from "@/lib/validation/schemas";
 
 /** Registrace heslem — session cookies nastaví server */
 export async function POST(request: NextRequest) {
+  const supabaseGuard = assertSupabaseConfigured();
+  if (supabaseGuard) return supabaseGuard;
+
   const parsed = await parseJsonBody(request, authRegisterSchema);
   if (!parsed.ok) return validationError(parsed.error);
 

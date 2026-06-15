@@ -148,8 +148,9 @@ export function ManualForm() {
           </div>
 
           <div className="space-y-2">
-            <Label>{t("incomeStability")}</Label>
+            <Label htmlFor="income-stability">{t("incomeStability")}</Label>
             <select
+              id="income-stability"
               className="flex h-10 w-full rounded-lg border border-input bg-background px-3 text-sm"
               value={profile.incomeStability ?? ""}
               onChange={(e) =>
@@ -182,16 +183,18 @@ export function ManualForm() {
             <CardContent className="space-y-4 pt-6">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>{t("creditor")}</Label>
+                  <Label htmlFor={`${debt.id}-creditor`}>{t("creditor")}</Label>
                   <Input
+                    id={`${debt.id}-creditor`}
                     value={debt.creditor}
                     onChange={(e) => updateDebt(debt.id, "creditor", e.target.value)}
                     required
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>{t("amount")}</Label>
+                  <Label htmlFor={`${debt.id}-amount`}>{t("amount")}</Label>
                   <Input
+                    id={`${debt.id}-amount`}
                     type="number"
                     min={0}
                     value={debt.amount || ""}
@@ -200,8 +203,11 @@ export function ManualForm() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>{t("minimumPayment")}</Label>
+                  <Label htmlFor={`${debt.id}-minimum-payment`}>
+                    {t("minimumPayment")}
+                  </Label>
                   <Input
+                    id={`${debt.id}-minimum-payment`}
                     type="number"
                     min={0}
                     value={debt.minimumPayment ?? ""}
@@ -211,8 +217,9 @@ export function ManualForm() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>{t("category")}</Label>
+                  <Label htmlFor={`${debt.id}-category`}>{t("category")}</Label>
                   <select
+                    id={`${debt.id}-category`}
                     className="flex h-10 w-full rounded-lg border border-input bg-background px-3 text-sm"
                     value={debt.category}
                     onChange={(e) =>
@@ -227,16 +234,18 @@ export function ManualForm() {
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <Label>{t("dueDate")}</Label>
+                  <Label htmlFor={`${debt.id}-due-date`}>{t("dueDate")}</Label>
                   <Input
+                    id={`${debt.id}-due-date`}
                     type="date"
                     value={debt.dueDate ?? ""}
                     onChange={(e) => updateDebt(debt.id, "dueDate", e.target.value)}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>{t("criticalDate")}</Label>
+                  <Label htmlFor={`${debt.id}-critical-date`}>{t("criticalDate")}</Label>
                   <Input
+                    id={`${debt.id}-critical-date`}
                     type="date"
                     value={debt.criticalDate ?? ""}
                     onChange={(e) => updateDebt(debt.id, "criticalDate", e.target.value)}
@@ -244,8 +253,9 @@ export function ManualForm() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>{t("criticalNote")}</Label>
+                <Label htmlFor={`${debt.id}-critical-note`}>{t("criticalNote")}</Label>
                 <Input
+                  id={`${debt.id}-critical-note`}
                   value={debt.criticalNote ?? ""}
                   onChange={(e) => updateDebt(debt.id, "criticalNote", e.target.value)}
                   placeholder={t("criticalNotePlaceholder")}

@@ -65,7 +65,11 @@ function fromSupabaseError(
 }
 
 function getClient(): SupabaseClient {
-  return createBrowserSupabaseClient();
+  const client = createBrowserSupabaseClient();
+  if (!client) {
+    throw new Error("Supabase is not configured");
+  }
+  return client;
 }
 
 export { ensureProAccess };

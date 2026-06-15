@@ -4,6 +4,7 @@ import { validationError, serviceUnavailable } from "@/lib/api/errors";
 import { authErrorResponse, isOpaqueOtpSendError } from "@/lib/auth/errors";
 import { enforceAuthRateLimit } from "@/lib/auth/rate-limit";
 import { parseJsonBody } from "@/lib/api/parse-request";
+import { getSupabasePublicConfig } from "@/lib/supabase/config";
 import { authSendOtpSchema } from "@/lib/validation/schemas";
 
 /** Odešle 6místný kód na e-mail — pouze existující účty (bez registrace heslem) */
@@ -18,14 +19,13 @@ export async function POST(request: NextRequest) {
   );
   if (limited) return limited;
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const config = getSupabasePublicConfig();
 
-  if (!url || !key || url.includes("your-project")) {
+  if (!config) {
     return serviceUnavailable("Supabase is not configured in .env.local");
   }
 
-  const supabase = createClient(url, key);
+  const supabase = createClient(config.url, config.anonKey);
 
   const { error } = await supabase.auth.signInWithOtp({
     email: parsed.data.email,

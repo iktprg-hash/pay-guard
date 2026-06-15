@@ -4,10 +4,14 @@ import { authErrorResponse } from "@/lib/auth/errors";
 import { enforceAuthRateLimit } from "@/lib/auth/rate-limit";
 import { createSessionRouteClient } from "@/lib/auth/supabase-route";
 import { parseJsonBody } from "@/lib/api/parse-request";
+import { assertSupabaseConfigured } from "@/lib/supabase/guard";
 import { authVerifyOtpSchema } from "@/lib/validation/schemas";
 
 /** Ověření e-mailového kódu — bez PKCE redirectu */
 export async function POST(request: NextRequest) {
+  const supabaseGuard = assertSupabaseConfigured();
+  if (supabaseGuard) return supabaseGuard;
+
   const parsed = await parseJsonBody(request, authVerifyOtpSchema);
   if (!parsed.ok) return validationError(parsed.error);
 

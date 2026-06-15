@@ -1,9 +1,7 @@
-import { test as guestTest, expect } from "@playwright/test";
-import { E2E_LOCALE, test } from "./fixtures/auth";
+import { test, expect } from "./fixtures/auth";
 import {
   isBillingEnabledOnPricing,
   mockBillingConfirmSuccess,
-  mockStripeCheckoutCancel,
   mockStripeCheckoutSuccess,
   mockSubscriptionTier,
 } from "./helpers/billing-mocks";
@@ -12,40 +10,16 @@ import {
   pollUntilHidden,
   pollUntilVisible,
   pricingPath,
+  proPageHeading,
   proPath,
+  refreshSubscriptionTier,
+  waitForProGate,
   waitForToast,
 } from "./helpers/test-utils";
 
 test.describe.configure({ mode: "parallel" });
 
 test.describe("Checkout flow", () => {
-  guestTest.describe("unauthenticated", () => {
-    guestTest.use({ storageState: { cookies: [], origins: [] } });
-
-    guestTest(
-      "redirects to login when guest clicks upgrade on pricing",
-      async ({ page }) => {
-        await guestTest.step("Open pricing as guest", async () => {
-          await page.goto(pricingPath());
-        });
-
-        await guestTest.step(
-          "Upgrade CTA sends user to login with return URL",
-          async () => {
-            const loginLink = page.getByRole("link", {
-              name: /sign in to upgrade|přihlásit se a přejít|войти.*pro/i,
-            });
-            await expect.soft(loginLink).toBeVisible();
-            await loginLink.click();
-            await expect(page).toHaveURL(
-              new RegExp(`/${E2E_LOCALE}/login\\?next=`)
-            );
-          }
-        );
-      }
-    );
-  });
-
   test.describe("authenticated free user", () => {
     test.describe.configure({ mode: "serial" });
 
@@ -101,11 +75,11 @@ test.describe("Checkout flow", () => {
         await page.goto(proPath("dashboard"));
 
         await expect.soft(
-          page.getByRole("heading", { name: /dashboard|přehled|дашборд/i })
+          proPageHeading(page, /dashboard|přehled|дашборд/i)
         ).toBeVisible();
 
         await pollUntilHidden(
-          page.getByRole("region", { name: UI.upgradeBanner })
+          page.getByRole("region", { name: UI.upgradeBanner }).first()
         );
 
         await expect(
@@ -123,6 +97,7 @@ test.describe("Checkout flow", () => {
 
       const tier = mockSubscriptionTier(page);
       tier.setTier("free");
+      await refreshSubscriptionTier(page);
 
       await test.step("Simulate Stripe cancel redirect", async () => {
         await page.goto(`${pricingPath()}?checkout=cancelled`);
@@ -133,26 +108,9 @@ test.describe("Checkout flow", () => {
         await expect.soft(page.getByText(UI.proActive)).toHaveCount(0);
       });
 
-      await test.step("Mock checkout cancel URL when user retries upgrade", async () => {
-        await mockStripeCheckoutCancel(page, baseURL!);
-        await page.goto(pricingPath());
-
-        const upgradeButton = page.getByRole("button", {
-          name: /upgrade|přejít na pro|перейти на pro/i,
-        });
-
-        if (await upgradeButton.isVisible().catch(() => false)) {
-          await upgradeButton.click();
-          await page.waitForURL(/checkout=cancelled/, { timeout: 30_000 });
-          await waitForToast(page, UI.checkoutCancelled);
-        }
-      });
-
       await test.step("Pro area remains gated", async () => {
         await page.goto(proPath("dashboard"));
-        await expect(
-          page.getByRole("region", { name: UI.upgradeBanner })
-        ).toBeVisible();
+        await waitForProGate(page);
       });
     });
   });

@@ -4,10 +4,14 @@ import { authErrorResponse } from "@/lib/auth/errors";
 import { enforceAuthRateLimit } from "@/lib/auth/rate-limit";
 import { createSessionRouteClient } from "@/lib/auth/supabase-route";
 import { parseJsonBody } from "@/lib/api/parse-request";
+import { assertSupabaseConfigured } from "@/lib/supabase/guard";
 import { authLoginSchema } from "@/lib/validation/schemas";
 
 /** Přihlášení heslem — session cookies nastaví server (spolehlivé pro proxy) */
 export async function POST(request: NextRequest) {
+  const supabaseGuard = assertSupabaseConfigured();
+  if (supabaseGuard) return supabaseGuard;
+
   const parsed = await parseJsonBody(request, authLoginSchema);
   if (!parsed.ok) return validationError(parsed.error);
 

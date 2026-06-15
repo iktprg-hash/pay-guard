@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import { E2E_LOCALE } from "../fixtures/auth";
-import { pricingPath } from "./test-utils";
+import { pricingPath, UI } from "./test-utils";
 
 export type SubscriptionTierMock = "free" | "pro";
 
@@ -94,9 +94,7 @@ export async function isBillingEnabledOnPricing(page: Page): Promise<boolean> {
   const upgrade = page.getByRole("button", {
     name: /upgrade|přejít na pro|перейти на pro/i,
   });
-  const loginToUpgrade = page.getByRole("link", {
-    name: /sign in to upgrade|přihlásit se a přejít|войти.*pro/i,
-  });
+  const loginToUpgrade = page.getByRole("link", { name: UI.loginToUpgrade });
   const manage = page.getByRole("button", {
     name: /manage subscription|spravovat|управлять/i,
   });

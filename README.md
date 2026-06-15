@@ -42,9 +42,84 @@ Otevřete [http://127.0.0.1:3000/cs](http://127.0.0.1:3000/cs) — používejte 
 ```bash
 npm run auth:setup   # checklist Supabase Auth
 npm test
+npm run test:e2e:install   # Playwright Chromium (jednorázově)
 npm run build
 npm run db:verify    # ověření schématu (vyžaduje DATABASE_URL nebo Supabase)
 ```
+
+## E2E (Playwright)
+
+End-to-end testy pokrývají auth, checkout (Stripe mock), Pro gating a PDF export. Specs jsou v `tests/`, konfigurace v `playwright.config.ts`.
+
+### Příprava
+
+```bash
+cp .env.local.example .env.local
+# Vyplňte Supabase (povinné pro auth + E2E):
+# NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
+# NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+# SUPABASE_SERVICE_ROLE_KEY=eyJ...   # pro AUTH_DEV_REGISTER=1
+
+cp .env.test.example .env.local   # nebo přidejte E2E proměnné ručně
+# Povinné pro automatickou registraci testovacího účtu:
+# AUTH_DEV_REGISTER=1
+# E2E_FREE_USER_EMAIL=e2e-free@pay-guard.test
+# E2E_FREE_USER_PASSWORD=E2eTestPass1
+
+npm run test:e2e:install
+```
+
+| Proměnná | Popis |
+|----------|--------|
+| `E2E_BASE_URL` | URL aplikace (default `http://127.0.0.1:3000` — musí sedět s `npm run dev`) |
+| `E2E_LOCALE` | Locale prefix pro testy (default `cs`) |
+| `E2E_FREE_USER_EMAIL` / `E2E_FREE_USER_PASSWORD` | Free-tier test účet |
+| `AUTH_DEV_REGISTER` | `1` — dev bypass registrace (Supabase service role) |
+| `E2E_NO_WEBSERVER` | `1` — nespouštět `npm run dev` z Playwright (doporučeno lokálně) |
+| `E2E_GREP` / `E2E_GREP_INVERT` | Filtr testů v CI |
+
+Auth storage se ukládá do `playwright/.auth/user.json` (gitignored) přes `tests/auth.setup.ts`.
+
+### Spuštění
+
+**Doporučený lokální workflow** (vyhne se EMFILE / file watcher limitům):
+
+```bash
+# Terminál 1
+npm run dev
+
+# Terminál 2
+npm run test:e2e:local                  # všechny E2E
+npm run test:e2e:local -- --project=chromium   # smoke + auth-chat
+npm run test:e2e:local -- tests/checkout-flow.spec.ts
+npm run test:e2e:ui                     # interaktivní UI mode
+npm run test:e2e:report                 # HTML report po běhu
+npm run test:e2e:debug                  # step-through debugger
+```
+
+Plný běh včetně auto-startu dev serveru:
+
+```bash
+npm run test:e2e
+```
+
+### Co testy pokrývají
+
+| Soubor | Scénáře |
+|--------|---------|
+| `tests/smoke.spec.ts` | Login/register, security headers, PWA manifest |
+| `tests/auth-chat.spec.ts` | Auth redirect, API 401 bez session |
+| `tests/checkout-flow.spec.ts` | Guest → pricing → login; Free → mock Stripe checkout → Pro UI |
+| `tests/pro-gating.spec.ts` | Free gate/blur, PDF blocked, Pro full access, tier poll |
+
+Stripe se v checkout testech mockuje přes `page.route` (`tests/helpers/billing-mocks.ts`). Checkout test se **skipne**, pokud není nakonfigurován `STRIPE_SECRET_KEY` + `STRIPE_PRO_PRICE_ID`.
+
+### Projects (playwright.config.ts)
+
+- `setup` — `auth.setup.ts` (ensureTestUser + storageState)
+- `chromium` — smoke, auth-chat (bez auth)
+- `chromium-authenticated` — checkout-flow, pro-gating
+- `mobile` — pro-gating (Pixel 7)
 
 ## Proměnné prostředí
 

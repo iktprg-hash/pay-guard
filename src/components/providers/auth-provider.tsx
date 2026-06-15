@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { useLocale } from "next-intl";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, isSupabaseBrowserConfigured } from "@/lib/supabase/client";
 import { getOrCreateSessionCredentials } from "@/lib/chat/storage";
 import { syncUserSessionsOnLogin } from "@/lib/chat/client-sync";
 import { wipeLocalPii } from "@/lib/security/wipe-local-pii";
@@ -66,7 +66,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!isSupabaseBrowserConfigured()) {
+      setUser(null);
+      setLoading(false);
+      return;
+    }
+
     const supabase = createClient();
+    if (!supabase) {
+      setUser(null);
+      setLoading(false);
+      return;
+    }
 
     supabase.auth.getUser().then(({ data: { user: u } }) => {
       setUser(u);
@@ -115,10 +126,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const supabase = createClient();
-    try {
-      await supabase.auth.signOut();
-    } catch (err) {
-      console.warn("[auth] supabase signOut failed", err);
+    if (supabase) {
+      try {
+        await supabase.auth.signOut();
+      } catch (err) {
+        console.warn("[auth] supabase signOut failed", err);
+      }
     }
 
     await wipeLocalPii();

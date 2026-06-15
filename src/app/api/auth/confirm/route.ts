@@ -8,9 +8,13 @@ import {
   authConfirmCodeSchema,
   authConfirmTokenSchema,
 } from "@/lib/validation/schemas";
+import { assertSupabaseConfigured } from "@/lib/supabase/guard";
 
 /** Potvrzení e-mailu / PKCE — session cookies na serveru */
 export async function POST(request: NextRequest) {
+  const supabaseGuard = assertSupabaseConfigured();
+  if (supabaseGuard) return supabaseGuard;
+
   const limited = await enforceAuthRateLimit(request, "confirm");
   if (limited) return limited;
 

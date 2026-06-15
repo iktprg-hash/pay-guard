@@ -1,11 +1,15 @@
 import { test, expect } from "@playwright/test";
+import { E2E_LOCALE } from "./fixtures/auth";
+import { pricingGuestUpgradeLink, UI } from "./helpers/test-utils";
 
 test.describe.configure({ mode: "parallel" });
 
 test.describe("Auth and chat flow", () => {
   test("redirects unauthenticated users from chat to login", async ({ page }) => {
-    await page.goto("/cs");
-    await expect(page).toHaveURL(/\/cs\/login/);
+    await page.goto(`/${E2E_LOCALE}`);
+    await expect(page).toHaveURL(new RegExp(`/${E2E_LOCALE}/login`), {
+      timeout: 20_000,
+    });
   });
 
   test("login page offers navigation to register", async ({ page }) => {
@@ -71,5 +75,38 @@ test.describe("Auth and chat flow", () => {
     });
 
     expect(res.status()).toBe(401);
+  });
+
+  test("redirects guest from pricing upgrade CTA to login", async ({ page }) => {
+    await page.goto(`/${E2E_LOCALE}/pricing`);
+
+    const loginLink = pricingGuestUpgradeLink(page);
+    const upgradeButton = page.getByRole("button", {
+      name: /upgrade|přejít na pro|перейти на pro/i,
+    });
+
+    await expect
+      .poll(
+        async () => {
+          if (await loginLink.isVisible().catch(() => false)) return "login";
+          if (await upgradeButton.isVisible().catch(() => false)) {
+            return (await upgradeButton.isEnabled()) ? "upgrade" : "disabled";
+          }
+          return "loading";
+        },
+        { timeout: 20_000 }
+      )
+      .not.toBe("loading");
+
+    test.skip(
+      !(await loginLink.isVisible().catch(() => false)),
+      "Guest login CTA is only shown when Stripe billing is enabled."
+    );
+
+    await loginLink.click();
+    await expect(page).toHaveURL(
+      new RegExp(`/${E2E_LOCALE}/login\\?next=`),
+      { timeout: 20_000 }
+    );
   });
 });

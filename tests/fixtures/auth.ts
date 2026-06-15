@@ -70,7 +70,10 @@ export async function ensureTestUser(
 ): Promise<void> {
   let loginRes = await loginViaApi(request, baseURL, credentials);
 
-  if (loginRes.ok()) return;
+  if (loginRes.ok()) {
+    await ensureFreeSubscriptionTier(request, credentials);
+    return;
+  }
 
   const registerRes = await registerViaApi(request, baseURL, credentials);
 
@@ -78,7 +81,10 @@ export async function ensureTestUser(
     const registerBody = await registerRes.text();
     // User may already exist but password mismatch — surface clearly.
     const retryLogin = await loginViaApi(request, baseURL, credentials);
-    if (retryLogin.ok()) return;
+    if (retryLogin.ok()) {
+      await ensureFreeSubscriptionTier(request, credentials);
+      return;
+    }
 
     throw new Error(
       `E2E ensureTestUser failed. register=${registerRes.status()} ${registerBody}; ` +
@@ -89,10 +95,61 @@ export async function ensureTestUser(
 
   loginRes = await loginViaApi(request, baseURL, credentials);
   if (!loginRes.ok()) {
+    const loginBody = await loginRes.text();
+    const hint =
+      loginRes.status() === 503
+        ? " Supabase is not configured — add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local and restart dev."
+        : "";
     throw new Error(
-      `E2E login after register failed (${loginRes.status()}): ${await loginRes.text()}`
+      `E2E login after register failed (${loginRes.status()}): ${loginBody}.${hint}`
     );
   }
+
+  await ensureFreeSubscriptionTier(request, credentials);
+}
+
+/** Reset E2E user to free tier when service role is available (PDF API checks DB). */
+export async function ensureFreeSubscriptionTier(
+  request: APIRequestContext,
+  credentials: TestCredentials = getTestUserCredentials()
+): Promise<void> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceKey) return;
+
+  const usersRes = await request.get(
+    `${supabaseUrl}/auth/v1/admin/users?email=${encodeURIComponent(credentials.email)}`,
+    {
+      headers: {
+        Authorization: `Bearer ${serviceKey}`,
+        apikey: serviceKey,
+      },
+    }
+  );
+
+  if (!usersRes.ok()) return;
+
+  const usersBody = (await usersRes.json()) as {
+    users?: Array<{ id?: string }>;
+  };
+  const userId = usersBody.users?.[0]?.id;
+  if (!userId) return;
+
+  await request.patch(
+    `${supabaseUrl}/rest/v1/profiles?id=eq.${userId}`,
+    {
+      headers: {
+        Authorization: `Bearer ${serviceKey}`,
+        apikey: serviceKey,
+        "Content-Type": "application/json",
+        Prefer: "return=minimal",
+      },
+      data: {
+        subscription_tier: "free",
+        subscription_expires_at: null,
+      },
+    }
+  );
 }
 
 /** @deprecated Use {@link ensureTestUser} */

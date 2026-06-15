@@ -1,5 +1,8 @@
 import path from "node:path";
 import { defineConfig, devices } from "@playwright/test";
+import { loadEnvLocal } from "./scripts/load-env-local.mjs";
+
+loadEnvLocal(process.cwd());
 
 const baseURL = process.env.E2E_BASE_URL ?? "http://127.0.0.1:3000";
 const authFile = path.join("playwright", ".auth", "user.json");
