@@ -57,32 +57,39 @@ alter table public.debts enable row level security;
 alter table public.chat_messages enable row level security;
 
 -- Profily: uživatel vidí jen svůj
+drop policy if exists "Users can view own profile" on public.profiles;
 create policy "Users can view own profile"
   on public.profiles for select
   using (auth.uid() = id);
 
+drop policy if exists "Users can update own profile" on public.profiles;
 create policy "Users can update own profile"
   on public.profiles for update
   using (auth.uid() = id);
 
+drop policy if exists "Users can insert own profile" on public.profiles;
 create policy "Users can insert own profile"
   on public.profiles for insert
   with check (auth.uid() = id);
 
 -- Relace: vlastník nebo anonymní (user_id null)
+drop policy if exists "Users can view own sessions" on public.financial_sessions;
 create policy "Users can view own sessions"
   on public.financial_sessions for select
   using (user_id is null or auth.uid() = user_id);
 
+drop policy if exists "Users can insert sessions" on public.financial_sessions;
 create policy "Users can insert sessions"
   on public.financial_sessions for insert
   with check (user_id is null or auth.uid() = user_id);
 
+drop policy if exists "Users can update own sessions" on public.financial_sessions;
 create policy "Users can update own sessions"
   on public.financial_sessions for update
   using (user_id is null or auth.uid() = user_id);
 
 -- Dluhy: přes relaci
+drop policy if exists "Users can manage debts in own sessions" on public.debts;
 create policy "Users can manage debts in own sessions"
   on public.debts for all
   using (
@@ -94,10 +101,12 @@ create policy "Users can manage debts in own sessions"
   );
 
 -- Chat: Pro uživatelé
+drop policy if exists "Users can view own chat messages" on public.chat_messages;
 create policy "Users can view own chat messages"
   on public.chat_messages for select
   using (user_id is null or auth.uid() = user_id);
 
+drop policy if exists "Users can insert chat messages" on public.chat_messages;
 create policy "Users can insert chat messages"
   on public.chat_messages for insert
   with check (user_id is null or auth.uid() = user_id);

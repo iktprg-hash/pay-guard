@@ -15,22 +15,27 @@ drop policy if exists "Users can view own chat messages" on public.chat_messages
 drop policy if exists "Users can insert chat messages" on public.chat_messages;
 
 -- Autentizovaní uživatelé: přístup jen ke svým relacím
+drop policy if exists "Authenticated users view own sessions" on public.financial_sessions;
 create policy "Authenticated users view own sessions"
   on public.financial_sessions for select
   using (auth.uid() = user_id);
 
+drop policy if exists "Authenticated users insert own sessions" on public.financial_sessions;
 create policy "Authenticated users insert own sessions"
   on public.financial_sessions for insert
   with check (auth.uid() = user_id);
 
+drop policy if exists "Authenticated users update own sessions" on public.financial_sessions;
 create policy "Authenticated users update own sessions"
   on public.financial_sessions for update
   using (auth.uid() = user_id);
 
+drop policy if exists "Authenticated users view own chat messages" on public.chat_messages;
 create policy "Authenticated users view own chat messages"
   on public.chat_messages for select
   using (auth.uid() = user_id);
 
+drop policy if exists "Authenticated users insert own chat messages" on public.chat_messages;
 create policy "Authenticated users insert own chat messages"
   on public.chat_messages for insert
   with check (auth.uid() = user_id);
@@ -38,6 +43,7 @@ create policy "Authenticated users insert own chat messages"
 -- Dluhy: jen pro autentizované relace (anonymní přes service role)
 drop policy if exists "Users can manage debts in own sessions" on public.debts;
 
+drop policy if exists "Authenticated users manage debts in own sessions" on public.debts;
 create policy "Authenticated users manage debts in own sessions"
   on public.debts for all
   using (

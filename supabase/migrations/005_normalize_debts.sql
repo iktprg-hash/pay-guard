@@ -113,6 +113,7 @@ create index if not exists idx_debts_priority on public.debts(session_id, priori
 -- ── RLS: direct user_id + session ownership ──
 drop policy if exists "Authenticated users manage debts in own sessions" on public.debts;
 
+drop policy if exists "Users select own debts" on public.debts;
 create policy "Users select own debts"
   on public.debts for select
   using (
@@ -123,6 +124,7 @@ create policy "Users select own debts"
     )
   );
 
+drop policy if exists "Users insert own debts" on public.debts;
 create policy "Users insert own debts"
   on public.debts for insert
   with check (
@@ -133,6 +135,7 @@ create policy "Users insert own debts"
     )
   );
 
+drop policy if exists "Users update own debts" on public.debts;
 create policy "Users update own debts"
   on public.debts for update
   using (auth.uid() = user_id)
@@ -144,6 +147,7 @@ create policy "Users update own debts"
     )
   );
 
+drop policy if exists "Users delete own debts" on public.debts;
 create policy "Users delete own debts"
   on public.debts for delete
   using (

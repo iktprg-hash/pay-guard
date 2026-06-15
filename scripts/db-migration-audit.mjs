@@ -16,11 +16,24 @@ import { pgSslConfig } from "./pg-ssl.mjs";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 loadEnvLocal(root);
 
-function listLocal() {
+/** Supabase CLI version: 001_initial_schema.sql → 001, 20260615110800_pro_schema.sql → 20260615110800 */
+export function cliMigrationVersion(filename) {
+  const base = filename.replace(/\.sql$/, "");
+  const ts = base.match(/^(\d{14})/);
+  if (ts) return ts[1];
+  const num = base.match(/^(\d+)_/);
+  if (num) return num[1];
+  return base;
+}
+
+function listLocalFiles() {
   return readdirSync(join(root, "supabase/migrations"))
     .filter((f) => f.endsWith(".sql"))
-    .map((f) => f.replace(/\.sql$/, ""))
     .sort();
+}
+
+function listLocal() {
+  return listLocalFiles().map(cliMigrationVersion);
 }
 
 async function listRemote() {
@@ -57,7 +70,10 @@ async function main() {
 `);
 
   printSection(`Local files (${local.length})`);
-  for (const v of local) console.log(`  ${v}`);
+  for (const f of listLocalFiles()) {
+    const v = cliMigrationVersion(f);
+    console.log(`  ${v}  (${f})`);
+  }
 
   const remote = await listRemote();
 
