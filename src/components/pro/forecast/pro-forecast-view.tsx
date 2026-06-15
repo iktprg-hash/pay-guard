@@ -1,17 +1,21 @@
 "use client";
 
+import { memo, useMemo } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import {
+  AlertTriangle,
   CalendarRange,
+  Lightbulb,
   TrendingDown,
   TrendingUp,
   Wallet,
 } from "lucide-react";
-import { useProFinancialSummary } from "@/hooks/useProFinancial";
+import { useCashFlowForecast } from "@/hooks/useCashFlowForecast";
 import { ProEmptyState, ProPageHeader, StatCard } from "@/components/pro/pro-page";
 import { ProPageSkeleton } from "@/components/pro/pro-skeletons";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -19,15 +23,300 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { formatMoney } from "@/lib/utils";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import type { ForecastMonth, ForecastRecommendation } from "@/lib/pro/cash-flow-forecast";
+import { analyzeDebt } from "@/services/priorityEngine";
+import { cn, formatDate, formatMoney } from "@/lib/utils";
+import type { Debt } from "@/lib/types/financial";
 import type { Locale } from "@/i18n/routing";
 
-/** Monthly forecast — projected cash flow from recurring items. */
+function formatForecastMonth(yearMonth: string, locale: Locale): string {
+  const [year, month] = yearMonth.split("-").map(Number);
+  return new Intl.DateTimeFormat(locale, {
+    month: "long",
+    year: "numeric",
+  }).format(new Date(year, month - 1, 1));
+}
+
+const ForecastChart = memo(function ForecastChart({
+  months,
+  chartScaleMax,
+  locale,
+}: {
+  months: ForecastMonth[];
+  chartScaleMax: number;
+  locale: Locale;
+}) {
+  const t = useTranslations("pro.forecast");
+
+  return (
+    <div className="space-y-4">
+      <div
+        className="flex h-48 items-end justify-around gap-3 rounded-xl border bg-muted/20 px-4 pb-4 pt-6"
+        role="img"
+        aria-label={t("chartTitle")}
+      >
+        {months.map((month) => {
+          const heightPct = Math.max(
+            8,
+            (Math.abs(month.endingBalance) / chartScaleMax) * 100
+          );
+          const positive = month.endingBalance >= 0;
+
+          return (
+            <div
+              key={month.yearMonth}
+              className="flex min-w-0 flex-1 flex-col items-center gap-2"
+            >
+              <span
+                className={cn(
+                  "text-xs font-semibold tabular-nums",
+                  positive
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-destructive"
+                )}
+              >
+                {formatMoney(month.endingBalance, locale)}
+              </span>
+              <div className="flex h-32 w-full items-end justify-center">
+                <div
+                  className={cn(
+                    "w-full max-w-16 rounded-t-md transition-all",
+                    positive ? "bg-emerald-500/80" : "bg-destructive/80"
+                  )}
+                  style={{ height: `${heightPct}%` }}
+                />
+              </div>
+              <span className="truncate text-center text-xs text-muted-foreground">
+                {formatForecastMonth(month.yearMonth, locale)}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      <p className="text-xs text-muted-foreground">{t("chartLegend")}</p>
+    </div>
+  );
+});
+
+const ForecastTable = memo(function ForecastTable({
+  months,
+  locale,
+}: {
+  months: ForecastMonth[];
+  locale: Locale;
+}) {
+  const t = useTranslations("pro.forecast");
+
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>{t("colMonth")}</TableHead>
+          <TableHead className="text-right">{t("colIncome")}</TableHead>
+          <TableHead className="text-right">{t("colExpenses")}</TableHead>
+          <TableHead className="text-right">{t("colDebtPayments")}</TableHead>
+          <TableHead className="text-right">{t("colNetChange")}</TableHead>
+          <TableHead className="text-right">{t("colEndBalance")}</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {months.map((month) => (
+          <TableRow key={month.yearMonth}>
+            <TableCell className="font-medium">
+              {formatForecastMonth(month.yearMonth, locale)}
+            </TableCell>
+            <TableCell className="text-right tabular-nums text-emerald-600 dark:text-emerald-400">
+              +{formatMoney(month.income, locale)}
+            </TableCell>
+            <TableCell className="text-right tabular-nums text-destructive">
+              −{formatMoney(month.expenses, locale)}
+            </TableCell>
+            <TableCell className="text-right tabular-nums text-destructive">
+              −{formatMoney(month.debtPayments, locale)}
+            </TableCell>
+            <TableCell
+              className={cn(
+                "text-right tabular-nums font-medium",
+                month.netChange >= 0
+                  ? "text-emerald-600 dark:text-emerald-400"
+                  : "text-destructive"
+              )}
+            >
+              {formatMoney(month.netChange, locale)}
+            </TableCell>
+            <TableCell
+              className={cn(
+                "text-right tabular-nums font-semibold",
+                month.endingBalance >= 0
+                  ? "text-emerald-600 dark:text-emerald-400"
+                  : "text-destructive"
+              )}
+            >
+              {formatMoney(month.endingBalance, locale)}
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+});
+
+const DebtPriorityTable = memo(function DebtPriorityTable({
+  debts,
+  locale,
+}: {
+  debts: Debt[];
+  locale: Locale;
+}) {
+  const t = useTranslations("pro.dashboard");
+
+  if (debts.length === 0) return null;
+
+  const sorted = [...debts].sort(
+    (a, b) => analyzeDebt(a).level - analyzeDebt(b).level
+  );
+
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>{t("creditor")}</TableHead>
+          <TableHead>{t("amount")}</TableHead>
+          <TableHead>{t("dueDate")}</TableHead>
+          <TableHead>{t("priority")}</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {sorted.map((debt) => {
+          const analysis = analyzeDebt(debt);
+          return (
+            <TableRow key={debt.id}>
+              <TableCell className="font-medium">{debt.creditor}</TableCell>
+              <TableCell className="tabular-nums">
+                {formatMoney(debt.amount, locale)}
+              </TableCell>
+              <TableCell>
+                {debt.dueDate
+                  ? formatDate(debt.dueDate, locale)
+                  : debt.criticalDate
+                    ? formatDate(debt.criticalDate, locale)
+                    : "—"}
+              </TableCell>
+              <TableCell>
+                <Badge variant={analysis.level === 0 ? "warning" : "secondary"}>
+                  {t("priorityLevel", { level: analysis.level })}
+                </Badge>
+              </TableCell>
+            </TableRow>
+          );
+        })}
+      </TableBody>
+    </Table>
+  );
+});
+
+function RecommendationList({
+  recommendations,
+  months,
+  locale,
+}: {
+  recommendations: ForecastRecommendation[];
+  months: ForecastMonth[];
+  locale: Locale;
+}) {
+  const t = useTranslations("pro.forecast");
+
+  if (recommendations.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">{t("noRecommendations")}</p>
+    );
+  }
+
+  return (
+    <ul className="space-y-3">
+      {recommendations.map((rec, i) => {
+        const isDanger =
+          rec.kind === "projected_deficit" || rec.kind === "critical_debts";
+
+        let text: string;
+        switch (rec.kind) {
+          case "monthly_deficit":
+            text = t("recMonthlyDeficit", {
+              amount: formatMoney(rec.amount ?? 0, locale),
+            });
+            break;
+          case "projected_deficit": {
+            const month = months[rec.monthIndex ?? 0];
+            text = t("recProjectedDeficit", {
+              month: month
+                ? formatForecastMonth(month.yearMonth, locale)
+                : "",
+              amount: formatMoney(rec.amount ?? 0, locale),
+            });
+            break;
+          }
+          case "critical_debts":
+            text = t("recCriticalDebts", { count: rec.count ?? 0 });
+            break;
+          case "urgent_debts":
+            text = t("recUrgentDebts", { count: rec.count ?? 0 });
+            break;
+          default:
+            text = "";
+        }
+
+        return (
+          <li
+            key={`${rec.kind}-${i}`}
+            className={cn(
+              "flex gap-3 rounded-lg border p-3 text-sm",
+              isDanger
+                ? "border-destructive/30 bg-destructive/5"
+                : "border-amber-500/30 bg-amber-500/5"
+            )}
+          >
+            {isDanger ? (
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+            ) : (
+              <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+            )}
+            <span>{text}</span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/** 3-month cash flow forecast with chart, table, debts, and recommendations. */
 export function ProForecastView() {
   const t = useTranslations("pro.forecast");
   const locale = useLocale() as Locale;
-  const { summary, isLoading, isError, error, refetch } =
-    useProFinancialSummary();
+  const { summary, forecast, isLoading, isError, error, refetch } =
+    useCashFlowForecast();
+
+  const firstMonth = forecast.months[0];
+  const lastMonth = forecast.months[forecast.months.length - 1];
+
+  const priorityDebts = useMemo(() => {
+    const ids = new Set<string>();
+    const merged: Debt[] = [];
+    for (const debt of [...summary.criticalDebts, ...summary.urgentDebts]) {
+      if (!ids.has(debt.id)) {
+        ids.add(debt.id);
+        merged.push(debt);
+      }
+    }
+    return merged;
+  }, [summary.criticalDebts, summary.urgentDebts]);
 
   if (isLoading && !summary.profile) {
     return <ProPageSkeleton variant="forecast" label={t("title")} />;
@@ -49,19 +338,11 @@ export function ProForecastView() {
     );
   }
 
-  const projectedEndOfMonth =
-    summary.availableFunds + summary.netMonthlyCashFlow;
-
-  const hasData =
-    summary.debtCount > 0 ||
-    summary.monthlyRecurringIncome > 0 ||
-    summary.monthlyRecurringExpense > 0;
-
   return (
     <div className="space-y-8">
       <ProPageHeader title={t("title")} description={t("subtitle")} />
 
-      {!hasData ? (
+      {!forecast.hasData ? (
         <ProEmptyState
           icon={<CalendarRange className="h-6 w-6" />}
           title={t("emptyTitle")}
@@ -91,62 +372,146 @@ export function ProForecastView() {
         />
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard
               label={t("startingBalance")}
               value={formatMoney(summary.availableFunds, locale)}
               icon={Wallet}
             />
             <StatCard
-              label={t("projectedChange")}
-              value={formatMoney(summary.netMonthlyCashFlow, locale)}
+              label={t("monthlyNet")}
+              value={formatMoney(forecast.netMonthlyChange, locale)}
               hint={t("perMonth")}
-              trend={
-                summary.netMonthlyCashFlow >= 0 ? "positive" : "negative"
-              }
+              trend={forecast.netMonthlyChange >= 0 ? "positive" : "negative"}
               icon={TrendingUp}
+              iconClassName={
+                forecast.netMonthlyChange >= 0
+                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                  : "bg-destructive/10 text-destructive"
+              }
             />
             <StatCard
               label={t("projectedBalance")}
-              value={formatMoney(projectedEndOfMonth, locale)}
-              hint={t("endOfMonthHint")}
-              trend={projectedEndOfMonth >= 0 ? "positive" : "negative"}
+              value={formatMoney(firstMonth?.endingBalance ?? 0, locale)}
+              hint={t("firstMonthHint")}
+              trend={
+                (firstMonth?.endingBalance ?? 0) >= 0 ? "positive" : "negative"
+              }
               icon={CalendarRange}
             />
+            <StatCard
+              label={t("threeMonthBalance")}
+              value={formatMoney(lastMonth?.endingBalance ?? 0, locale)}
+              hint={t("threeMonthHint")}
+              trend={
+                (lastMonth?.endingBalance ?? 0) >= 0 ? "positive" : "negative"
+              }
+              icon={CalendarRange}
+              iconClassName={
+                (lastMonth?.endingBalance ?? 0) >= 0
+                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                  : "bg-destructive/10 text-destructive"
+              }
+            />
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">{t("chartTitle")}</CardTitle>
+                <CardDescription>{t("chartDescription")}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ForecastChart
+                  months={forecast.months}
+                  chartScaleMax={forecast.chartScaleMax}
+                  locale={locale}
+                />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">{t("breakdownTitle")}</CardTitle>
+                <CardDescription>{t("breakdownDescription")}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">
+                    {t("recurringIncome")}
+                  </span>
+                  <span className="font-medium tabular-nums text-emerald-600 dark:text-emerald-400">
+                    +{formatMoney(summary.monthlyRecurringIncome, locale)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">
+                    {t("recurringExpense")}
+                  </span>
+                  <span className="font-medium tabular-nums text-destructive">
+                    −{formatMoney(summary.monthlyRecurringExpense, locale)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">
+                    {t("minimumPayments")}
+                  </span>
+                  <span className="font-medium tabular-nums text-destructive">
+                    −{formatMoney(summary.minimumPaymentsDue, locale)}
+                  </span>
+                </div>
+                <div className="flex justify-between border-t pt-3 font-semibold">
+                  <span>{t("netResult")}</span>
+                  <span
+                    className={cn(
+                      "tabular-nums",
+                      forecast.netMonthlyChange >= 0
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : "text-destructive"
+                    )}
+                  >
+                    {formatMoney(forecast.netMonthlyChange, locale)}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">{t("breakdownTitle")}</CardTitle>
-              <CardDescription>{t("breakdownDescription")}</CardDescription>
+              <CardTitle className="text-base">{t("tableTitle")}</CardTitle>
+              <CardDescription>{t("tableDescription")}</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">{t("minimumPayments")}</span>
-                <span className="font-medium tabular-nums text-destructive">
-                  −{formatMoney(summary.minimumPaymentsDue, locale)}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">{t("recurringIncome")}</span>
-                <span className="font-medium tabular-nums text-emerald-600 dark:text-emerald-400">
-                  +{formatMoney(summary.monthlyRecurringIncome, locale)}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">{t("recurringExpense")}</span>
-                <span className="font-medium tabular-nums text-destructive">
-                  −{formatMoney(summary.monthlyRecurringExpense, locale)}
-                </span>
-              </div>
-              <div className="flex justify-between border-t pt-3 font-semibold">
-                <span>{t("netResult")}</span>
-                <span className="tabular-nums">
-                  {formatMoney(summary.netMonthlyCashFlow, locale)}
-                </span>
-              </div>
+            <CardContent className="overflow-x-auto">
+              <ForecastTable months={forecast.months} locale={locale} />
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">{t("recommendationsTitle")}</CardTitle>
+              <CardDescription>{t("recommendationsDescription")}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <RecommendationList
+                recommendations={forecast.recommendations}
+                months={forecast.months}
+                locale={locale}
+              />
+            </CardContent>
+          </Card>
+
+          {priorityDebts.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">{t("debtsTitle")}</CardTitle>
+                <CardDescription>{t("debtsDescription")}</CardDescription>
+              </CardHeader>
+              <CardContent className="overflow-x-auto">
+                <DebtPriorityTable debts={priorityDebts} locale={locale} />
+              </CardContent>
+            </Card>
+          )}
         </>
       )}
     </div>
