@@ -817,12 +817,11 @@ describe("Priority Engine", () => {
 
       expect(cs.summary).toMatch(/Priorita|Kč/i);
       expect(cs.warnings.some((w) => w.includes("Kč") || w.includes("snížena"))).toBe(true);
-      expect(ru.summary).toMatch(/Приоритет|₽|RUB/i);
+      expect(ru.summary).toMatch(/Приоритет|Kč/i);
       expect(
         ru.warnings.some(
           (w) =>
-            w.includes("₽") ||
-            w.includes("RUB") ||
+            w.includes("Kč") ||
             w.includes("снижен") ||
             w.includes("Emergency")
         )

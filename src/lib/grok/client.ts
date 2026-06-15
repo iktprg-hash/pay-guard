@@ -14,6 +14,7 @@ import {
   type AnalysisMode,
 } from "@/lib/grok/recommendation-readiness";
 import { minimizeProfileForGrok } from "@/lib/grok/minimize-profile";
+import { parseForeignAmountToCzk } from "@/lib/financial/currency-convert";
 import type { FinancialProfile, PrioritizationResult } from "@/lib/types/financial";
 
 export interface GrokMessage {
@@ -183,10 +184,12 @@ function getMockResponse(
   lastUserMessage: string
 ): GrokChatResult {
   const userText = userMessages[userMessages.length - 1]?.content ?? "";
+  const foreignCzk = parseForeignAmountToCzk(userText);
   const amountMatch = userText.match(/(\d[\d\s.,]*)/);
-  const amount = amountMatch
-    ? parseInt(amountMatch[1].replace(/[\s.,]/g, ""), 10)
-    : 0;
+  const amount = foreignCzk
+    ?? (amountMatch
+      ? parseInt(amountMatch[1].replace(/[\s.,]/g, ""), 10)
+      : 0);
 
   let update: (Partial<FinancialProfile> & {
     readyForRecommendation?: boolean;
@@ -246,7 +249,7 @@ Chcete doplnit další dluhy, nebo upřesnit částky pro podrobnější plán?`
 
 **Рекомендация:** в первую очередь ${top?.creditor ?? "приоритетный долг"} — распределение по Priority Engine (кнопка ниже для деталей).
 
-**Life buffer:** резерв ${engineResult.lifeBuffer.toLocaleString("ru-RU")} ₽ (${bufferPct} %) остаётся на еду и базовые расходы.
+**Life buffer:** резерв ${engineResult.lifeBuffer.toLocaleString("ru-RU")} Kč (${bufferPct} %) остаётся на еду и базовые расходы.
 
 **Почему:** критические сроки и обязательные расходы важнее обычных кредитов.
 

@@ -1,5 +1,6 @@
 import { buildStageContext } from "@/lib/grok/conversation";
 import { LOCALE_MARKET, formatMoney } from "@/lib/financial/locale-config";
+import { formatRatesForPrompt } from "@/lib/financial/currency-convert";
 import { mergeDebts, normalizeCategory } from "@/lib/financial/mergeDebts";
 import type { FinancialProfile, PrioritizationResult } from "@/lib/types/financial";
 import { grokProfileUpdateSchema } from "@/lib/validation/schemas";
@@ -16,9 +17,9 @@ TÓN: klidný, jistý, podporující. Používej: "Pojďme začít s nejdůleži
 Neptej se na mzdu, pokud uživatel sám nezmínil nestabilní příjem nebo nechce dlouhodobý plán.`,
 
   ru: `СТРУКТУРА ОТВЕТА (когда CAN_RECOMMEND_NOW = yes или есть вывод Priority Engine):
-1. Подтверждение — 1–2 предложения спокойно и уверенно ("Понимаю — у вас X ₽ и сначала угрожает …")
+1. Подтверждение — 1–2 предложения спокойно и уверенно ("Понимаю — у вас X Kč и сначала угрожает …")
 2. Рекомендация — сколько и куда платить в первую очередь (конкретные суммы из Priority Engine)
-3. Life buffer — резерв в ₽ и процентах
+3. Life buffer — резерв в Kč и процентах
 4. Почему — 1–2 предложения объяснения приоритета
 5. В конце — один вопрос: добавить другие долги / уточнить данные / детальный план?
 
@@ -61,12 +62,12 @@ PRAVIDLA:
 - Buď konkrétní a rozhodný — netáhni s doporučením
 - Krátké odstavce, konkrétní částky v Kč`,
 
-  ru: `Ты Pay Guard — быстрый практичный финансовый помощник для людей под давлением долгов в России.
+  ru: `Ты Pay Guard — быстрый практичный финансовый помощник для людей под давлением долгов в Чехии.
 Твоя цель: как можно быстрее дать полезную рекомендацию, а не допросить всю биографию.
 
 БЫСТРАЯ ЦЕННОСТЬ (приоритет #1):
 - Как только есть availableFunds > 0 и хотя бы 1 долг (кредитор + сумма) → СРАЗУ рекомендуй платежи.
-- Если долг критический (ФССП, выселение, отключение ЖКХ) → рекомендуй немедленно, без полного списка.
+- Если долг критический (exekuce, выселение, отключение ЖКХ) → рекомендуй немедленно, без полного списка.
 - Не жди полный список обязательств и зарплату.
 
 МИНИМУМА ДОСТАТОЧНО:
@@ -83,9 +84,9 @@ PRAVIDLA:
 - Не спрашивай то, что уже есть в JSON профиле
 - Максимум 1 вопрос в конце
 - Будь конкретным и решительным — не затягивай рекомендацию
-- Короткие абзацы, конкретные суммы в ₽`,
+- Короткие абзацы, все суммы в чешских кронах (Kč)`,
 
-  en: `You are Pay Guard — a fast, practical financial guide for people stressed about debt.
+  en: `You are Pay Guard — a fast, practical financial guide for people under debt pressure in the Czech Republic.
 Your goal: deliver useful payment advice as quickly as possible, not interrogate their entire finances.
 
 FAST VALUE (priority #1):
@@ -107,7 +108,27 @@ RULES:
 - Do not ask for data already present in the profile JSON
 - At most 1 question at the end
 - Be concrete and decisive — do not delay the recommendation
-- Short paragraphs, concrete amounts`,
+- Short paragraphs, concrete amounts in CZK (Kč)`,
+};
+
+const CURRENCY_RULES: Record<"cs" | "ru" | "en", string> = {
+  cs: `MĚNA (vše v CZK):
+- Všechny částky v profile_update ukládej v českých korunách (CZK / Kč).
+- Pokud uživatel uvede EUR, USD, GBP, RUB, UAH nebo PLN → převeď na CZK.
+- Orientační kurzy: ${formatRatesForPrompt()}.
+- V odpovědi můžeš zmínit původní částku, ale v JSON vždy CZK.`,
+
+  ru: `ВАЛЮТА (всё в CZK):
+- Все суммы в profile_update сохраняй в чешских кронах (CZK / Kč).
+- Если пользователь пишет EUR, USD, GBP, RUB, UAH или PLN → конвертируй в CZK.
+- Ориентировочные курсы: ${formatRatesForPrompt()}.
+- В ответе можно упомянуть исходную сумму, но в JSON всегда CZK.`,
+
+  en: `CURRENCY (everything in CZK):
+- Store all profile_update amounts in Czech koruna (CZK / Kč).
+- If the user mentions EUR, USD, GBP, RUB, UAH, or PLN → convert to CZK.
+- Approximate rates: ${formatRatesForPrompt()}.
+- You may mention the original amount in prose, but JSON must use CZK.`,
 };
 
 const PROFILE_UPDATE_SCHEMA: Record<"cs" | "ru" | "en", string> = {
@@ -245,6 +266,8 @@ export function buildSystemPrompt(
     : "";
 
   return `${BASE_PROMPTS[locale]}
+
+${CURRENCY_RULES[locale]}
 
 ${RESPONSE_STRUCTURE[locale]}
 

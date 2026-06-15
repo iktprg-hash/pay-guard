@@ -2,7 +2,7 @@
   "app": {
     "name": "Pay Guard",
     "tagline": "Smart payment prioritization assistant",
-    "description": "Helps you decide where to send limited funds when you have many obligations."
+    "description": "Helps people in the Czech Republic decide where to send limited funds when obligations exceed available money."
   },
   "common": {
     "skipToContent": "Skip to content",
@@ -41,7 +41,7 @@
     "pro": "Pro"
   },
   "chat": {
-    "welcome": "Hi! I'm Pay Guard — your payment prioritization assistant.\n\nTell me about your situation. You can type or use the microphone. I'll ask step by step about debts, income, and available funds.",
+    "welcome": "Hi! I'm Pay Guard — your payment prioritization assistant for the Czech Republic.\n\nTell me about your situation. You can type or use the microphone. Amounts can be in CZK, EUR, or other currencies — I'll convert everything to Czech koruna.",
     "subtitle": "Conversation with Pay Guard",
     "placeholder": "Type a message…",
     "send": "Send",

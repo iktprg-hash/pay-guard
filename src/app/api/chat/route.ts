@@ -15,6 +15,7 @@ import {
   chatRequestSchema,
   normalizeProfile,
 } from "@/lib/validation/schemas";
+import { enrichProfileFromMessage } from "@/lib/financial/currency-convert";
 import { runPriorityEngine } from "@/services/priorityEngine";
 
 export async function POST(request: NextRequest) {
@@ -54,9 +55,12 @@ export async function POST(request: NextRequest) {
       engineResult,
     });
 
-    const mergedProfile = result.profileUpdate
-      ? mergeProfileUpdate(normalizedProfile, result.profileUpdate)
-      : normalizedProfile;
+    const mergedProfile = enrichProfileFromMessage(
+      result.profileUpdate
+        ? mergeProfileUpdate(normalizedProfile, result.profileUpdate)
+        : normalizedProfile,
+      lastUserMessage
+    );
 
     const postReadiness = assessRecommendationReadiness(mergedProfile, {
       lastUserMessage,

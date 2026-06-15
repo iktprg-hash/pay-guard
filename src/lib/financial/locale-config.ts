@@ -1,17 +1,18 @@
 import type { Locale } from "@/i18n/routing";
+import { BASE_CURRENCY } from "@/lib/financial/currency-convert";
 
 export interface LocaleMarketConfig {
-  /** ISO 4217 */
-  currency: "CZK" | "RUB";
-  /** BCP 47 for Intl */
+  /** Always CZK — Czech market */
+  currency: typeof BASE_CURRENCY;
+  /** BCP 47 for Intl (number/date formatting) */
   intlLocale: string;
-  /** Human-readable market name (for prompts) */
+  /** Market context for prompts — Czech Republic in all UI languages */
   marketName: Record<"cs" | "ru" | "en", string>;
 }
 
 export const LOCALE_MARKET: Record<Locale, LocaleMarketConfig> = {
   cs: {
-    currency: "CZK",
+    currency: BASE_CURRENCY,
     intlLocale: "cs-CZ",
     marketName: {
       cs: "Česká republika",
@@ -20,17 +21,17 @@ export const LOCALE_MARKET: Record<Locale, LocaleMarketConfig> = {
     },
   },
   ru: {
-    currency: "RUB",
+    currency: BASE_CURRENCY,
     intlLocale: "ru-RU",
     marketName: {
-      cs: "Rusko",
-      ru: "Россия",
-      en: "Russia",
+      cs: "Česká republika",
+      ru: "Чехия",
+      en: "Czech Republic",
     },
   },
   en: {
-    currency: "CZK",
-    intlLocale: "en-US",
+    currency: BASE_CURRENCY,
+    intlLocale: "en-CZ",
     marketName: {
       cs: "Česká republika",
       ru: "Чехия",
@@ -43,16 +44,16 @@ export function getIntlLocale(locale: Locale): string {
   return LOCALE_MARKET[locale].intlLocale;
 }
 
-export function getCurrency(locale: Locale): "CZK" | "RUB" {
-  return LOCALE_MARKET[locale].currency;
+export function getCurrency(_locale: Locale): typeof BASE_CURRENCY {
+  return BASE_CURRENCY;
 }
 
-/** Zaokrouhlí na celé jednotky měny */
+/** Round to whole CZK */
 export function roundMoney(amount: number): number {
   return Math.max(0, Math.round(amount));
 }
 
-/** Formátuje částku podle locale aplikace (Kč / ₽) */
+/** Format amount in CZK — locale affects grouping/separators only */
 export function formatMoney(amount: number, locale: Locale): string {
   const { intlLocale, currency } = LOCALE_MARKET[locale];
   return new Intl.NumberFormat(intlLocale, {
@@ -62,7 +63,6 @@ export function formatMoney(amount: number, locale: Locale): string {
   }).format(amount);
 }
 
-/** Formátuje datum podle locale aplikace */
 export function formatLocaleDate(
   date: string | Date,
   locale: Locale

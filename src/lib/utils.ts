@@ -12,7 +12,7 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-/** Formátuje částku podle locale aplikace (cs/en → Kč, ru → ₽) */
+/** Formátuje částku v CZK podle locale (cs / ru / en) */
 export function formatMoney(amount: number, locale: Locale = "cs"): string {
   return formatMoneyForLocale(amount, locale);
 }

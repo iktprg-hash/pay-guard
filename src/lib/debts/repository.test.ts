@@ -90,13 +90,13 @@ describe("debts repository", () => {
       "session-1",
       "user-1",
       [debtWithUuid],
-      "RUB"
+      "CZK"
     );
 
     expect(ok).toBe(true);
     expect(upsert).toHaveBeenCalledOnce();
     const upsertArg = upsert.mock.calls[0]?.[0] as Array<{ currency: string }>;
-    expect(upsertArg[0]?.currency).toBe("RUB");
+    expect(upsertArg[0]?.currency).toBe("CZK");
     expect(deleteIn).toHaveBeenCalledWith("id", ["old-debt-id"]);
   });
 });
