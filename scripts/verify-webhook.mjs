@@ -12,7 +12,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 loadEnvLocal(root);
 
 const PRODUCTION_URL =
-  "https://pay-guard-murex-alpha.vercel.app/api/billing/webhook";
+  "https://pay-guard-murex-alpha.vercel.app/api/webhooks/stripe";
 const REQUIRED_EVENTS = [
   "checkout.session.completed",
   "customer.subscription.created",
@@ -118,6 +118,10 @@ try {
   const text = await res.text();
   if (res.status === 503) {
     console.log(`❌ HTTP 503 — STRIPE_WEBHOOK_SECRET missing on Vercel (or redeploy needed)`);
+  } else if (res.status === 404) {
+    console.log(`❌ HTTP 404 — route not on production (Vercel deploy failed or old build)`);
+    console.log(`   Fix: Vercel → Deployments → open failed build → copy error from Build Logs`);
+    console.log(`   Or promote last successful deployment until build is fixed`);
   } else if (res.status === 400) {
     console.log(`✅ HTTP 400 — webhook route live, secret configured (signature rejected as expected)`);
   } else {

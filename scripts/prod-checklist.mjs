@@ -214,7 +214,7 @@ if (isPlaceholder(stripeKey) || isPlaceholder(stripePrice) || isPlaceholder(stri
   warn("Stripe not fully configured — Pro checkout disabled (STRIPE_SECRET_KEY, STRIPE_PRO_PRICE_ID, STRIPE_WEBHOOK_SECRET)");
 } else {
   pass("Stripe env vars set");
-  console.log("   Webhook URL: https://<your-domain>/api/billing/webhook");
+  console.log("   Webhook URL: https://<your-domain>/api/webhooks/stripe");
   console.log("   Create CZK monthly Price in Stripe Dashboard → STRIPE_PRO_PRICE_ID");
 }
 
