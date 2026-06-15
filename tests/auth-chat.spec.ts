@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test";
 
+test.describe.configure({ mode: "parallel" });
+
 test.describe("Auth and chat flow", () => {
   test("redirects unauthenticated users from chat to login", async ({ page }) => {
     await page.goto("/cs");

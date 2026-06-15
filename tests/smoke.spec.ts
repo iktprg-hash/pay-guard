@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test";
 
+test.describe.configure({ mode: "parallel" });
+
 test.describe("Pay Guard smoke", () => {
   test("login page loads", async ({ page }) => {
     await page.goto("/cs/login");
