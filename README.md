@@ -19,7 +19,7 @@ Pay Guard pomáhá rozhodnout, **kam poslat omezené peníze**, když je závazk
 
 ## Stack
 
-- Next.js 16 (App Router) + TypeScript + React 19
+- Next.js 16 (App Router, `src/proxy.ts` locale routing) + TypeScript + React 19
 - Tailwind CSS 4 + shadcn/ui
 - Supabase (Auth, DB, RLS)
 - xAI Grok API
@@ -30,8 +30,8 @@ Pay Guard pomáhá rozhodnout, **kam poslat omezené peníze**, když je závazk
 
 ```bash
 cd ~/Projects/pay-guard
-cp .env.local.example .env.local
-# Vyplňte XAI_API_KEY a Supabase credentials
+cp .env.example .env.local
+# Vyplňte klíče dle komentářů v .env.example ([PROD], [STRIPE], [DEV])
 
 npm install
 npm run dev
@@ -230,6 +230,8 @@ Nebo s `DATABASE_URL`: `npm run db:apply:003` / `npm run db:hint`.
 
 ### Env proměnné ve Vercel (Production)
 
+Kompletní šablona s komentáři: **[`.env.example`](./.env.example)** · průvodce: **[`DEPLOY.md`](./DEPLOY.md)**
+
 | Proměnná | Povinné | Poznámka |
 |----------|---------|----------|
 | `NEXT_PUBLIC_SITE_URL` | ✅ | `https://pay-guard-xxxx.vercel.app` |
@@ -247,7 +249,7 @@ Nebo s `DATABASE_URL`: `npm run db:apply:003` / `npm run db:hint`.
 
 **Nepřidávat do Production:** `AUTH_DEV_REGISTER`, `AUTH_SKIP_RATE_LIMIT`
 
-Šablona: [`.env.example`](./.env.example)
+Po změně env na Vercel vždy **Redeploy**.
 
 ```bash
 npm run verify:upstash      # ověření Redis + rate limiter
@@ -260,7 +262,7 @@ npm run build               # finální build před releasem
 **Infrastruktura**
 
 - [ ] Migrace **001–010** aplikované v Supabase SQL Editoru
-- [ ] **Všechny env proměnné ve Vercel Production** — viz [DEPLOY.md](./DEPLOY.md) a `.env.example` (zejména `NEXT_PUBLIC_SITE_URL`, Supabase, Upstash, XAI, Stripe)
+- [ ] **Všechny env proměnné ve Vercel Production** — zkopírujte z [`.env.example`](./.env.example) ([DEPLOY.md](./DEPLOY.md)); zejména `NEXT_PUBLIC_SITE_URL`, Supabase, Upstash, XAI, Stripe
 - [ ] **Upstash Redis** (`UPSTASH_REDIS_REST_URL` + `TOKEN`) v produkčním env
 - [ ] **Custom SMTP** (Supabase Auth → Email)
 - [ ] **Confirm email: ON** (prod)
@@ -473,8 +475,8 @@ Soukromý projekt — kontaktujte autora pro použití mimo osobní účely.
 Финальная проверка перед merge в `main`, тегом или production deploy. Отмечайте пункты только после реальной проверки.
 
 - [ ] **Все E2E тесты зелёные** — `npm run dev:restart`, затем `npm run test:e2e:local` (ожидается: **24 passed**, 2 skipped без Stripe)
-- [ ] **Все env-переменные заданы в Vercel** — особенно `NEXT_PUBLIC_SITE_URL`, Supabase, Upstash, XAI, Stripe ([DEPLOY.md](./DEPLOY.md), [`.env.example`](./.env.example))
-- [ ] **`npm run build` успешен** — без ошибок TypeScript / Next.js
+- [ ] **Все env-переменные заданы в Vercel** — скопируйте из [`.env.example`](./.env.example) ([DEPLOY.md](./DEPLOY.md)): `NEXT_PUBLIC_SITE_URL`, Supabase, Upstash, XAI, Stripe
+- [ ] **`npm run build` успешен** — без ошибок TypeScript / Next.js (Next.js 16 использует `src/proxy.ts`, не `middleware.ts`)
 - [ ] **`npm run prod:checklist` пройден** — env, Supabase, Stripe, безопасность
 - [ ] **Supabase миграции 001–010 + pro_schema применены** — включая `20260615_pro_schema.sql`; проверка: `npm run db:verify`
 - [ ] **Stripe webhook настроен и протестирован** — endpoint на production-домене; `npm run verify:webhook` + `npm run verify:stripe`
