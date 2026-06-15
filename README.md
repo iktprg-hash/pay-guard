@@ -412,3 +412,41 @@ supabase/migrations/       # 001–010 + pro schema
 ## Licence
 
 Soukromý projekt — kontaktujte autora pro použití mimo osobní účely.
+
+---
+
+## Production Release Checklist
+
+Finální brána před tagem, merge do `main` nebo produkčním deployem. Projdi položky v pořadí a zaškrtni až po ověření.
+
+### Build & testy
+
+- [ ] **E2E testy prošly** — `npm run dev:restart`, poté `npm run test:e2e:local` (očekáváno: **24 passed**, 2 skipped bez Stripe)
+- [ ] **Production build OK** — `npm run build` bez chyb
+- [ ] **Prod checklist OK** — `npm run prod:checklist` (přísně: `npm run prod:checklist:strict`)
+
+### Infrastruktura & integrace
+
+- [ ] **Supabase migrace aplikované** — 001–010 v SQL Editoru; ověření: `npm run db:verify`
+- [ ] **Stripe webhook nastaven** — endpoint `https://<domain>/api/billing/webhook`, secrets v env; `npm run verify:webhook` + `npm run verify:stripe`
+- [ ] **Rate limits ověřené** — `UPSTASH_REDIS_REST_URL` + `TOKEN` v produkci; `npm run verify:upstash`
+
+### PWA & assets
+
+- [ ] **PWA assets vygenerované** — `npm run pwa:assets` (ikony + splash v `/public/icons/` a `/public/splash/`)
+
+### Rychlý příkazový blok
+
+```bash
+npm run dev:restart
+npm run test:e2e:local
+npm run build
+npm run prod:checklist
+npm run db:verify
+npm run verify:upstash
+npm run verify:stripe
+npm run verify:webhook
+npm run pwa:assets
+```
+
+> Podrobnější checklist (RLS, SMTP, Auth, Stripe events) je v sekci [Nasazení (Vercel) → Production deploy checklist](#production-deploy-checklist).
