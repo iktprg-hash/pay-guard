@@ -13,11 +13,10 @@ import { Spinner } from "@/components/ui/page-loader";
 import { persistRecommendationOffline } from "@/lib/pwa/persistRecommendation";
 import { runPriorityEngine } from "@/services/priorityEngine";
 import type { Debt, DebtCategory, FinancialProfile, PrioritizationResult } from "@/lib/types/financial";
+import { DEBT_CATEGORIES } from "@/lib/types/financial";
 import type { Locale } from "@/i18n/routing";
 
-const CATEGORIES: DebtCategory[] = [
-  "housing", "utilities", "taxes", "fines", "loans", "credit_card", "medical", "other",
-];
+const CATEGORIES: DebtCategory[] = [...DEBT_CATEGORIES];
 
 function emptyDebt(): Debt {
   return {

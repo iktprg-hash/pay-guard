@@ -1,14 +1,15 @@
 import { createClient } from "@/lib/supabase/server";
 import type { SubscriptionTier } from "@/lib/types/financial";
+import { isPaidTier } from "@/lib/types/financial";
 
 export interface UserSubscription {
   tier: SubscriptionTier;
   expiresAt: string | null;
 }
 
-/** Je aktivní Pro předplatné? */
+/** Je aktivní Pro / Pro Max předplatné? */
 export function isActivePro(subscription: UserSubscription): boolean {
-  if (subscription.tier !== "pro") return false;
+  if (!isPaidTier(subscription.tier)) return false;
   if (!subscription.expiresAt) return true;
   return new Date(subscription.expiresAt) > new Date();
 }
@@ -29,8 +30,13 @@ export async function getUserSubscription(
       return { tier: "free", expiresAt: null };
     }
 
-    const tier =
-      data.subscription_tier === "pro" ? "pro" : ("free" as SubscriptionTier);
+    const rawTier = data.subscription_tier;
+    const tier: SubscriptionTier =
+      rawTier === "pro_max"
+        ? "pro_max"
+        : rawTier === "pro"
+          ? "pro"
+          : "free";
 
     return {
       tier,

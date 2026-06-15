@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { mergeProfileUpdate } from "@/lib/financial/profile-merge";
 import type { FinancialProfile } from "@/lib/types/financial";
 
 const EMPTY_PROFILE: FinancialProfile = {
@@ -16,14 +17,11 @@ export function useFinancialProfile(initial?: Partial<FinancialProfile>) {
   });
 
   const mergeProfile = useCallback((update: Partial<FinancialProfile>) => {
-    setProfile((prev) => ({
-      availableFunds: update.availableFunds ?? prev.availableFunds,
-      monthlyIncome: update.monthlyIncome ?? prev.monthlyIncome,
-      monthlyExpenses: update.monthlyExpenses ?? prev.monthlyExpenses,
-      incomeStability: update.incomeStability ?? prev.incomeStability,
-      debts:
-        update.debts && update.debts.length > 0 ? update.debts : prev.debts,
-    }));
+    setProfile((prev) => mergeProfileUpdate(prev, update));
+  }, []);
+
+  const setProfileFull = useCallback((next: FinancialProfile) => {
+    setProfile(next);
   }, []);
 
   const reset = useCallback(() => setProfile(EMPTY_PROFILE), []);
@@ -31,5 +29,5 @@ export function useFinancialProfile(initial?: Partial<FinancialProfile>) {
   const isReady =
     profile.debts.length > 0 && profile.availableFunds > 0;
 
-  return { profile, mergeProfile, reset, isReady };
+  return { profile, mergeProfile, setProfile: setProfileFull, reset, isReady };
 }

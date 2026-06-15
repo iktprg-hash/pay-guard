@@ -11,7 +11,6 @@ export interface DebtRow {
   session_id: string;
   creditor_name: string;
   amount: number;
-  currency: string;
   due_date: string | null;
   critical_date: string | null;
   category: string;
@@ -52,8 +51,7 @@ export function debtRowToDomain(row: DebtRow): Debt {
 export function domainToDebtRow(
   debt: Debt,
   sessionId: string,
-  userId: string,
-  currency = "CZK"
+  userId: string
 ): Omit<DebtRow, "created_at" | "updated_at"> {
   const { level } = analyzeDebt(debt);
   return {
@@ -62,7 +60,6 @@ export function domainToDebtRow(
     session_id: sessionId,
     creditor_name: debt.creditor,
     amount: debt.amount,
-    currency,
     due_date: debt.dueDate?.slice(0, 10) ?? null,
     critical_date: debt.criticalDate?.slice(0, 10) ?? null,
     category: debt.category,
@@ -100,7 +97,7 @@ export async function loadSessionDebts(
   const { data, error } = await supabase
     .from("debts")
     .select(
-      "id, user_id, session_id, creditor_name, amount, currency, due_date, critical_date, category, priority_level, notes, minimum_payment, critical_note, interest_rate, created_at, updated_at"
+      "id, user_id, session_id, creditor_name, amount, due_date, critical_date, category, priority_level, notes, minimum_payment, critical_note, interest_rate, created_at, updated_at"
     )
     .eq("session_id", sessionId)
     .order("priority_level", { ascending: true, nullsFirst: false })
@@ -114,10 +111,9 @@ export async function syncSessionDebts(
   supabase: SupabaseClient,
   sessionId: string,
   userId: string,
-  debts: Debt[],
-  currency = "CZK"
+  debts: Debt[]
 ): Promise<boolean> {
-  const rows = debts.map((d) => domainToDebtRow(d, sessionId, userId, currency));
+  const rows = debts.map((d) => domainToDebtRow(d, sessionId, userId));
   const keepIds = rows.map((r) => r.id);
 
   if (rows.length > 0) {

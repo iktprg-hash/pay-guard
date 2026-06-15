@@ -101,8 +101,8 @@ export function parseForeignAmountParts(
 /** If profile still has pre-conversion amounts from the last message, fix them. */
 export function enrichProfileFromMessage<T extends {
   availableFunds: number;
-  monthlyIncome: number;
-  monthlyExpenses: number;
+  monthlyIncome?: number;
+  monthlyExpenses?: number;
   debts: Array<{ amount: number; minimumPayment?: number }>;
 }>(profile: T, message: string): T {
   const parts = parseForeignAmountParts(message);
@@ -116,8 +116,14 @@ export function enrichProfileFromMessage<T extends {
   return {
     ...profile,
     availableFunds: patchAmount(profile.availableFunds),
-    monthlyIncome: patchAmount(profile.monthlyIncome),
-    monthlyExpenses: patchAmount(profile.monthlyExpenses),
+    monthlyIncome:
+      profile.monthlyIncome !== undefined
+        ? patchAmount(profile.monthlyIncome)
+        : profile.monthlyIncome,
+    monthlyExpenses:
+      profile.monthlyExpenses !== undefined
+        ? patchAmount(profile.monthlyExpenses)
+        : profile.monthlyExpenses,
     debts: profile.debts.map((d) => ({
       ...d,
       amount: patchAmount(d.amount),

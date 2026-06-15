@@ -64,6 +64,42 @@ async function verifyMigrations() {
       table: "profiles",
       columns: "stripe_customer_id",
     },
+    {
+      id: "pro",
+      label: "profiles.currency",
+      table: "profiles",
+      columns: "currency",
+    },
+    {
+      id: "pro",
+      label: "profiles.financial_last_updated",
+      table: "profiles",
+      columns: "financial_last_updated",
+    },
+    {
+      id: "pro",
+      label: "recurring_incomes table",
+      table: "recurring_incomes",
+      columns: "user_id",
+    },
+    {
+      id: "pro",
+      label: "recurring_expenses table",
+      table: "recurring_expenses",
+      columns: "user_id",
+    },
+    {
+      id: "pro",
+      label: "daily_expenses table",
+      table: "daily_expenses",
+      columns: "user_id",
+    },
+    {
+      id: "pro",
+      label: "debts.is_recurring",
+      table: "debts",
+      columns: "is_recurring",
+    },
   ];
 
   const checks = await Promise.all(

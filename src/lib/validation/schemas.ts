@@ -1,15 +1,7 @@
 import { z } from "zod";
+import { DEBT_CATEGORIES } from "@/lib/types/financial";
 
-const DEBT_CATEGORIES = [
-  "housing",
-  "utilities",
-  "taxes",
-  "fines",
-  "loans",
-  "credit_card",
-  "medical",
-  "other",
-] as const;
+const debtCategoryEnum = z.enum(DEBT_CATEGORIES);
 
 const INCOME_STABILITY = ["stable", "variable", "uncertain"] as const;
 
@@ -23,7 +15,7 @@ export const debtSchema = z.object({
   dueDate: z.string().max(30).optional(),
   criticalDate: z.string().max(30).optional(),
   criticalNote: z.string().max(500).optional(),
-  category: z.enum(DEBT_CATEGORIES).default("other"),
+  category: debtCategoryEnum.default("other"),
   interestRate: z.number().min(0).max(100).optional(),
   notes: z.string().max(1000).optional(),
 });
@@ -85,7 +77,7 @@ export const grokDebtUpdateSchema = z.object({
   dueDate: z.string().max(30).nullish(),
   criticalDate: z.string().max(30).nullish(),
   criticalNote: z.string().max(500).nullish(),
-  category: z.enum(DEBT_CATEGORIES).optional().default("other"),
+  category: debtCategoryEnum.optional().default("other"),
   interestRate: z.number().min(0).max(100).nullish(),
 });
 

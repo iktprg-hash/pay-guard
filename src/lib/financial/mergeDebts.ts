@@ -1,15 +1,7 @@
 import type { Debt, DebtCategory } from "@/lib/types/financial";
+import { DEBT_CATEGORIES } from "@/lib/types/debt-constants";
 
-const VALID_CATEGORIES: DebtCategory[] = [
-  "housing",
-  "utilities",
-  "taxes",
-  "fines",
-  "loans",
-  "credit_card",
-  "medical",
-  "other",
-];
+const VALID_CATEGORIES: DebtCategory[] = [...DEBT_CATEGORIES];
 
 function slugCreditor(creditor: string): string {
   return creditor.slice(0, 12).replace(/\s/g, "-").toLowerCase();

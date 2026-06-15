@@ -20,7 +20,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     pathname.includes("/forgot-password") ||
     pathname.includes("/reset-password");
 
-  if (isAuthPage) {
+  /** Pro section has its own shell (sidebar + mobile nav). */
+  const isProSection = pathname.includes("/pro/");
+
+  if (isAuthPage || isProSection) {
     return <>{children}</>;
   }
 

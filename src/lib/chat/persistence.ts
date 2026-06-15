@@ -292,6 +292,7 @@ export async function saveSessionToSupabase(
     const row: Record<string, unknown> = {
       id: sessionId,
       user_id: userId,
+      currency: getCurrency(locale as Locale),
       available_funds: profile.availableFunds,
       monthly_income: profile.monthlyIncome ?? null,
       monthly_expenses: profile.monthlyExpenses ?? null,
@@ -314,8 +315,7 @@ export async function saveSessionToSupabase(
       supabase,
       sessionId,
       userId,
-      profile.debts,
-      getCurrency(locale as Locale)
+      profile.debts
     );
     if (!debtsSynced) return false;
 

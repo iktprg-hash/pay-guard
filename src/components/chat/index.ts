@@ -6,3 +6,4 @@ export { Input as ChatInput } from "./Input";
 export { ChatWelcome } from "./ChatWelcome";
 export { TypingIndicator } from "./TypingIndicator";
 export { RecommendationCard } from "./recommendation-card";
+export { ProSyncBar } from "./pro-sync-bar";

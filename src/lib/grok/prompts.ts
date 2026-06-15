@@ -344,18 +344,4 @@ export function stripProfileUpdate(content: string): string {
 }
 
 /** Sloučí partial update do existujícího profilu (dluhy se mergeují, ne nahrazují) */
-export function mergeProfileUpdate(
-  current: FinancialProfile,
-  update: Partial<FinancialProfile>
-): FinancialProfile {
-  return {
-    availableFunds: update.availableFunds ?? current.availableFunds,
-    monthlyIncome: update.monthlyIncome ?? current.monthlyIncome,
-    monthlyExpenses: update.monthlyExpenses ?? current.monthlyExpenses,
-    incomeStability: update.incomeStability ?? current.incomeStability,
-    debts:
-      update.debts && update.debts.length > 0
-        ? mergeDebts(current.debts, update.debts)
-        : current.debts,
-  };
-}
+export { mergeProfileUpdate } from "@/lib/types/financial";

@@ -109,6 +109,9 @@ export const PRIORITY_CONSTANTS = {
     taxes: 0.95,
     fines: 0.9,
     medical: 0.75,
+    transport: 0.7,
+    food: 0.65,
+    subscriptions: 0.4,
     loans: 0.6,
     credit_card: 0.45,
     other: 0.35,
@@ -512,6 +515,9 @@ const CATEGORY_LABELS: Record<DebtCategory, Record<Locale, string>> = {
   loans: { cs: "půjčky", ru: "кредиты", en: "loans" },
   credit_card: { cs: "kreditní karta", ru: "кредитная карта", en: "credit card" },
   medical: { cs: "zdravotní", ru: "медицина", en: "medical" },
+  transport: { cs: "doprava", ru: "транспорт", en: "transport" },
+  food: { cs: "jídlo", ru: "еда", en: "food" },
+  subscriptions: { cs: "předplatné", ru: "подписки", en: "subscriptions" },
   other: { cs: "ostatní", ru: "прочее", en: "other" },
 };
 

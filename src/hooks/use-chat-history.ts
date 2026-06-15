@@ -6,12 +6,13 @@ import {
   deserializeMessages,
   getOrCreateSessionCredentials,
   importServerSession,
-  listLocalSessions,
+  listLocalSessions as listLocalSessionsFromStorage,
   loadLocalHistory,
   loadStoredSession,
   saveLocalHistory,
   serializeMessages,
   setSessionCredentials,
+  type LocalSessionMeta,
 } from "@/lib/chat/storage";
 import {
   listUnsyncedLocalSessions,
@@ -32,6 +33,18 @@ interface UseChatHistoryOptions {
   sessionId: string;
   enabled?: boolean;
   isAuthenticated?: boolean;
+}
+
+export interface SavedChatSession {
+  messages: ChatMessage[];
+  profile: FinancialProfile;
+  sessionId: string;
+}
+
+export interface SaveSessionInput {
+  sessionId?: string;
+  messages?: ChatMessage[];
+  profile?: FinancialProfile;
 }
 
 async function fetchServerSessions(): Promise<ServerSessionSummary[]> {
@@ -67,9 +80,42 @@ async function pushSessionToServer(
   });
 }
 
+/** Imperative save — localStorage, IndexedDB, optional cloud push. */
+async function persistSession(
+  locale: string,
+  sessionId: string,
+  messages: ChatMessage[],
+  profile: FinancialProfile,
+  isAuthenticated: boolean
+): Promise<void> {
+  if (messages.length === 0) return;
+
+  await saveLocalHistory(locale, messages, profile, sessionId);
+
+  const stored = await loadStoredSession(sessionId);
+  const creds = stored
+    ? { sessionToken: stored.sessionToken }
+    : await getOrCreateSessionCredentials();
+  const token = creds.sessionToken;
+
+  await saveOfflineSession(locale, {
+    sessionId,
+    sessionToken: token,
+    locale,
+    messages: serializeMessages(messages),
+    profile,
+    updatedAt: new Date().toISOString(),
+  });
+
+  if (!navigator.onLine || !isAuthenticated) return;
+
+  await pushSessionToServer(sessionId, locale, messages, profile, token);
+}
+
 /**
- * Persistuje historii chatu do localStorage + Supabase.
- * Po přihlášení synchronizuje s cloudem (server má prioritu).
+ * Chat history hook — localStorage + IndexedDB + cloud sync for Pro users.
+ *
+ * Exposes `restore`, `createNewSession`, `saveSession`, and `listLocalSessions`.
  */
 export function useChatHistory({
   locale,
@@ -103,11 +149,31 @@ export function useChatHistory({
         );
       }
 
-      mergeSessionLists(serverSessions, await listLocalSessions(locale));
+      mergeSessionLists(serverSessions, await listLocalSessionsFromStorage(locale));
     } catch {
-      // offline / auth
+      // offline / auth — keep local data
     }
   }, [isAuthenticated, locale]);
+
+  const listLocalSessions = useCallback(async (): Promise<LocalSessionMeta[]> => {
+    return listLocalSessionsFromStorage(locale);
+  }, [locale]);
+
+  const saveSession = useCallback(
+    async (input: SaveSessionInput = {}): Promise<void> => {
+      const sid = input.sessionId ?? sessionId;
+      const msgs = input.messages ?? messages;
+      const prof = input.profile ?? profile;
+
+      try {
+        await persistSession(locale, sid, msgs, prof, isAuthenticated);
+      } catch (error) {
+        console.error("[useChatHistory] saveSession failed", error);
+        throw error;
+      }
+    },
+    [locale, sessionId, messages, profile, isAuthenticated]
+  );
 
   useEffect(() => {
     if (!enabled || messages.length === 0) return;
@@ -115,47 +181,18 @@ export function useChatHistory({
     if (saveTimer.current) clearTimeout(saveTimer.current);
 
     saveTimer.current = setTimeout(() => {
-      void (async () => {
-        await saveLocalHistory(locale, messages, profile, sessionId);
-
-        const stored = await loadStoredSession(sessionId);
-        const creds = stored
-          ? { sessionToken: stored.sessionToken }
-          : await getOrCreateSessionCredentials();
-        const token = creds.sessionToken;
-
-        await saveOfflineSession(locale, {
-          sessionId,
-          sessionToken: token,
-          locale,
-          messages: serializeMessages(messages),
-          profile,
-          updatedAt: new Date().toISOString(),
-        });
-
-        if (!navigator.onLine || !isAuthenticated) return;
-
-        await pushSessionToServer(
-          sessionId,
-          locale,
-          messages,
-          profile,
-          token
-        );
-      })();
+      void saveSession().catch(() => {
+        // debounced auto-save — errors logged in saveSession
+      });
     }, 500);
 
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
-  }, [messages, profile, locale, enabled, sessionId, isAuthenticated]);
+  }, [messages, profile, enabled, saveSession]);
 
   const restore = useCallback(
-    async (targetSessionId?: string): Promise<{
-      messages: ChatMessage[];
-      profile: FinancialProfile;
-      sessionId: string;
-    } | null> => {
+    async (targetSessionId?: string): Promise<SavedChatSession | null> => {
       if (isAuthenticated && navigator.onLine) {
         await syncFromServer();
       }
@@ -169,7 +206,6 @@ export function useChatHistory({
         };
       }
 
-      // Cache-first offline: IDB session backup, then localStorage
       if (!navigator.onLine) {
         const cached = await loadSessionCacheFirst(
           locale as "cs" | "ru" | "en",
@@ -247,8 +283,8 @@ export function useChatHistory({
             sessionId: data.session.sessionId,
           };
         }
-      } catch {
-        // fallback
+      } catch (error) {
+        console.error("[useChatHistory] restore failed", error);
       }
 
       return null;
@@ -285,12 +321,18 @@ export function useChatHistory({
           return data;
         }
       } catch {
-        // fallback local
+        // fallback to local-only session
       }
     }
 
     return createNewLocalSession(locale);
   }, [isAuthenticated, locale]);
 
-  return { restore, createNewSession, syncFromServer };
+  return {
+    restore,
+    createNewSession,
+    saveSession,
+    listLocalSessions,
+    syncFromServer,
+  };
 }

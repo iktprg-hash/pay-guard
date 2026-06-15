@@ -23,10 +23,10 @@ describe("debts repository", () => {
   };
 
   it("maps domain debt to row with priority_level from engine", () => {
-    const row = domainToDebtRow(sampleDebt, "session-uuid", "user-uuid", "CZK");
+    const row = domainToDebtRow(sampleDebt, "session-uuid", "user-uuid");
     expect(row.creditor_name).toBe("Landlord");
     expect(row.priority_level).toBe(analyzeDebt(sampleDebt).level);
-    expect(row.currency).toBe("CZK");
+    expect(row).not.toHaveProperty("currency");
     expect(row.user_id).toBe("user-uuid");
     expect(row.session_id).toBe("session-uuid");
     expect(row.minimum_payment).toBe(5000);
@@ -89,14 +89,13 @@ describe("debts repository", () => {
       supabase as never,
       "session-1",
       "user-1",
-      [debtWithUuid],
-      "CZK"
+      [debtWithUuid]
     );
 
     expect(ok).toBe(true);
     expect(upsert).toHaveBeenCalledOnce();
-    const upsertArg = upsert.mock.calls[0]?.[0] as Array<{ currency: string }>;
-    expect(upsertArg[0]?.currency).toBe("CZK");
+    const upsertArg = upsert.mock.calls[0]?.[0] as Array<{ creditor_name: string }>;
+    expect(upsertArg[0]?.creditor_name).toBe("Landlord");
     expect(deleteIn).toHaveBeenCalledWith("id", ["old-debt-id"]);
   });
 });

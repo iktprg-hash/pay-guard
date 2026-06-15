@@ -12,13 +12,15 @@ import { ChatWelcome } from "./ChatWelcome";
 import { TypingIndicator } from "./TypingIndicator";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useFinancialProfile } from "@/hooks/use-financial-profile";
+import { useChatWithPro } from "@/hooks/use-chat-with-pro";
 import { useChatHistory } from "@/hooks/use-chat-history";
 import { useNetworkStatus } from "@/components/pwa/NetworkProvider";
 import { getOrCreateSessionCredentials, createNewLocalSession, listLocalSessions } from "@/lib/chat/storage";
-import { mergeProfileUpdate } from "@/lib/grok/prompts";
-import { persistRecommendationOffline } from "@/lib/pwa/persistRecommendation";
+import { persistChatRecommendation } from "@/lib/chat/persist-recommendation";
+import { mergeProfileUpdate } from "@/lib/types/financial";
 import { runPriorityEngine } from "@/services/priorityEngine";
 import { GrokConsentGate } from "./GrokConsentGate";
+import { ProSyncBar } from "./pro-sync-bar";
 import { OfflineRecommendationCard } from "@/components/pwa/OfflineRecommendationCard";
 import { ChatSkeleton } from "@/components/ui/page-loader";
 import type { ChatMessage, PrioritizationResult } from "@/lib/types/financial";
@@ -38,7 +40,7 @@ export function Chat() {
   const { isOnline } = useNetworkStatus();
   const dateLocale = getIntlLocale(locale);
 
-  const { profile, mergeProfile, isReady, reset: resetProfile } =
+  const { profile, mergeProfile, setProfile, isReady, reset: resetProfile } =
     useFinancialProfile();
 
   const [sessionId, setSessionId] = useState("");
@@ -56,7 +58,25 @@ export function Chat() {
 
   const isAuthenticated = Boolean(user);
 
-  const { restore, createNewSession } = useChatHistory({
+  const isEmpty = hydrated && messages.length === 0;
+
+  const {
+    isProEnabled,
+    isProLoading,
+    syncStatus,
+    isSyncing,
+    loadFromPro,
+    saveToPro,
+    persistRecommendationToPro,
+  } = useChatWithPro({
+    locale,
+    profile,
+    setProfile,
+    chatHydrated: hydrated,
+    isEmpty,
+  });
+
+  const { restore, createNewSession, saveSession } = useChatHistory({
     locale,
     messages,
     profile,
@@ -111,6 +131,18 @@ export function Chat() {
     if (hydrated && messages.length > 0) scrollToBottom();
   }, [messages, isLoading, hydrated, scrollToBottom]);
 
+  /** After Pro auto-load into empty chat, enable recommendation when data is ready. */
+  useEffect(() => {
+    if (
+      hydrated &&
+      messages.length === 0 &&
+      profile.debts.length > 0 &&
+      profile.availableFunds > 0
+    ) {
+      setCanRecommend(true);
+    }
+  }, [hydrated, messages.length, profile.debts.length, profile.availableFunds]);
+
   const sendMessage = useCallback(
     async (text: string) => {
       if (!text.trim() || isLoading) return;
@@ -161,7 +193,7 @@ export function Chat() {
           ? mergeProfileUpdate(profileRef.current, data.profileUpdate)
           : data.profile ?? profileRef.current;
 
-        mergeProfile(merged);
+        setProfile(merged);
         profileRef.current = merged;
 
         if (data.readyForRecommendation) {
@@ -178,23 +210,34 @@ export function Chat() {
         ];
 
         if (data.recommendation) {
-          await persistRecommendationOffline(
+          const recommendation = data.recommendation as PrioritizationResult;
+          await persistChatRecommendation({
             locale,
-            merged,
-            data.recommendation as PrioritizationResult,
-            "chat"
-          );
+            profile: merged,
+            recommendation,
+            source: "chat",
+            isProEnabled,
+            persistRecommendationToPro,
+          });
           assistantMessages.push({
             id: generateId(),
             role: "assistant",
-            content: data.recommendation.summary,
+            content: recommendation.summary,
             timestamp: new Date(),
-            recommendation: data.recommendation as PrioritizationResult,
+            recommendation,
           });
           setCanRecommend(false);
         }
 
         setMessages((prev) => [...prev, ...assistantMessages]);
+
+        if (data.recommendation) {
+          void saveSession({
+            sessionId,
+            messages: [...currentMessages, ...assistantMessages],
+            profile: merged,
+          });
+        }
       } catch (err) {
         const code = err instanceof Error ? err.message : "";
         const content =
@@ -220,7 +263,7 @@ export function Chat() {
         setIsLoading(false);
       }
     },
-    [isLoading, locale, mergeProfile, t]
+    [isLoading, locale, setProfile, t, isProEnabled, persistRecommendationToPro, saveSession, sessionId]
   );
 
   const getRecommendation = useCallback(async () => {
@@ -242,23 +285,30 @@ export function Chat() {
         result = await res.json();
       }
 
-      await persistRecommendationOffline(
+      await persistChatRecommendation({
         locale,
-        profileRef.current,
-        result,
-        "chat"
-      );
+        profile: profileRef.current,
+        recommendation: result,
+        source: "chat",
+        isProEnabled,
+        persistRecommendationToPro,
+      });
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: generateId(),
-          role: "assistant",
-          content: result.summary,
-          timestamp: new Date(),
-          recommendation: result,
-        },
-      ]);
+      const recommendationMessage: ChatMessage = {
+        id: generateId(),
+        role: "assistant",
+        content: result.summary,
+        timestamp: new Date(),
+        recommendation: result,
+      };
+
+      setMessages((prev) => [...prev, recommendationMessage]);
+
+      void saveSession({
+        sessionId,
+        messages: [...messagesRef.current, recommendationMessage],
+        profile: profileRef.current,
+      });
       setCanRecommend(false);
     } catch {
       setMessages((prev) => [
@@ -273,7 +323,7 @@ export function Chat() {
     } finally {
       setIsLoading(false);
     }
-  }, [isOnline, locale, t]);
+  }, [isOnline, locale, t, isProEnabled, persistRecommendationToPro, saveSession, sessionId]);
 
   const startNewChat = async () => {
     const creds = await createNewSession();
@@ -286,14 +336,23 @@ export function Chat() {
     window.history.replaceState(null, "", `/${locale}`);
   };
 
-  const isEmpty = hydrated && messages.length === 0;
-
   return (
     <GrokConsentGate>
       <div className="flex h-full flex-col bg-background">
-      <div className="flex shrink-0 items-center justify-between border-b bg-background/80 px-4 py-2 backdrop-blur-sm">
-        <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
-        <div className="flex items-center gap-1">
+      <div className="flex shrink-0 flex-col gap-2 border-b bg-background/80 px-4 py-2 backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
+          <ProSyncBar
+            isProEnabled={isProEnabled}
+            isProLoading={isProLoading}
+            syncStatus={syncStatus}
+            isSyncing={isSyncing}
+            onLoadFromPro={() => void loadFromPro()}
+            onSaveToPro={() => void saveToPro(profileRef.current)}
+            className="mt-1.5"
+          />
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
           <Button variant="ghost" size="sm" asChild className="gap-1.5 text-xs">
             <Link href={`/${locale}/consultations`}>
               <History className="h-3.5 w-3.5" />

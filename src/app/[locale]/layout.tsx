@@ -6,6 +6,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { routing } from "@/i18n/routing";
 import { AppShell } from "@/components/layout/app-shell";
 import { AuthProvider } from "@/components/providers/auth-provider";
+import { QueryProvider } from "@/components/providers/query-provider";
 import { PwaProviders } from "@/components/pwa/PwaProviders";
 import {
   IOS_SPLASH_SCREENS,
@@ -123,9 +124,11 @@ export default async function LocaleLayout({
       >
         <NextIntlClientProvider messages={messages}>
           <AuthProvider>
-            <PwaProviders>
-              <AppShell>{children}</AppShell>
-            </PwaProviders>
+            <QueryProvider>
+              <PwaProviders>
+                <AppShell>{children}</AppShell>
+              </PwaProviders>
+            </QueryProvider>
           </AuthProvider>
         </NextIntlClientProvider>
       </body>

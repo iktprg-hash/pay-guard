@@ -20,6 +20,7 @@
     "db:apply:005": "node scripts/apply-migration.mjs 005",
     "db:apply:006": "node scripts/apply-migration.mjs 006",
     "db:apply:008": "node scripts/apply-migration.mjs 008",
+    "db:apply:pro": "node scripts/apply-migration.mjs 20260615_pro_schema",
     "db:verify": "node scripts/verify-migrations.mjs",
     "db:backup": "node scripts/db-backup.mjs",
     "db:restore": "node scripts/db-restore.mjs",
@@ -27,6 +28,7 @@
     "auth:setup": "node scripts/auth-setup-checklist.mjs",
     "verify:upstash": "node scripts/verify-upstash.mjs",
     "verify:stripe": "node scripts/verify-stripe.mjs",
+    "verify:webhook": "node scripts/verify-webhook.mjs",
     "prod:checklist": "node scripts/prod-checklist.mjs",
     "prod:checklist:strict": "node scripts/prod-checklist.mjs --strict",
     "domain:setup": "node scripts/domain-setup.mjs"
