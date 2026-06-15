@@ -48,6 +48,8 @@ jobs:
         run: npm run build
 
       - name: Run production checklist
+        env:
+          NODE_ENV: production
         run: npm run prod:checklist
 
       # Skipped when Upstash secrets are absent — prod:checklist already flags missing vars.
