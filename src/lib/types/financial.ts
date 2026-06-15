@@ -236,6 +236,13 @@ export interface PaymentRecommendation {
 }
 
 /** Result of the prioritization algorithm */
+export interface ProjectedBalanceMonth {
+  monthIndex: number;
+  yearMonth: string;
+  endingBalance: number;
+}
+
+/** Result of the prioritization algorithm */
 export interface PrioritizationResult {
   recommendations: PaymentRecommendation[];
   totalAllocated: number;
@@ -248,6 +255,14 @@ export interface PrioritizationResult {
   spendableFunds: number;
   summary: string;
   warnings: string[];
+  /** Pro: recurring income used in planning (monthly equivalent). */
+  monthlyRecurringIncome?: number;
+  /** Pro: recurring expenses used in planning (monthly equivalent). */
+  monthlyRecurringExpense?: number;
+  /** Pro: funds after recurring inflow/outflow adjustment. */
+  planningAvailableFunds?: number;
+  /** Pro: 1–2 month balance projection. */
+  shortTermForecast?: ProjectedBalanceMonth[];
 }
 
 // ---------------------------------------------------------------------------

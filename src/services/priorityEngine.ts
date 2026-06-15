@@ -39,7 +39,9 @@
  * - **2026-06-12 (level-1 mikropůjčky)** — 70–90 % poolu u mikropůjček (>30 %
  *   nebo SMS/rychlá půjčka); 50–70 % u běžných úvěrů; emergency buffer max 10 %.
  * - **2026-06-15 (Pro cash flow)** — recurring incomes/expenses, effective stability,
- *   expense-based buffer floor, deficit spendable guard, 3-month forecast warnings.
+ *   expense-based buffer floor, deficit spendable guard, 2-month forecast warnings.
+ * - **2026-06-16 (Pro planning)** — planning available funds from recurring streams;
+ *   cash-flow buffer floor 20–30%; analyzeDebt cash-flow stress; short-term forecast.
  *
  * ## Exportované API
  *
@@ -439,18 +441,23 @@ export function resolveLifeBufferPercent(
 }
 
 /**
- * Absolute life buffer: max(percent × funds, ~2 weeks recurring expenses),
- * capped at available funds.
+ * Absolute life buffer: max(percent × planning funds, expense floor, 20–30% cash flow floor),
+ * capped at actual available funds.
  */
 export function resolveLifeBufferAmount(
   availableFunds: number,
   bufferPercent: number,
-  cashFlow?: ProEngineCashFlowContext
+  cashFlow?: ProEngineCashFlowContext,
+  planningFunds?: number
 ): number {
-  const funds = sanitizeAmount(availableFunds);
-  const percentBased = funds * bufferPercent;
-  const floor = cashFlow?.expenseBasedMinBuffer ?? 0;
-  return roundMoney(Math.min(funds, Math.max(percentBased, floor)));
+  const actualFunds = sanitizeAmount(availableFunds);
+  const planningBase = sanitizeAmount(planningFunds ?? availableFunds);
+  const percentBased = planningBase * bufferPercent;
+  const expenseFloor = cashFlow?.expenseBasedMinBuffer ?? 0;
+  const cashFlowFloor = cashFlow?.cashFlowBasedMinBuffer ?? 0;
+  return roundMoney(
+    Math.min(actualFunds, Math.max(percentBased, expenseFloor, cashFlowFloor))
+  );
 }
 
 /**
@@ -485,13 +492,25 @@ export interface DebtAnalysis {
   factors: string[];
 }
 
+/** Optional Pro cash-flow context for {@link analyzeDebt}. */
+export interface AnalyzeDebtOptions {
+  cashFlow?: ProEngineCashFlowContext;
+}
+
 /**
  * Přiřadí úroveň priority 0–3 a skóre naléhavosti jednomu dluhu.
  *
  * **Úroveň 0:** execution risk; esenciál po splatnosti; kritický termín ≤0 / ≤3 dny;
  * nejbližší termín ≤0 / ≤3 dny pouze u esenciálů nebo execution risk.
+ *
+ * With Pro recurring data, negative net cash flow and short-term forecast pressure
+ * can elevate level 2 → 1 and boost urgency scores.
  */
-export function analyzeDebt(debt: Debt, today: Date = new Date()): DebtAnalysis {
+export function analyzeDebt(
+  debt: Debt,
+  today: Date = new Date(),
+  options?: AnalyzeDebtOptions
+): DebtAnalysis {
   const due = parseDate(debt.dueDate);
   const critical = parseDate(debt.criticalDate);
 
@@ -582,9 +601,67 @@ export function analyzeDebt(debt: Debt, today: Date = new Date()): DebtAnalysis 
     else if (nearest <= 7) urgencyScore += 15;
   }
 
-  urgencyScore = Math.max(0, urgencyScore);
+  const analysis: DebtAnalysis = {
+    debt,
+    level,
+    urgencyScore,
+    daysToDue,
+    daysToCritical,
+    factors,
+  };
+  applyCashFlowStressToAnalysis(analysis, options?.cashFlow, nearest);
+  analysis.urgencyScore = Math.max(0, analysis.urgencyScore);
 
-  return { debt, level, urgencyScore, daysToDue, daysToCritical, factors };
+  return analysis;
+}
+
+/** Boost urgency / elevate level when Pro recurring cash flow is under pressure. */
+function applyCashFlowStressToAnalysis(
+  analysis: DebtAnalysis,
+  cashFlow: ProEngineCashFlowContext | undefined,
+  nearest: number | null
+): void {
+  if (!cashFlow) return;
+
+  const hasRecurring =
+    cashFlow.incomeFromRecurring || cashFlow.expensesFromRecurring;
+  if (!hasRecurring) return;
+
+  const debtMin =
+    analysis.debt.minimumPayment ?? analysis.debt.amount;
+
+  if (cashFlow.netMonthlyCashFlow < 0) {
+    analysis.factors.push("recurring_cash_flow_deficit");
+    if (analysis.level === 2 && nearest !== null && nearest <= 30) {
+      analysis.level = 1;
+      analysis.factors.push("elevated_by_deficit");
+    }
+    if (analysis.level === 1) analysis.urgencyScore += 15;
+  }
+
+  if (
+    cashFlow.netMonthlyCashFlow < debtMin &&
+    nearest !== null &&
+    nearest <= 30
+  ) {
+    analysis.factors.push("payment_exceeds_surplus");
+    analysis.urgencyScore += 20;
+    if (analysis.level === 2) {
+      analysis.level = 1;
+      analysis.factors.push("elevated_by_affordability");
+    }
+  }
+
+  const monthOne = cashFlow.shortTermForecast[0];
+  if (
+    monthOne &&
+    monthOne.endingBalance < debtMin &&
+    nearest !== null &&
+    nearest <= 45
+  ) {
+    analysis.factors.push("forecast_pressure");
+    analysis.urgencyScore += 12;
+  }
 }
 
 // ─── Lokalizace vysvětlení ─────────────────────────────────────────────────
@@ -1325,11 +1402,12 @@ export function runPriorityEngine(
     const lifeBuffer = resolveLifeBufferAmount(
       availableFunds,
       bufferPercent,
-      cashFlow
+      cashFlow,
+      cashFlow.planningAvailableFunds
     );
     const result = emptyResult(availableFunds, lifeBuffer, bufferPercent, locale);
     result.warnings = collectProCashFlowWarnings(cashFlow, locale);
-    return result;
+    return attachProMetadata(result, cashFlow);
   }
 
   // ── Fáze 3: nulové prostředky ──
@@ -1337,16 +1415,19 @@ export function runPriorityEngine(
     return zeroFundsResult(locale);
   }
 
-  // ── Fáze 4: analýza dluhů (po sanitizaci profilu) ──
-  const analyses = safeProfile.debts.map((debt) => analyzeDebt(debt, today));
+  // ── Fáze 4: Pro cash flow (recurring income/expense, 2-month forecast) ──
+  const cashFlow = buildProEngineCashFlowContext(safeProfile, today);
+  const planningFunds = cashFlow.planningAvailableFunds;
+
+  // ── Fáze 5: analýza dluhů s cash-flow kontextem ──
+  const analyses = safeProfile.debts.map((debt) =>
+    analyzeDebt(debt, today, { cashFlow })
+  );
   const level0Debts = analyses.filter((analysis) => analysis.level === 0);
   const hasLevel0Debt = level0Debts.length > 0;
   const level0Count = level0Debts.length;
 
-  // ── Fáze 4b: Pro cash flow (recurring income/expense, forecast) ──
-  const cashFlow = buildProEngineCashFlowContext(safeProfile, today);
-
-  // ── Fáze 5: life buffer ──
+  // ── Fáze 6: life buffer (percent from planning funds, capped at actual balance) ──
   const bufferPercent = resolveLifeBufferPercent(safeProfile.incomeStability, {
     hasLevel0Debt,
     availableFunds: safeProfile.availableFunds,
@@ -1356,7 +1437,8 @@ export function runPriorityEngine(
   const lifeBuffer = resolveLifeBufferAmount(
     availableFunds,
     bufferPercent,
-    cashFlow
+    cashFlow,
+    planningFunds
   );
   let spendableStart = Math.max(0, availableFunds - lifeBuffer);
   spendableStart = applyDeficitSpendableGuard(spendableStart, cashFlow);
@@ -1423,16 +1505,19 @@ export function runPriorityEngine(
     ? msgSummary(top, lifeBuffer, recommendations, locale)
     : msgNoAllocation(locale);
 
-  return {
-    recommendations,
-    totalAllocated,
-    remainingFunds: roundMoney(Math.max(0, availableFunds - totalAllocated)),
-    lifeBuffer,
-    lifeBufferPercent: bufferPercent,
-    spendableFunds: roundMoney(Math.max(0, availableFunds - lifeBuffer)),
-    summary,
-    warnings,
-  };
+  return attachProMetadata(
+    {
+      recommendations,
+      totalAllocated,
+      remainingFunds: roundMoney(Math.max(0, availableFunds - totalAllocated)),
+      lifeBuffer,
+      lifeBufferPercent: bufferPercent,
+      spendableFunds: spendableStart,
+      summary,
+      warnings,
+    },
+    cashFlow
+  );
 }
 
 // ─── Lokalizované zprávy ───────────────────────────────────────────────────
@@ -1621,11 +1706,12 @@ function collectProCashFlowWarnings(
     }
 
     if (cashFlow.projectedDeficitMonthIndex !== null) {
+      const forecastMonth =
+        cashFlow.shortTermForecast[cashFlow.projectedDeficitMonthIndex];
       warnings.push(
         msgForecastDeficit(
           cashFlow.projectedDeficitMonthIndex,
-          cashFlow.forecastMonths[cashFlow.projectedDeficitMonthIndex]
-            ?.endingBalance ?? 0,
+          forecastMonth?.endingBalance ?? 0,
           locale
         )
       );
@@ -1640,6 +1726,28 @@ function collectProCashFlowWarnings(
   }
 
   return warnings;
+}
+
+/** Attach Pro recurring metadata when catalog data is present. */
+function attachProMetadata(
+  result: PrioritizationResult,
+  cashFlow: ProEngineCashFlowContext
+): PrioritizationResult {
+  if (!cashFlow.incomeFromRecurring && !cashFlow.expensesFromRecurring) {
+    return result;
+  }
+
+  return {
+    ...result,
+    monthlyRecurringIncome: cashFlow.monthlyRecurringIncome,
+    monthlyRecurringExpense: cashFlow.monthlyRecurringExpense,
+    planningAvailableFunds: cashFlow.planningAvailableFunds,
+    shortTermForecast: cashFlow.shortTermForecast.map((month) => ({
+      monthIndex: month.index,
+      yearMonth: month.yearMonth,
+      endingBalance: month.endingBalance,
+    })),
+  };
 }
 
 function msgNegativeCashFlow(net: number, locale: Locale): string {

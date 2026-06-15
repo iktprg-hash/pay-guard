@@ -10,6 +10,7 @@ import {
   analyzeDebt,
   calculateLifeBufferPercent,
   resolveLifeBufferPercent,
+  resolveLifeBufferAmount,
   runPriorityEngine,
   daysBetween,
   isExecutionRisk,
@@ -18,6 +19,7 @@ import {
   PRIORITY_CONSTANTS,
 } from "@/services/priorityEngine";
 import type { Debt, FinancialProfile } from "@/lib/types/financial";
+import { buildProEngineCashFlowContext } from "@/lib/pro/pro-engine-cashflow";
 
 const TODAY = new Date("2026-06-11");
 
@@ -940,6 +942,112 @@ describe("Priority Engine", () => {
         true
       );
       expect(result.totalAllocated).toBeLessThanOrEqual(result.spendableFunds);
+    });
+
+    it("applies cash-flow buffer floor and planning funds with recurring data", () => {
+      const profile: FinancialProfile = {
+        availableFunds: 20_000,
+        incomeStability: "stable",
+        debts: [
+          debt({
+            id: "loan",
+            creditor: "Bank",
+            amount: 50_000,
+            category: "loans",
+            dueDate: "2026-07-15",
+            minimumPayment: 5_000,
+          }),
+        ],
+        recurringIncomes: [
+          {
+            id: "salary",
+            source: "Employer",
+            amount: 40_000,
+            frequency: "monthly",
+            category: "salary",
+            nextDate: "2026-06-05",
+            createdAt: "2026-06-01",
+          },
+        ],
+        recurringExpenses: [
+          {
+            id: "rent",
+            name: "Rent",
+            amount: 15_000,
+            frequency: "monthly",
+            category: "housing",
+            nextDate: "2026-06-01",
+            createdAt: "2026-06-01",
+          },
+        ],
+      };
+
+      const cashFlow = buildProEngineCashFlowContext(profile, TODAY);
+      expect(cashFlow.planningAvailableFunds).toBe(45_000);
+      expect(cashFlow.cashFlowBasedMinBuffer).toBe(4_000);
+
+      const lifeBuffer = resolveLifeBufferAmount(
+        profile.availableFunds,
+        0.2,
+        cashFlow,
+        cashFlow.planningAvailableFunds
+      );
+      expect(lifeBuffer).toBeGreaterThanOrEqual(4_000);
+
+      const result = runPriorityEngine(profile, "en", TODAY);
+      expect(result.planningAvailableFunds).toBe(45_000);
+      expect(result.shortTermForecast).toHaveLength(2);
+      expect(result.monthlyRecurringIncome).toBe(40_000);
+      expect(result.monthlyRecurringExpense).toBe(15_000);
+    });
+
+    it("elevates debt priority under recurring cash-flow deficit", () => {
+      const profile: FinancialProfile = {
+        availableFunds: 10_000,
+        incomeStability: "stable",
+        debts: [
+          debt({
+            id: "card",
+            creditor: "Card",
+            amount: 8_000,
+            category: "credit_card",
+            dueDate: "2026-07-01",
+            minimumPayment: 3_000,
+          }),
+        ],
+        recurringIncomes: [
+          {
+            id: "salary",
+            source: "Employer",
+            amount: 12_000,
+            frequency: "monthly",
+            category: "salary",
+            nextDate: "2026-06-05",
+            createdAt: "2026-06-01",
+          },
+        ],
+        recurringExpenses: [
+          {
+            id: "living",
+            name: "Living",
+            amount: 11_000,
+            frequency: "monthly",
+            category: "food",
+            nextDate: "2026-06-01",
+            createdAt: "2026-06-01",
+          },
+        ],
+      };
+
+      const cashFlow = buildProEngineCashFlowContext(profile, TODAY);
+      expect(cashFlow.netMonthlyCashFlow).toBeLessThan(0);
+
+      const withoutCashFlow = analyzeDebt(profile.debts[0], TODAY);
+      const withCashFlow = analyzeDebt(profile.debts[0], TODAY, { cashFlow });
+
+      expect(withoutCashFlow.level).toBe(2);
+      expect(withCashFlow.level).toBe(1);
+      expect(withCashFlow.factors).toContain("recurring_cash_flow_deficit");
     });
   });
 });

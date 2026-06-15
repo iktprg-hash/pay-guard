@@ -429,7 +429,9 @@
       "engineInsightTitle": "Приоритизация платежей",
       "engineInsightDescription": "Учитывает регулярный cash flow, стабильность дохода и прогноз на 3 месяца.",
       "engineLifeBuffer": "Резерв на жизнь",
-      "engineSpendable": "Доступно на долги"
+      "engineSpendable": "Доступно на долги",
+      "enginePlanningFunds": "Планируемые средства (с учётом recurring)",
+      "engineForecastMonth": "Прогноз {month}-го месяца"
     },
     "debts": {
       "title": "Долги",

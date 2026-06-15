@@ -20,6 +20,8 @@ function baseSummary(
     resolvedMonthlyExpenses: 20_000,
     netMonthlyCashFlow: 10_000,
     projectedDeficitMonthIndex: null,
+    shortTermForecast: [],
+    planningAvailableFunds: 10_000,
     subscriptionTier: "pro",
     ...overrides,
   };

@@ -25,11 +25,23 @@ export interface ProSummaryCashFlowMetrics {
   effectiveIncomeStability: IncomeStability | undefined;
   /** First forecast month (0-based) where balance drops below zero. */
   projectedDeficitMonthIndex: number | null;
+  /** 1–2 month ending-balance projection (same formula as Priority Engine). */
+  shortTermForecast: ProEngineForecastMonth[];
+  /** Funds after recurring inflow/outflow adjustment. */
+  planningAvailableFunds: number;
   /** True when recurring or snapshot income/expense data exists. */
   hasCashFlowSignal: boolean;
 }
 
-export const PRO_ENGINE_FORECAST_MONTHS = 3;
+/** Engine uses a 2-month horizon for short-term planning and warnings. */
+export const SHORT_TERM_FORECAST_MONTHS = 2;
+
+/** Life buffer floor as % of monthly cash flow (stable / variable / uncertain). */
+export const CASH_FLOW_BUFFER_PERCENT = {
+  stable: 0.2,
+  variable: 0.25,
+  uncertain: 0.3,
+} as const;
 
 export interface ProEngineForecastMonth {
   index: number;
@@ -39,6 +51,10 @@ export interface ProEngineForecastMonth {
 
 /** Resolved monthly cash flow used by Priority Engine (Pro-aware). */
 export interface ProEngineCashFlowContext {
+  /** Recurring income catalog total (monthly equivalent). */
+  monthlyRecurringIncome: number;
+  /** Recurring expense catalog total (monthly equivalent). */
+  monthlyRecurringExpense: number;
   monthlyIncome: number;
   monthlyExpenses: number;
   minimumDebtPayments: number;
@@ -47,8 +63,15 @@ export interface ProEngineCashFlowContext {
   expensesFromRecurring: boolean;
   /** Stability adjusted when recurring data signals pressure. */
   effectiveStability: IncomeStability | undefined;
-  /** Minimum buffer amount from ~2 weeks of recurring expenses. */
+  /** Minimum buffer from ~2 weeks of recurring expenses. */
   expenseBasedMinBuffer: number;
+  /** Minimum buffer: 20–30% of monthly cash flow (stability-based). */
+  cashFlowBasedMinBuffer: number;
+  /** Available funds adjusted by recurring inflow/outflow before allocation. */
+  planningAvailableFunds: number;
+  /** 1–2 month ending-balance projection. */
+  shortTermForecast: ProEngineForecastMonth[];
+  /** @deprecated Use shortTermForecast — kept for compatibility. */
   forecastMonths: ProEngineForecastMonth[];
   /** First month index (0-based) where balance drops below zero, if any. */
   projectedDeficitMonthIndex: number | null;
@@ -125,6 +148,89 @@ function buildSimpleForecast(
   return months;
 }
 
+function roundMoney(amount: number): number {
+  return Math.round(amount * 100) / 100;
+}
+
+/**
+ * Base amount for the 20–30% cash-flow buffer floor.
+ * Prefers positive net cash flow, then operating surplus, then gross income.
+ */
+export function resolveCashFlowBufferBase(
+  cashFlow: Pick<
+    ProEngineCashFlowContext,
+    | "netMonthlyCashFlow"
+    | "monthlyRecurringIncome"
+    | "monthlyRecurringExpense"
+    | "monthlyIncome"
+    | "monthlyExpenses"
+    | "incomeFromRecurring"
+    | "expensesFromRecurring"
+  >
+): number {
+  const operatingNet =
+    cashFlow.incomeFromRecurring || cashFlow.expensesFromRecurring
+      ? cashFlow.monthlyRecurringIncome - cashFlow.monthlyRecurringExpense
+      : cashFlow.monthlyIncome - cashFlow.monthlyExpenses;
+
+  if (cashFlow.netMonthlyCashFlow > 0) return cashFlow.netMonthlyCashFlow;
+  if (operatingNet > 0) return operatingNet;
+  if (cashFlow.monthlyIncome > 0) return cashFlow.monthlyIncome;
+  return 0;
+}
+
+/**
+ * Minimum life buffer from 20% (stable) / 25% (variable) / 30% (uncertain)
+ * of average monthly cash flow when Pro recurring data is present.
+ */
+export function resolveCashFlowBasedMinBuffer(
+  stability: IncomeStability | undefined,
+  cashFlow: ProEngineCashFlowContext
+): number {
+  const hasSignal =
+    cashFlow.incomeFromRecurring ||
+    cashFlow.expensesFromRecurring ||
+    cashFlow.monthlyIncome > 0 ||
+    cashFlow.monthlyExpenses > 0;
+  if (!hasSignal) return 0;
+
+  const base = resolveCashFlowBufferBase(cashFlow);
+  if (base <= 0) return 0;
+
+  const effective = cashFlow.effectiveStability ?? stability ?? "stable";
+  const percent =
+    effective === "uncertain"
+      ? CASH_FLOW_BUFFER_PERCENT.uncertain
+      : effective === "variable"
+        ? CASH_FLOW_BUFFER_PERCENT.variable
+        : CASH_FLOW_BUFFER_PERCENT.stable;
+
+  return roundMoney(base * percent);
+}
+
+/**
+ * Adjusts available funds using explicit recurring income and expenses:
+ * `available + (recurringIncome − recurringExpense)`, capped at `available + recurringIncome`.
+ */
+export function resolvePlanningAvailableFunds(
+  availableFunds: number,
+  cashFlow: Pick<
+    ProEngineCashFlowContext,
+    "monthlyRecurringIncome" | "monthlyRecurringExpense" | "incomeFromRecurring" | "expensesFromRecurring"
+  >
+): number {
+  const funds = Math.max(0, availableFunds);
+  const hasRecurring =
+    cashFlow.incomeFromRecurring || cashFlow.expensesFromRecurring;
+  if (!hasRecurring) return funds;
+
+  const recurringNet =
+    cashFlow.monthlyRecurringIncome - cashFlow.monthlyRecurringExpense;
+  const adjusted = funds + recurringNet;
+  const cap = funds + cashFlow.monthlyRecurringIncome;
+  return roundMoney(Math.max(0, Math.min(adjusted, cap)));
+}
+
 /**
  * Build Pro cash-flow context from any engine profile (chat snapshot or Pro catalog).
  * Recurring incomes/expenses take precedence over monthlyIncome/monthlyExpenses snapshots.
@@ -173,20 +279,32 @@ export function buildProEngineCashFlowContext(
     ? (monthlyExpenses * 2) / 4.33
     : 0;
 
-  const forecastMonths = hasCashFlowSignal
+  const shortTermForecast = hasCashFlowSignal
     ? buildSimpleForecast(
         profile.availableFunds,
         netMonthlyCashFlow,
-        PRO_ENGINE_FORECAST_MONTHS,
+        SHORT_TERM_FORECAST_MONTHS,
         now
       )
     : [];
 
   const projectedDeficitMonthIndex = hasCashFlowSignal
-    ? forecastMonths.find((m) => m.endingBalance < 0)?.index ?? null
+    ? shortTermForecast.find((m) => m.endingBalance < 0)?.index ?? null
     : null;
 
-  return {
+  const planningAvailableFunds = resolvePlanningAvailableFunds(
+    profile.availableFunds,
+    {
+      monthlyRecurringIncome: recurringIncomeMonthly,
+      monthlyRecurringExpense: recurringExpenseMonthly,
+      incomeFromRecurring,
+      expensesFromRecurring,
+    }
+  );
+
+  const partialContext: ProEngineCashFlowContext = {
+    monthlyRecurringIncome: recurringIncomeMonthly,
+    monthlyRecurringExpense: recurringExpenseMonthly,
     monthlyIncome,
     monthlyExpenses,
     minimumDebtPayments,
@@ -195,8 +313,21 @@ export function buildProEngineCashFlowContext(
     expensesFromRecurring,
     effectiveStability,
     expenseBasedMinBuffer,
-    forecastMonths,
+    cashFlowBasedMinBuffer: 0,
+    planningAvailableFunds,
+    shortTermForecast,
+    forecastMonths: shortTermForecast,
     projectedDeficitMonthIndex,
+  };
+
+  const cashFlowBasedMinBuffer = resolveCashFlowBasedMinBuffer(
+    profile.incomeStability,
+    partialContext
+  );
+
+  return {
+    ...partialContext,
+    cashFlowBasedMinBuffer,
   };
 }
 
@@ -242,6 +373,8 @@ export function buildProSummaryCashFlowMetrics(
     netMonthlyCashFlow: ctx.netMonthlyCashFlow,
     effectiveIncomeStability: ctx.effectiveStability,
     projectedDeficitMonthIndex: ctx.projectedDeficitMonthIndex,
+    shortTermForecast: ctx.shortTermForecast,
+    planningAvailableFunds: ctx.planningAvailableFunds,
     hasCashFlowSignal,
   };
 }

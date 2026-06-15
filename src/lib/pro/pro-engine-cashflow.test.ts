@@ -45,9 +45,9 @@ describe("pro-engine-cashflow", () => {
     expect(ctx.incomeFromRecurring).toBe(true);
   });
 
-  it("detects projected deficit within forecast horizon", () => {
+  it("detects projected deficit within 2-month horizon", () => {
     const profile: FinancialProfile = {
-      availableFunds: 5_000,
+      availableFunds: 3_000,
       incomeStability: "stable",
       debts: [
         {
@@ -87,7 +87,44 @@ describe("pro-engine-cashflow", () => {
       new Date(2026, 5, 1)
     );
     expect(ctx.netMonthlyCashFlow).toBe(-2_000);
-    expect(ctx.projectedDeficitMonthIndex).toBe(2);
+    expect(ctx.projectedDeficitMonthIndex).toBe(1);
+    expect(ctx.shortTermForecast).toHaveLength(2);
+    expect(ctx.planningAvailableFunds).toBe(4_000);
+  });
+
+  it("sets cash-flow buffer floor to 20% of positive net", () => {
+    const profile: FinancialProfile = {
+      availableFunds: 20_000,
+      incomeStability: "stable",
+      debts: [],
+      recurringIncomes: [
+        {
+          id: "i1",
+          source: "Job",
+          amount: 50_000,
+          frequency: "monthly",
+          category: "salary",
+          nextDate: "2026-06-01",
+          createdAt: "2026-06-01",
+        },
+      ],
+      recurringExpenses: [
+        {
+          id: "e1",
+          name: "Living",
+          amount: 30_000,
+          frequency: "monthly",
+          category: "food",
+          nextDate: "2026-06-01",
+          createdAt: "2026-06-01",
+        },
+      ],
+    };
+
+    const ctx = buildProEngineCashFlowContext(profile);
+    expect(ctx.cashFlowBasedMinBuffer).toBe(4_000);
+    expect(ctx.monthlyRecurringIncome).toBe(50_000);
+    expect(ctx.monthlyRecurringExpense).toBe(30_000);
   });
 
   it("downgrades stability under sustained deficit", () => {

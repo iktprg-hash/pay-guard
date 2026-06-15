@@ -396,6 +396,14 @@ export function ProDashboardView() {
                   </ul>
                 )}
                 <div className="flex flex-wrap gap-4 border-t pt-3 text-xs text-muted-foreground">
+                  {prioritization.planningAvailableFunds != null && (
+                    <span>
+                      {t("enginePlanningFunds")}:{" "}
+                      <strong className="text-foreground">
+                        {formatMoney(prioritization.planningAvailableFunds, locale)}
+                      </strong>
+                    </span>
+                  )}
                   <span>
                     {t("engineLifeBuffer")}:{" "}
                     <strong className="text-foreground">
@@ -409,6 +417,25 @@ export function ProDashboardView() {
                     </strong>
                   </span>
                 </div>
+                {prioritization.shortTermForecast &&
+                  prioritization.shortTermForecast.length > 0 && (
+                    <div className="flex flex-wrap gap-3 border-t pt-3 text-xs text-muted-foreground">
+                      {prioritization.shortTermForecast.map((month) => (
+                        <span key={month.monthIndex}>
+                          {t("engineForecastMonth", { month: month.monthIndex + 1 })}:{" "}
+                          <strong
+                            className={
+                              month.endingBalance < 0
+                                ? "text-destructive"
+                                : "text-foreground"
+                            }
+                          >
+                            {formatMoney(month.endingBalance, locale)}
+                          </strong>
+                        </span>
+                      ))}
+                    </div>
+                  )}
               </CardContent>
             </Card>
           )}

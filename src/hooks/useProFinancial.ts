@@ -67,7 +67,12 @@ import type {
 } from "@/lib/types/financial";
 import { DEFAULT_APP_CURRENCY } from "@/lib/types/financial";
 import { amountToMonthlyEquivalent } from "@/lib/financial/recurring-utils";
-import { buildProSummaryCashFlowMetrics } from "@/lib/pro/pro-engine-cashflow";
+import {
+  buildProSummaryCashFlowMetrics,
+  buildProEngineCashFlowContext,
+  type ProEngineForecastMonth,
+} from "@/lib/pro/pro-engine-cashflow";
+import { toFinancialProfile } from "@/lib/types/financial";
 import { analyzeDebt } from "@/services/priorityEngine";
 
 // ---------------------------------------------------------------------------
@@ -347,6 +352,10 @@ export interface ProFinancialSummary {
   effectiveIncomeStability?: UserFinancialProfile["incomeStability"];
   /** First forecast month (0-based) with negative balance, if any. */
   projectedDeficitMonthIndex: number | null;
+  /** 1–2 month ending-balance projection (matches Priority Engine). */
+  shortTermForecast: ProEngineForecastMonth[];
+  /** Funds after recurring inflow/outflow adjustment. */
+  planningAvailableFunds: number;
   /** Snapshot from latest session, when available. */
   monthlyIncome?: number;
   monthlyExpenses?: number;
@@ -368,8 +377,14 @@ function buildProFinancialSummary(
   profile: UserFinancialProfile | undefined
 ): ProFinancialSummary {
   const debts = profile?.debts ?? [];
+  const engineProfile = profile
+    ? toFinancialProfile(profile)
+    : { availableFunds: 0, debts: [] };
+  const engineCashFlow = buildProEngineCashFlowContext(engineProfile);
 
-  const analyzed = debts.map((debt) => analyzeDebt(debt));
+  const analyzed = debts.map((debt) =>
+    analyzeDebt(debt, new Date(), { cashFlow: engineCashFlow })
+  );
   const criticalDebts = analyzed.filter((a) => a.level === 0).map((a) => a.debt);
   const urgentDebts = analyzed.filter((a) => a.level <= 1).map((a) => a.debt);
 
@@ -391,6 +406,8 @@ function buildProFinancialSummary(
     netMonthlyCashFlow: cashFlow.netMonthlyCashFlow,
     effectiveIncomeStability: cashFlow.effectiveIncomeStability,
     projectedDeficitMonthIndex: cashFlow.projectedDeficitMonthIndex,
+    shortTermForecast: cashFlow.shortTermForecast,
+    planningAvailableFunds: cashFlow.planningAvailableFunds,
     monthlyIncome: profile?.monthlyIncome,
     monthlyExpenses: profile?.monthlyExpenses,
     incomeStability: profile?.incomeStability,

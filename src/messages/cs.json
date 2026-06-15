@@ -429,7 +429,9 @@
       "engineInsightTitle": "Prioritizace plateb",
       "engineInsightDescription": "Zohledňuje pravidelný cash flow, stabilitu příjmu a 3měsíční prognózu.",
       "engineLifeBuffer": "Rezerva na život",
-      "engineSpendable": "K dispozici na dluhy"
+      "engineSpendable": "K dispozici na dluhy",
+      "enginePlanningFunds": "Plánovací prostředky (po recurring)",
+      "engineForecastMonth": "Prognóza {month}. měsíc"
     },
     "debts": {
       "title": "Dluhy",

@@ -429,7 +429,9 @@
       "engineInsightTitle": "Payment priority insight",
       "engineInsightDescription": "Uses recurring cash flow, income stability, and 3-month forecast.",
       "engineLifeBuffer": "Life buffer",
-      "engineSpendable": "Spendable for debts"
+      "engineSpendable": "Spendable for debts",
+      "enginePlanningFunds": "Planning funds (recurring-adjusted)",
+      "engineForecastMonth": "Month {month} forecast"
     },
     "debts": {
       "title": "Debts",
