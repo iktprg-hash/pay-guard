@@ -105,6 +105,33 @@ Plný běh včetně auto-startu dev serveru:
 npm run test:e2e
 ```
 
+### GitHub Actions (CI)
+
+Workflow **[E2E Tests](.github/workflows/e2e.yml)** запускается при каждом `push` в `main` и на всех `pull_request`.
+
+**Что делает CI:** `npm ci` → кэш браузеров Playwright → `npm run build` → prod-сервер в фоне → `npm run test:e2e:local -- --project=chromium` (smoke + auth-chat). Checkout и Pro gating прогоняются только локально через полный `test:e2e:local`.
+
+#### Как посмотреть отчёт после PR
+
+1. Откройте PR на GitHub → вкладка **Checks** (или **Actions** для push в `main`).
+2. Выберите job **Playwright — chromium** / workflow **E2E Tests**.
+3. После завершения (успех или падение) скачайте artifact **`playwright-report`**.
+4. Распакуйте ZIP и откройте `index.html` в браузере — traces, скриншоты и шаги тестов.
+
+#### Если CI упал
+
+| Шаг | Действие |
+|-----|----------|
+| 1 | Прочитайте лог шага **Start server and run E2E (chromium)** — часто `E2E preflight: /api/health not ready`. |
+| 2 | Скачайте artifact **`playwright-report`** и посмотрите упавший тест. |
+| 3 | Воспроизведите локально тот же scope, что в CI: |
+| | `npm run build && npm run start:prod &` |
+| | `npm run test:e2e:local -- --project=chromium` |
+| 4 | Если падает preflight — проверьте build и `/api/health` на `http://127.0.0.1:3000`. |
+| 5 | Для полного покрытия (checkout, Pro gating): `npm run dev:restart`, затем `npm run test:e2e:local`. |
+
+**Repository secrets** (опционально, для auth probe в preflight): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `AUTH_DEV_REGISTER`.
+
 ### Troubleshooting
 
 | Symptom | Fix |
@@ -417,25 +444,18 @@ Soukromý projekt — kontaktujte autora pro použití mimo osobní účely.
 
 ## Production Release Checklist
 
-Finální brána před tagem, merge do `main` nebo produkčním deployem. Projdi položky v pořadí a zaškrtni až po ověření.
+Финальная проверка перед merge в `main`, тегом или production deploy. Отмечайте пункты только после реальной проверки.
 
-### Build & testy
+- [ ] **Все E2E тесты зелёные** — `npm run dev:restart`, затем `npm run test:e2e:local` (ожидается: **24 passed**, 2 skipped без Stripe)
+- [ ] **`npm run build` успешен** — без ошибок TypeScript / Next.js
+- [ ] **`npm run prod:checklist` пройден** — env, Supabase, Stripe, безопасность
+- [ ] **Supabase миграции 001–010 + pro_schema применены** — включая `20260615_pro_schema.sql`; проверка: `npm run db:verify`
+- [ ] **Stripe webhook настроен и протестирован** — endpoint на production-домене; `npm run verify:webhook` + `npm run verify:stripe`
+- [ ] **Rate limits проверены** — `UPSTASH_REDIS_REST_URL` + `TOKEN` в production; `npm run verify:upstash`
+- [ ] **PWA assets обновлены** — `npm run pwa:assets` (иконки + splash в `/public/icons/` и `/public/splash/`)
+- [ ] **GitHub Actions E2E passed** — workflow **E2E Tests** зелёный на PR / push в `main`; при падении скачайте artifact `playwright-report`
 
-- [ ] **E2E testy prošly** — `npm run dev:restart`, poté `npm run test:e2e:local` (očekáváno: **24 passed**, 2 skipped bez Stripe)
-- [ ] **Production build OK** — `npm run build` bez chyb
-- [ ] **Prod checklist OK** — `npm run prod:checklist` (přísně: `npm run prod:checklist:strict`)
-
-### Infrastruktura & integrace
-
-- [ ] **Supabase migrace aplikované** — 001–010 v SQL Editoru; ověření: `npm run db:verify`
-- [ ] **Stripe webhook nastaven** — endpoint `https://<domain>/api/billing/webhook`, secrets v env; `npm run verify:webhook` + `npm run verify:stripe`
-- [ ] **Rate limits ověřené** — `UPSTASH_REDIS_REST_URL` + `TOKEN` v produkci; `npm run verify:upstash`
-
-### PWA & assets
-
-- [ ] **PWA assets vygenerované** — `npm run pwa:assets` (ikony + splash v `/public/icons/` a `/public/splash/`)
-
-### Rychlý příkazový blok
+### Быстрый блок команд
 
 ```bash
 npm run dev:restart
@@ -449,4 +469,4 @@ npm run verify:webhook
 npm run pwa:assets
 ```
 
-> Podrobnější checklist (RLS, SMTP, Auth, Stripe events) je v sekci [Nasazení (Vercel) → Production deploy checklist](#production-deploy-checklist).
+> Подробный чеклист (RLS, SMTP, Auth redirect, Stripe events) — в секции [Nasazení (Vercel) → Production deploy checklist](#production-deploy-checklist).
