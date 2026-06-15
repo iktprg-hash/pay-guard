@@ -6,7 +6,7 @@ import { Pencil, Plus, Trash2, TrendingUp } from "lucide-react";
 import { useRecurringIncomes } from "@/hooks/useProFinancial";
 import { IncomeFormSheet } from "@/components/pro/incomes/income-form-sheet";
 import { ProEmptyState, ProPageHeader } from "@/components/pro/pro-page";
-import { ProListPageSkeleton } from "@/components/pro/pro-skeletons";
+import { ProPageSkeleton } from "@/components/pro/pro-skeletons";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -67,8 +67,8 @@ export function ProIncomesView() {
     await deleteIncomeAsync(incomeId);
   };
 
-  if (isLoading) {
-    return <ProListPageSkeleton label={t("title")} />;
+  if (isLoading && incomes.length === 0) {
+    return <ProPageSkeleton variant="list" label={t("title")} />;
   }
 
   return (

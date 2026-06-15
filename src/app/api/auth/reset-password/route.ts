@@ -1,19 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
 import { validationError } from "@/lib/api/errors";
 import { authErrorResponse } from "@/lib/auth/errors";
 import { enforceAuthRateLimit } from "@/lib/auth/rate-limit";
 import { isStrongPassword } from "@/lib/auth/password";
 import { createSessionRouteClient } from "@/lib/auth/supabase-route";
-
-const bodySchema = z.object({
-  password: z.string().min(8).max(256),
-});
+import { parseJsonBody } from "@/lib/api/parse-request";
+import { authResetPasswordSchema } from "@/lib/validation/schemas";
 
 /** Nastaví nové heslo po recovery odkazu */
 export async function POST(request: NextRequest) {
-  const parsed = bodySchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return validationError(parsed.error);
+  const parsed = await parseJsonBody(request, authResetPasswordSchema);
+  if (!parsed.ok) return validationError(parsed.error);
 
   if (!isStrongPassword(parsed.data.password)) {
     return authErrorResponse(

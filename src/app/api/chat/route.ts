@@ -10,6 +10,7 @@ import {
   unauthorizedError,
   validationError,
 } from "@/lib/api/errors";
+import { parseJsonBody } from "@/lib/api/parse-request";
 import { checkRateLimit, getClientIp } from "@/lib/security/rateLimit";
 import {
   chatRequestSchema,
@@ -27,9 +28,8 @@ export async function POST(request: NextRequest) {
   if (!limit.allowed) return rateLimitError(limit.resetAt);
 
   try {
-    const body = await request.json().catch(() => null);
-    const parsed = chatRequestSchema.safeParse(body);
-    if (!parsed.success) return validationError(parsed.error);
+    const parsed = await parseJsonBody(request, chatRequestSchema);
+    if (!parsed.ok) return validationError(parsed.error);
 
     const { messages, profile, locale } = parsed.data;
 

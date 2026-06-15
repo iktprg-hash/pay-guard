@@ -1,11 +1,11 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { memo, type ReactNode } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { Lock, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useSubscriptionTier } from "@/hooks/use-subscription-tier";
+import { useProAccess } from "@/hooks/use-pro-access";
 import type { Locale } from "@/i18n/routing";
 import { ProGateSkeleton } from "@/components/pro/pro-skeletons";
 import { cn } from "@/lib/utils";
@@ -54,6 +54,44 @@ export function ProUpgradeBanner({ className }: ProUpgradeBannerProps) {
   );
 }
 
+interface ProLockedOverlayProps {
+  className?: string;
+}
+
+/** Centered overlay for gated Pro preview content. */
+function ProLockedOverlay({ className }: ProLockedOverlayProps) {
+  const t = useTranslations("pro.upgrade");
+  const locale = useLocale() as Locale;
+
+  return (
+    <div
+      className={cn(
+        "absolute inset-0 z-10 flex items-center justify-center rounded-xl",
+        "bg-gradient-to-b from-background/55 via-background/72 to-background/88",
+        "backdrop-blur-[3px]",
+        "dark:from-background/65 dark:via-background/78 dark:to-background/92",
+        className
+      )}
+      role="region"
+      aria-label={t("overlayLabel")}
+    >
+      <div className="mx-auto max-w-sm px-6 py-8 text-center">
+        <span className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 shadow-sm">
+          <Lock className="h-6 w-6 text-primary" aria-hidden />
+        </span>
+        <p className="text-lg font-semibold tracking-tight">{t("overlayLabel")}</p>
+        <p className="mt-2 text-sm text-muted-foreground">{t("overlayHint")}</p>
+        <Button asChild className="mt-5 gap-2 shadow-sm" size="sm">
+          <Link href={`/${locale}/pricing`} aria-label={t("cta")}>
+            <Sparkles className="h-4 w-4" aria-hidden />
+            {t("cta")}
+          </Link>
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export interface ProFeatureGateProps {
   children: ReactNode;
   /** Custom locked-state content instead of blurred children preview. */
@@ -65,10 +103,10 @@ export interface ProFeatureGateProps {
 }
 
 /**
- * Central Pro feature gate — full access for Pro, upgrade banner + preview for Free.
- * Uses {@link useSubscriptionTier} when tier props are not provided.
+ * Central Pro feature gate — full access for Pro, soft blur + overlay for Free.
+ * Uses {@link useProAccess} when tier props are not provided.
  */
-export function ProFeatureGate({
+function ProFeatureGateInner({
   children,
   fallback,
   isProEnabled: isProOverride,
@@ -76,9 +114,9 @@ export function ProFeatureGate({
   className,
 }: ProFeatureGateProps) {
   const t = useTranslations("pro.upgrade");
-  const tier = useSubscriptionTier();
-  const isProEnabled = isProOverride ?? tier.isProEnabled;
-  const loading = loadingOverride ?? tier.loading;
+  const access = useProAccess();
+  const isProEnabled = isProOverride ?? access.isProEnabled;
+  const loading = loadingOverride ?? access.loading;
 
   if (loading) {
     return (
@@ -92,23 +130,34 @@ export function ProFeatureGate({
 
   return (
     <div
-      className={cn("relative", className)}
+      className={cn("relative space-y-4", className)}
       role="region"
       aria-label={t("bannerTitle")}
+      aria-describedby={fallback ? undefined : "pro-locked-hint"}
     >
-      <ProUpgradeBanner className="mb-6" />
+      <ProUpgradeBanner />
+
       {fallback ?? (
-        <div
-          className="pointer-events-none select-none opacity-40 blur-[1px]"
-          aria-hidden
-        >
-          {children}
+        <div className="relative min-h-[12rem] overflow-hidden rounded-xl border border-border/50 shadow-sm">
+          <div
+            className={cn(
+              "pointer-events-none select-none",
+              "scale-[1.01] blur-sm brightness-[0.92] contrast-[0.95]",
+              "dark:brightness-[0.88] dark:contrast-[0.9]"
+            )}
+            aria-hidden
+            inert
+          >
+            {children}
+          </div>
+          <ProLockedOverlay />
         </div>
       )}
+
       {!fallback && (
         <p
           id="pro-locked-hint"
-          className="mt-4 text-center text-sm text-muted-foreground"
+          className="text-center text-sm text-muted-foreground"
         >
           {t("lockedHint")}
         </p>
@@ -116,3 +165,5 @@ export function ProFeatureGate({
     </div>
   );
 }
+
+export const ProFeatureGate = memo(ProFeatureGateInner);

@@ -11,7 +11,9 @@ import {
   unauthorizedError,
   validationError,
 } from "@/lib/api/errors";
+import { parseJsonBody } from "@/lib/api/parse-request";
 import {
+  historyGetLatestQuerySchema,
   historyGetSchema,
   historyPostSchema,
   normalizeProfile,
@@ -23,9 +25,8 @@ export async function POST(request: NextRequest) {
   if (!guard.ok) return guard.response;
 
   try {
-    const body = await request.json().catch(() => null);
-    const parsed = historyPostSchema.safeParse(body);
-    if (!parsed.success) return validationError(parsed.error);
+    const parsed = await parseJsonBody(request, historyPostSchema);
+    if (!parsed.ok) return validationError(parsed.error);
 
     const { sessionId, sessionToken, messages, profile, locale } = parsed.data;
 
@@ -56,9 +57,12 @@ export async function GET(request: NextRequest) {
   const guard = await requireProApiWithRateLimit(request, "history-read");
   if (!guard.ok) return guard.response;
 
-  const latest = request.nextUrl.searchParams.get("latest") === "1";
+  const latestParam = request.nextUrl.searchParams.get("latest");
 
-  if (latest) {
+  if (latestParam === "1") {
+    const latestParsed = historyGetLatestQuerySchema.safeParse({ latest: "1" });
+    if (!latestParsed.success) return validationError(latestParsed.error);
+
     const supabase = await createClient();
     const bundle = await loadLatestUserSession(supabase, guard.user.id);
     if (!bundle) {

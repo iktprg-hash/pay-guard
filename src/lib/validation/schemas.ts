@@ -1,11 +1,16 @@
 import { z } from "zod";
 import { DEBT_CATEGORIES } from "@/lib/types/financial";
+import { AUTH_CONFIRM_OTP_TYPES } from "@/lib/auth/confirm-types";
 
 const debtCategoryEnum = z.enum(DEBT_CATEGORIES);
 
 const INCOME_STABILITY = ["stable", "variable", "uncertain"] as const;
 
-const LOCALES = ["cs", "ru", "en"] as const;
+export const LOCALES = ["cs", "ru", "en"] as const;
+
+export const localeSchema = z.enum(LOCALES);
+
+export const optionalLocaleSchema = localeSchema.optional();
 
 export const debtSchema = z.object({
   id: z.string().max(100).optional(),
@@ -101,6 +106,88 @@ export const historyPostSchema = z.object({
 export const historyGetSchema = z.object({
   sessionId: sessionIdSchema,
 });
+
+export const historyGetLatestQuerySchema = z.object({
+  latest: z.literal("1"),
+});
+
+/** Auth — login / register / OTP / confirm */
+export const authLoginSchema = z.object({
+  email: z.string().email().max(320),
+  password: z.string().min(1).max(256),
+});
+
+export const authRegisterSchema = z.object({
+  email: z.string().email().max(320),
+  password: z.string().min(8).max(256),
+  locale: optionalLocaleSchema,
+});
+
+export const authForgotPasswordSchema = z.object({
+  email: z.string().email().max(320),
+  locale: optionalLocaleSchema,
+});
+
+export const authResetPasswordSchema = z.object({
+  password: z.string().min(8).max(256),
+});
+
+export const authSendOtpSchema = z.object({
+  email: z.string().email().max(320),
+});
+
+export const authVerifyOtpSchema = z.object({
+  email: z.string().email().max(320),
+  token: z.string().regex(/^\d{6}$/),
+});
+
+export const authConfirmCodeSchema = z.object({
+  code: z.string().min(1).max(512),
+});
+
+export const authConfirmTokenSchema = z.object({
+  token_hash: z.string().min(1).max(512),
+  type: z.enum(AUTH_CONFIRM_OTP_TYPES),
+});
+
+export const authSyncProfileSchema = z.object({
+  locale: localeSchema,
+});
+
+/** Sessions & billing */
+export const sessionCreateSchema = z.object({
+  locale: localeSchema.default("cs"),
+});
+
+export const sessionClaimSchema = z.object({
+  sessionId: sessionIdSchema,
+  sessionToken: sessionTokenSchema,
+});
+
+export const billingLocaleBodySchema = z.object({
+  locale: localeSchema.default("cs"),
+});
+
+export const billingConfirmSchema = z.object({
+  sessionId: z
+    .string()
+    .min(1)
+    .max(256)
+    .refine((value) => value.startsWith("cs_"), {
+      message: "Invalid Stripe checkout session id",
+    }),
+});
+
+/** Public query params */
+export const manifestQuerySchema = z.object({
+  locale: localeSchema.default("cs"),
+});
+
+/** Reject unexpected query params on authenticated read endpoints */
+export const emptyQuerySchema = z.object({}).strict();
+
+/** Grok consent POST — empty body only */
+export const grokConsentPostSchema = z.object({}).strict();
 
 /** Grok profile_update block — validated before merge */
 export const grokDebtUpdateSchema = z.object({

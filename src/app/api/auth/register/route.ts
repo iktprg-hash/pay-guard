@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
 import { validationError } from "@/lib/api/errors";
 import { authErrorResponse } from "@/lib/auth/errors";
 import {
@@ -11,17 +10,13 @@ import { isStrongPassword } from "@/lib/auth/password";
 import { createSessionRouteClient } from "@/lib/auth/supabase-route";
 import { authConfirmUrl } from "@/lib/site/url";
 import { createServiceClient } from "@/lib/supabase/service";
-
-const registerSchema = z.object({
-  email: z.string().email().max(320),
-  password: z.string().min(8).max(256),
-  locale: z.enum(["cs", "ru", "en"]).optional(),
-});
+import { parseJsonBody } from "@/lib/api/parse-request";
+import { authRegisterSchema } from "@/lib/validation/schemas";
 
 /** Registrace heslem — session cookies nastaví server */
 export async function POST(request: NextRequest) {
-  const parsed = registerSchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return validationError(parsed.error);
+  const parsed = await parseJsonBody(request, authRegisterSchema);
+  if (!parsed.ok) return validationError(parsed.error);
 
   if (!isStrongPassword(parsed.data.password)) {
     return authErrorResponse(

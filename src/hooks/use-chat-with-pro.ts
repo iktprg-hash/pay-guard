@@ -20,7 +20,7 @@ import {
   useRecurringIncomes,
   useUserFinancialProfile,
 } from "@/hooks/useProFinancial";
-import { useSubscriptionTier } from "@/hooks/use-subscription-tier";
+import { useProAccess } from "@/hooks/use-pro-access";
 import type { Locale } from "@/i18n/routing";
 import {
   isPaidTier,
@@ -69,17 +69,19 @@ export function useChatWithPro({
   const t = useTranslations("chat.pro");
   const { user, loading: authLoading } = useAuth();
   const { isOnline } = useNetworkStatus();
-  const { pro: hasProApi, loading: tierLoading } = useSubscriptionTier();
+  const { isProEnabled: hasProApi, loading: tierLoading } = useProAccess();
 
   const proProfileQuery = useUserFinancialProfile();
   const { saveDebtsAsync, isSaving: isSavingDebts } = useDebts({
     showErrorToast: false,
+    fetchEnabled: false,
   });
   const { saveIncomesAsync, isSaving: isSavingIncomes } = useRecurringIncomes({
     showErrorToast: false,
+    fetchEnabled: false,
   });
   const { saveExpensesAsync, isSaving: isSavingExpenses } =
-    useRecurringExpenses({ showErrorToast: false });
+    useRecurringExpenses({ showErrorToast: false, fetchEnabled: false });
   const { createSessionAsync, isCreating: isCreatingSession } =
     useCreateFinancialSession({ showErrorToast: false });
 

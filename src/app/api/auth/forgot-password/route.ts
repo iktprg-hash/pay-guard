@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { z } from "zod";
 import { serviceUnavailable, validationError } from "@/lib/api/errors";
 import { authErrorResponse } from "@/lib/auth/errors";
 import {
@@ -8,16 +7,13 @@ import {
   isSupabaseEmailRateLimit,
 } from "@/lib/auth/rate-limit";
 import { authConfirmUrl } from "@/lib/site/url";
-
-const bodySchema = z.object({
-  email: z.string().email().max(320),
-  locale: z.enum(["cs", "ru", "en"]).optional(),
-});
+import { parseJsonBody } from "@/lib/api/parse-request";
+import { authForgotPasswordSchema } from "@/lib/validation/schemas";
 
 /** Odešle odkaz pro obnovení hesla */
 export async function POST(request: NextRequest) {
-  const parsed = bodySchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return validationError(parsed.error);
+  const parsed = await parseJsonBody(request, authForgotPasswordSchema);
+  if (!parsed.ok) return validationError(parsed.error);
 
   const limited = await enforceAuthRateLimit(
     request,

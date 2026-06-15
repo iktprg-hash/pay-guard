@@ -344,7 +344,15 @@
       "cta": "Přejít na Pro",
       "lockedHint": "Pro funkce jsou na Free plánu jen náhled.",
       "loadingGate": "Kontrola předplatného…",
-      "mutationBlocked": "Tato akce vyžaduje předplatné Pro."
+      "mutationBlocked": "Tato akce vyžaduje předplatné Pro.",
+      "overlayLabel": "Pro",
+      "overlayHint": "Upgradujte pro odemknutí tohoto prostoru"
+    },
+    "errorBoundary": {
+      "title": "Chyba Pro prostoru",
+      "description": "Při načítání Pay Guard Pro se něco pokazilo. Můžete se vrátit do chatu nebo stránku obnovit.",
+      "backToChat": "Zpět do chatu",
+      "retry": "Obnovit stránku"
     },
     "nav": {
       "dashboard": "Dashboard",

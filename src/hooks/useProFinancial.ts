@@ -39,7 +39,7 @@ import {
 import { useTranslations } from "next-intl";
 import { useAuth } from "@/components/providers/auth-provider";
 import { toast } from "@/components/ui/toast-provider";
-import { useSubscriptionTier } from "@/hooks/use-subscription-tier";
+import { useProAccess } from "@/hooks/use-pro-access";
 import {
   createFinancialSession,
   deleteDebt,
@@ -92,14 +92,24 @@ export const proFinancialKeys = {
 };
 
 const PRO_STALE_MS = 60_000;
+const PRO_PROFILE_STALE_MS = 90_000;
 const PRO_GC_MS = 5 * 60_000;
 const PRO_QUERY_RETRY = 2;
 
-/** Shared TanStack Query options for all Pro financial reads. */
-const proQueryDefaults = {
+/** Shared TanStack Query options for Pro financial profile reads. */
+const proProfileQueryDefaults = {
+  staleTime: PRO_PROFILE_STALE_MS,
+  gcTime: PRO_GC_MS,
+  retry: PRO_QUERY_RETRY,
+  refetchOnWindowFocus: false,
+} as const;
+
+/** Shared TanStack Query options for Pro list reads (debts/incomes/expenses). */
+const proListQueryDefaults = {
   staleTime: PRO_STALE_MS,
   gcTime: PRO_GC_MS,
   retry: PRO_QUERY_RETRY,
+  refetchOnWindowFocus: false,
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -124,10 +134,28 @@ function useProUserId(): string | undefined {
   return user.id;
 }
 
-function useProQueriesEnabled(): boolean {
+/** Shared gate for all Pro financial TanStack queries. */
+export function useProQueriesEnabled(): boolean {
   const userId = useProUserId();
-  const { isProEnabled, loading: tierLoading } = useSubscriptionTier();
-  return Boolean(userId) && isProEnabled && !tierLoading;
+  const { isProEnabled, loading: tierLoading } = useProAccess();
+  return Boolean(userId && isProEnabled && !tierLoading);
+}
+
+function useProQueryGate() {
+  const userId = useProUserId();
+  const { isProEnabled, loading: tierLoading } = useProAccess();
+  const queriesEnabled = Boolean(userId && isProEnabled && !tierLoading);
+  return { userId, isProEnabled, tierLoading, queriesEnabled };
+}
+
+function readProfileCache(
+  queryClient: QueryClient,
+  userId: string | undefined
+): UserFinancialProfile | undefined {
+  if (!userId) return undefined;
+  return queryClient.getQueryData<UserFinancialProfile>(
+    proFinancialKeys.profile(userId)
+  );
 }
 
 export function isProRequiredError(error: unknown): boolean {
@@ -406,14 +434,13 @@ export function useUserFinancialProfile(): UseQueryResult<
   UserFinancialProfile,
   Error
 > {
-  const userId = useProUserId();
-  const queriesEnabled = useProQueriesEnabled();
+  const { userId, queriesEnabled } = useProQueryGate();
 
   return useQuery<UserFinancialProfile, Error>({
     queryKey: proFinancialKeys.profile(userId ?? ""),
     queryFn: () => unwrapProResult(getUserFinancialProfile(userId!)),
     enabled: queriesEnabled,
-    ...proQueryDefaults,
+    ...proProfileQueryDefaults,
   });
 }
 
@@ -460,6 +487,8 @@ export interface UseDebtsOptions {
   sessionId?: string;
   /** Show toast on mutation errors (default: true). */
   showErrorToast?: boolean;
+  /** When false, skips the list query (e.g. until a tab/route is active). */
+  fetchEnabled?: boolean;
 }
 
 export interface UseDebtsResult extends ProListHookBase<Debt> {
@@ -487,20 +516,22 @@ export interface UseDebtsResult extends ProListHookBase<Debt> {
  * ```
  */
 export function useDebts(options: UseDebtsOptions = {}): UseDebtsResult {
-  const userId = useProUserId();
-  const queriesEnabled = useProQueriesEnabled();
+  const { userId, queriesEnabled } = useProQueryGate();
   const queryClient = useQueryClient();
   const reportError = useProMutationErrors();
-  const { sessionId, showErrorToast = true } = options;
+  const { sessionId, showErrorToast = true, fetchEnabled = true } = options;
 
   const queryKey = proFinancialKeys.debts(userId ?? "", sessionId);
   const syncCatalogProfile = !sessionId;
+  const cachedProfile = readProfileCache(queryClient, userId);
+  const placeholderDebts = syncCatalogProfile ? cachedProfile?.debts : undefined;
 
   const query = useQuery({
     queryKey,
     queryFn: () => unwrapProResult(getDebts(userId!, sessionId)),
-    enabled: queriesEnabled,
-    ...proQueryDefaults,
+    enabled: Boolean(userId && queriesEnabled && fetchEnabled),
+    placeholderData: placeholderDebts,
+    ...proListQueryDefaults,
   });
 
   const optimistic = createOptimisticListMutationHandlers<Debt>(
@@ -572,6 +603,8 @@ export function useDebts(options: UseDebtsOptions = {}): UseDebtsResult {
 
 export interface UseRecurringIncomesOptions {
   showErrorToast?: boolean;
+  /** When false, skips the list query until the incomes view is active. */
+  fetchEnabled?: boolean;
 }
 
 export interface UseRecurringIncomesResult extends ProListHookBase<RecurringIncome> {
@@ -594,19 +627,20 @@ export interface UseRecurringIncomesResult extends ProListHookBase<RecurringInco
 export function useRecurringIncomes(
   options: UseRecurringIncomesOptions = {}
 ): UseRecurringIncomesResult {
-  const userId = useProUserId();
-  const queriesEnabled = useProQueriesEnabled();
+  const { userId, queriesEnabled } = useProQueryGate();
   const queryClient = useQueryClient();
   const reportError = useProMutationErrors();
-  const { showErrorToast = true } = options;
+  const { showErrorToast = true, fetchEnabled = true } = options;
 
   const queryKey = proFinancialKeys.incomes(userId ?? "");
+  const cachedProfile = readProfileCache(queryClient, userId);
 
   const query = useQuery({
     queryKey,
     queryFn: () => unwrapProResult(getRecurringIncomes(userId!)),
-    enabled: queriesEnabled,
-    ...proQueryDefaults,
+    enabled: Boolean(userId && queriesEnabled && fetchEnabled),
+    placeholderData: cachedProfile?.recurringIncomes,
+    ...proListQueryDefaults,
   });
 
   const optimistic = createOptimisticListMutationHandlers<RecurringIncome>(
@@ -677,6 +711,8 @@ export function useRecurringIncomes(
 
 export interface UseRecurringExpensesOptions {
   showErrorToast?: boolean;
+  /** When false, skips the list query until the expenses view is active. */
+  fetchEnabled?: boolean;
 }
 
 export interface UseRecurringExpensesResult extends ProListHookBase<RecurringExpense> {
@@ -701,19 +737,20 @@ export interface UseRecurringExpensesResult extends ProListHookBase<RecurringExp
 export function useRecurringExpenses(
   options: UseRecurringExpensesOptions = {}
 ): UseRecurringExpensesResult {
-  const userId = useProUserId();
-  const queriesEnabled = useProQueriesEnabled();
+  const { userId, queriesEnabled } = useProQueryGate();
   const queryClient = useQueryClient();
   const reportError = useProMutationErrors();
-  const { showErrorToast = true } = options;
+  const { showErrorToast = true, fetchEnabled = true } = options;
 
   const queryKey = proFinancialKeys.expenses(userId ?? "");
+  const cachedProfile = readProfileCache(queryClient, userId);
 
   const query = useQuery({
     queryKey,
     queryFn: () => unwrapProResult(getRecurringExpenses(userId!)),
-    enabled: queriesEnabled,
-    ...proQueryDefaults,
+    enabled: Boolean(userId && queriesEnabled && fetchEnabled),
+    placeholderData: cachedProfile?.recurringExpenses,
+    ...proListQueryDefaults,
   });
 
   const optimistic = createOptimisticListMutationHandlers<RecurringExpense>(

@@ -21,7 +21,7 @@ import type {
   UserFinancialProfile,
 } from "@/lib/types/financial";
 import { useRecommendationPdfDownload } from "@/hooks/use-recommendation-pdf";
-import { useSubscriptionTier } from "@/hooks/use-subscription-tier";
+import { useProAccess } from "@/hooks/use-pro-access";
 
 const LEVEL_VARIANT: Record<number, "default" | "warning" | "secondary" | "outline"> = {
   0: "default",
@@ -45,7 +45,7 @@ export function RecommendationCard({
   const t = useTranslations("recommendation");
   const tCat = useTranslations("categories");
   const appLocale = useLocale() as Locale;
-  const { pro } = useSubscriptionTier();
+  const { isProEnabled: pro } = useProAccess();
   const { downloadPdf, isGeneratingForKey } = useRecommendationPdfDownload();
   const isGenerating = isGeneratingForKey(downloadKey);
 

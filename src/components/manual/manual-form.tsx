@@ -12,7 +12,7 @@ import { OfflineRecommendationCard } from "@/components/pwa/OfflineRecommendatio
 import { Spinner } from "@/components/ui/page-loader";
 import { persistChatRecommendation } from "@/lib/chat/persist-recommendation";
 import { resolvePrioritization } from "@/lib/recommendation/resolve-prioritization";
-import { useSubscriptionTier } from "@/hooks/use-subscription-tier";
+import { useProAccess } from "@/hooks/use-pro-access";
 import { useCreateFinancialSession, useDebts } from "@/hooks/useProFinancial";
 import type { Debt, DebtCategory, FinancialProfile, PrioritizationResult } from "@/lib/types/financial";
 import { DEBT_CATEGORIES } from "@/lib/types/financial";
@@ -33,8 +33,11 @@ export function ManualForm() {
   const t = useTranslations("manual");
   const tCat = useTranslations("categories");
   const locale = useLocale() as Locale;
-  const { isProEnabled } = useSubscriptionTier();
-  const { saveDebtsAsync } = useDebts({ showErrorToast: false });
+  const { isProEnabled } = useProAccess();
+  const { saveDebtsAsync } = useDebts({
+    showErrorToast: false,
+    fetchEnabled: false,
+  });
   const { createSessionAsync } = useCreateFinancialSession({ showErrorToast: false });
 
   const [profile, setProfile] = useState<FinancialProfile>({

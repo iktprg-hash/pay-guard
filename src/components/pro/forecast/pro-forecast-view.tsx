@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { useProFinancialSummary } from "@/hooks/useProFinancial";
 import { ProEmptyState, ProPageHeader, StatCard } from "@/components/pro/pro-page";
-import { DashboardSkeleton } from "@/components/pro/pro-skeletons";
+import { ProPageSkeleton } from "@/components/pro/pro-skeletons";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -29,7 +29,9 @@ export function ProForecastView() {
   const { summary, isLoading, isError, error, refetch } =
     useProFinancialSummary();
 
-  if (isLoading) return <DashboardSkeleton label={t("title")} />;
+  if (isLoading && !summary.profile) {
+    return <ProPageSkeleton variant="forecast" label={t("title")} />;
+  }
 
   if (isError) {
     return (

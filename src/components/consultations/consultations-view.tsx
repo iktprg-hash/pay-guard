@@ -26,7 +26,7 @@ import {
   type ConsultationSessionItem,
 } from "@/hooks/use-chat-history";
 import { useRecommendationPdfDownload } from "@/hooks/use-recommendation-pdf";
-import { useSubscriptionTier } from "@/hooks/use-subscription-tier";
+import { useProAccess } from "@/hooks/use-pro-access";
 import { extractRecommendationFromMessages } from "@/lib/export/extractRecommendation";
 import type { Locale } from "@/i18n/routing";
 import { getIntlLocale } from "@/lib/utils";
@@ -151,7 +151,7 @@ export function ConsultationsView() {
   const tErrors = useTranslations("errors");
   const locale = useLocale() as Locale;
   const { user, loading: authLoading } = useAuth();
-  const { pro: hasProCloud } = useSubscriptionTier();
+  const { isProEnabled: hasProCloud } = useProAccess();
   const { downloadPdf, isGeneratingForKey, isPro } = useRecommendationPdfDownload();
 
   const [sessions, setSessions] = useState<ConsultationSessionItem[]>([]);

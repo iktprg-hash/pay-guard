@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { CreditCard, Loader2, Sparkles } from "lucide-react";
 import { useAuth } from "@/components/providers/auth-provider";
-import { useSubscriptionTier } from "@/hooks/use-subscription-tier";
+import { useProAccess } from "@/hooks/use-pro-access";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -27,20 +27,9 @@ export function SubscriptionCard({ billingEnabled }: SubscriptionCardProps) {
   const tToast = useTranslations("toast");
   const locale = useLocale() as Locale;
   const { user, loading: authLoading } = useAuth();
-  const { pro, loading: tierLoading } = useSubscriptionTier();
+  const { isProEnabled: pro, expiresAt, loading: tierLoading } = useProAccess();
   const [portalLoading, setPortalLoading] = useState(false);
   const [syncLoading, setSyncLoading] = useState(false);
-  const [expiresAt, setExpiresAt] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!user) return;
-    fetch("/api/auth/tier", { credentials: "include" })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: { expiresAt?: string | null } | null) => {
-        if (data?.expiresAt) setExpiresAt(data.expiresAt);
-      })
-      .catch(() => {});
-  }, [user]);
 
   const syncSubscription = async () => {
     setSyncLoading(true);
@@ -155,12 +144,13 @@ export function SubscriptionCard({ billingEnabled }: SubscriptionCardProps) {
           </div>
         )}
 
-        {pro && billingEnabled && (
+        {pro && billingEnabled ? (
           <Button
             variant="outline"
             className="gap-2 w-full sm:w-auto"
             disabled={portalLoading}
             onClick={() => void openPortal()}
+            aria-label={t("manage")}
           >
             {portalLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -169,7 +159,7 @@ export function SubscriptionCard({ billingEnabled }: SubscriptionCardProps) {
             )}
             {t("manage")}
           </Button>
-        )}
+        ) : null}
       </CardContent>
     </Card>
   );

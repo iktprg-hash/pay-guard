@@ -1,5 +1,6 @@
 "use client";
 
+import { memo, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import {
@@ -14,9 +15,9 @@ import {
 } from "lucide-react";
 import { PdfDownloadButton } from "@/components/pdf/pdf-download-button";
 import { analyzeDebt, runPriorityEngine } from "@/services/priorityEngine";
-import { useProFinancialSummary } from "@/hooks/useProFinancial";
+import { useProFinancialSummary, type ProFinancialSummary } from "@/hooks/useProFinancial";
 import { useRecommendationPdfDownload, PRO_DASHBOARD_PDF_KEY } from "@/hooks/use-recommendation-pdf";
-import { DashboardSkeleton } from "@/components/pro/pro-skeletons";
+import { ProPageSkeleton } from "@/components/pro/pro-skeletons";
 import { ProEmptyState, ProPageHeader, StatCard } from "@/components/pro/pro-page";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -42,7 +43,7 @@ import type { Locale } from "@/i18n/routing";
 import { hasMinimumRecommendationData } from "@/lib/grok/recommendation-readiness";
 
 /** Whether the profile has no meaningful financial data yet. */
-function isProfileEmpty(summary: ReturnType<typeof useProFinancialSummary>["summary"]) {
+function isProfileEmpty(summary: ProFinancialSummary) {
   return (
     summary.debtCount === 0 &&
     summary.monthlyRecurringIncome === 0 &&
@@ -51,7 +52,7 @@ function isProfileEmpty(summary: ReturnType<typeof useProFinancialSummary>["summ
   );
 }
 
-function DebtPriorityTable({
+const DebtPriorityTable = memo(function DebtPriorityTable({
   debts,
   locale,
   emptyTitle,
@@ -110,7 +111,7 @@ function DebtPriorityTable({
       </TableBody>
     </Table>
   );
-}
+});
 
 /** Pro dashboard — cash flow, debt summary, urgent & critical obligations. */
 export function ProDashboardView() {
@@ -121,7 +122,18 @@ export function ProDashboardView() {
   const { downloadPdf, isGeneratingForKey, isPro } = useRecommendationPdfDownload();
   const isGeneratingPdf = isGeneratingForKey(PRO_DASHBOARD_PDF_KEY);
 
-  const handleDownloadPdf = () => {
+  const canExportPdf = useMemo(
+    () =>
+      isPro &&
+      Boolean(summary.profile) &&
+      hasMinimumRecommendationData({
+        availableFunds: summary.profile?.availableFunds ?? 0,
+        debts: summary.profile?.debts ?? [],
+      }),
+    [isPro, summary.profile]
+  );
+
+  const handleDownloadPdf = useCallback(() => {
     if (!summary.profile) return;
 
     const profile: FinancialProfile = {
@@ -139,18 +151,25 @@ export function ProDashboardView() {
       { recommendation, profile, locale },
       { downloadKey: PRO_DASHBOARD_PDF_KEY }
     );
-  };
+  }, [downloadPdf, locale, summary.profile]);
 
-  const canExportPdf =
-    isPro &&
-    summary.profile &&
-    hasMinimumRecommendationData({
-      availableFunds: summary.profile.availableFunds,
-      debts: summary.profile.debts,
-    });
+  const paid = useMemo(
+    () => isPaidTier(summary.subscriptionTier),
+    [summary.subscriptionTier]
+  );
+  const empty = useMemo(() => isProfileEmpty(summary), [summary]);
+  const cashFlowTrend = useMemo(
+    () =>
+      summary.netMonthlyCashFlow > 0
+        ? "positive"
+        : summary.netMonthlyCashFlow < 0
+          ? "negative"
+          : "neutral",
+    [summary.netMonthlyCashFlow]
+  );
 
   if (isLoading) {
-    return <DashboardSkeleton label={t("title")} />;
+    return <ProPageSkeleton variant="dashboard" label={t("title")} />;
   }
 
   if (isError) {
@@ -168,15 +187,6 @@ export function ProDashboardView() {
       </Card>
     );
   }
-
-  const paid = isPaidTier(summary.subscriptionTier);
-  const empty = isProfileEmpty(summary);
-  const cashFlowTrend =
-    summary.netMonthlyCashFlow > 0
-      ? "positive"
-      : summary.netMonthlyCashFlow < 0
-        ? "negative"
-        : "neutral";
 
   return (
     <div className="space-y-8">

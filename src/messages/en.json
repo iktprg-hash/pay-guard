@@ -344,7 +344,15 @@
       "cta": "Upgrade to Pro",
       "lockedHint": "Pro features are preview-only on the Free plan.",
       "loadingGate": "Checking subscription…",
-      "mutationBlocked": "Pro subscription required for this action."
+      "mutationBlocked": "Pro subscription required for this action.",
+      "overlayLabel": "Pro",
+      "overlayHint": "Upgrade to unlock this workspace"
+    },
+    "errorBoundary": {
+      "title": "Pro workspace error",
+      "description": "Something went wrong while loading Pay Guard Pro. You can return to chat or reload the page.",
+      "backToChat": "Back to chat",
+      "retry": "Reload page"
     },
     "nav": {
       "dashboard": "Dashboard",

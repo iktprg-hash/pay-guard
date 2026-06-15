@@ -1,19 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
 import { validationError } from "@/lib/api/errors";
 import { authErrorResponse } from "@/lib/auth/errors";
 import { enforceAuthRateLimit } from "@/lib/auth/rate-limit";
 import { createSessionRouteClient } from "@/lib/auth/supabase-route";
-
-const otpSchema = z.object({
-  email: z.string().email().max(320),
-  token: z.string().regex(/^\d{6}$/),
-});
+import { parseJsonBody } from "@/lib/api/parse-request";
+import { authVerifyOtpSchema } from "@/lib/validation/schemas";
 
 /** Ověření e-mailového kódu — bez PKCE redirectu */
 export async function POST(request: NextRequest) {
-  const parsed = otpSchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return validationError(parsed.error);
+  const parsed = await parseJsonBody(request, authVerifyOtpSchema);
+  if (!parsed.ok) return validationError(parsed.error);
 
   const limited = await enforceAuthRateLimit(
     request,

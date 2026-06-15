@@ -344,7 +344,15 @@
       "cta": "Перейти на Pro",
       "lockedHint": "Функции Pro на Free доступны только для просмотра.",
       "loadingGate": "Проверка подписки…",
-      "mutationBlocked": "Для этого действия нужна подписка Pro."
+      "mutationBlocked": "Для этого действия нужна подписка Pro.",
+      "overlayLabel": "Pro",
+      "overlayHint": "Оформите Pro, чтобы открыть этот раздел"
+    },
+    "errorBoundary": {
+      "title": "Ошибка Pro-раздела",
+      "description": "При загрузке Pay Guard Pro что-то пошло не так. Вернитесь в чат или перезагрузите страницу.",
+      "backToChat": "Вернуться в чат",
+      "retry": "Перезагрузить"
     },
     "nav": {
       "dashboard": "Дашборд",

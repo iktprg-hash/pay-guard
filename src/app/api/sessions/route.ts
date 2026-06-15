@@ -7,15 +7,19 @@ import {
 import { requireProApiWithRateLimit } from "@/lib/api/pro-route-guard";
 import { createClient } from "@/lib/supabase/server";
 import { validationError } from "@/lib/api/errors";
-
-const createSchema = z.object({
-  locale: z.enum(["cs", "ru", "en"]).default("cs"),
-});
+import { parseJsonBody, parseQueryParams } from "@/lib/api/parse-request";
+import {
+  emptyQuerySchema,
+  sessionCreateSchema,
+} from "@/lib/validation/schemas";
 
 /** GET — seznam konzultací uživatele */
 export async function GET(request: NextRequest) {
   const guard = await requireProApiWithRateLimit(request, "sessions-read");
   if (!guard.ok) return guard.response;
+
+  const query = parseQueryParams(request, emptyQuerySchema);
+  if (!query.ok) return validationError(query.error);
 
   const supabase = await createClient();
   const sessions = await listUserSessions(supabase, guard.user.id);
@@ -28,9 +32,8 @@ export async function POST(request: NextRequest) {
   if (!guard.ok) return guard.response;
 
   try {
-    const body = await request.json().catch(() => ({}));
-    const parsed = createSchema.safeParse(body);
-    if (!parsed.success) return validationError(parsed.error);
+    const parsed = await parseJsonBody(request, sessionCreateSchema);
+    if (!parsed.ok) return validationError(parsed.error);
 
     const supabase = await createClient();
     const created = await createUserSession(

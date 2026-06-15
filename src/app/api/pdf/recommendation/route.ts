@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireProApiWithRateLimit } from "@/lib/api/pro-route-guard";
 import { validationError } from "@/lib/api/errors";
+import { parseJsonBody } from "@/lib/api/parse-request";
 import { renderRecommendationPdfBuffer } from "@/lib/pdf/renderRecommendationPdf";
 import { getRecommendationPdfFilename } from "@/lib/pdf/filename";
 import type { FinancialProfile, PrioritizationResult } from "@/lib/types/financial";
@@ -13,9 +14,8 @@ export async function POST(request: NextRequest) {
   const guard = await requireProApiWithRateLimit(request, "pdf");
   if (!guard.ok) return guard.response;
 
-  const body = await request.json().catch(() => null);
-  const parsed = pdfRecommendationRequestSchema.safeParse(body);
-  if (!parsed.success) return validationError(parsed.error);
+  const parsed = await parseJsonBody(request, pdfRecommendationRequestSchema);
+  if (!parsed.ok) return validationError(parsed.error);
 
   try {
     const { recommendation, profile, locale } = parsed.data;

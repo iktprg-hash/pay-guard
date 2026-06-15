@@ -1,18 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { z } from "zod";
 import { validationError, serviceUnavailable } from "@/lib/api/errors";
 import { authErrorResponse, isOpaqueOtpSendError } from "@/lib/auth/errors";
 import { enforceAuthRateLimit } from "@/lib/auth/rate-limit";
-
-const sendOtpSchema = z.object({
-  email: z.string().email().max(320),
-});
+import { parseJsonBody } from "@/lib/api/parse-request";
+import { authSendOtpSchema } from "@/lib/validation/schemas";
 
 /** Odešle 6místný kód na e-mail — pouze existující účty (bez registrace heslem) */
 export async function POST(request: NextRequest) {
-  const parsed = sendOtpSchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return validationError(parsed.error);
+  const parsed = await parseJsonBody(request, authSendOtpSchema);
+  if (!parsed.ok) return validationError(parsed.error);
 
   const limited = await enforceAuthRateLimit(
     request,

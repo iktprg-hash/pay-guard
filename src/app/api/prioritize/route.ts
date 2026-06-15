@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { runPriorityEngine } from "@/services/priorityEngine";
 import { requireApiUser } from "@/lib/auth/session";
 import { rateLimitError, validationError } from "@/lib/api/errors";
+import { parseJsonBody } from "@/lib/api/parse-request";
 import { checkRateLimit, getClientIp } from "@/lib/security/rateLimit";
 import { hasMinimumRecommendationData } from "@/lib/grok/recommendation-readiness";
 import {
@@ -17,9 +18,8 @@ export async function POST(request: NextRequest) {
   const limit = await checkRateLimit(`prioritize:${auth.user.id}:${ip}`, 60, 60_000);
   if (!limit.allowed) return rateLimitError(limit.resetAt);
 
-  const body = await request.json().catch(() => null);
-  const parsed = prioritizeRequestSchema.safeParse(body);
-  if (!parsed.success) return validationError(parsed.error);
+  const parsed = await parseJsonBody(request, prioritizeRequestSchema);
+  if (!parsed.ok) return validationError(parsed.error);
 
   try {
     const { profile, locale } = parsed.data;

@@ -3,9 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
-import { Loader2 } from "lucide-react";
+import { CreditCard, Loader2 } from "lucide-react";
 import { useAuth } from "@/components/providers/auth-provider";
-import { useSubscriptionTier } from "@/hooks/use-subscription-tier";
+import { useProAccess } from "@/hooks/use-pro-access";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/toast-provider";
@@ -17,11 +17,13 @@ interface PricingActionsProps {
 
 export function PricingActions({ billingEnabled }: PricingActionsProps) {
   const t = useTranslations("pricing");
+  const tBilling = useTranslations("billing");
   const tToast = useTranslations("toast");
   const locale = useLocale() as Locale;
   const { user, loading: authLoading } = useAuth();
-  const { pro, loading: tierLoading } = useSubscriptionTier();
+  const { isProEnabled: pro, loading: tierLoading } = useProAccess();
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [portalLoading, setPortalLoading] = useState(false);
 
   const loading = authLoading || tierLoading;
 
@@ -66,10 +68,32 @@ export function PricingActions({ billingEnabled }: PricingActionsProps) {
     }
   };
 
+  const openPortal = async () => {
+    setPortalLoading(true);
+    try {
+      const res = await fetch("/api/billing/portal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ locale }),
+      });
+      const data = (await res.json()) as { url?: string };
+      if (!res.ok || !data.url) {
+        toast(tToast("portalFailed"), "error");
+        return;
+      }
+      window.location.href = data.url;
+    } catch {
+      toast(tToast("portalFailed"), "error");
+    } finally {
+      setPortalLoading(false);
+    }
+  };
+
   if (loading) {
     return (
-      <Button className="mt-6 w-full" disabled>
-        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+      <Button className="mt-6 w-full" disabled aria-busy="true">
+        <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
         {t("upgrade")}
       </Button>
     );
@@ -77,9 +101,27 @@ export function PricingActions({ billingEnabled }: PricingActionsProps) {
 
   if (pro) {
     return (
-      <Badge className="mt-6 w-full justify-center py-2 text-sm">
-        {t("proActive")}
-      </Badge>
+      <div className="mt-6 space-y-3">
+        <Badge className="w-full justify-center py-2 text-sm">
+          {t("proActive")}
+        </Badge>
+        {billingEnabled && (
+          <Button
+            variant="outline"
+            className="w-full gap-2"
+            disabled={portalLoading}
+            onClick={() => void openPortal()}
+            aria-label={tBilling("manage")}
+          >
+            {portalLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+            ) : (
+              <CreditCard className="h-4 w-4" aria-hidden />
+            )}
+            {tBilling("manage")}
+          </Button>
+        )}
+      </div>
     );
   }
 
@@ -105,11 +147,12 @@ export function PricingActions({ billingEnabled }: PricingActionsProps) {
     <Button
       className="mt-6 w-full"
       disabled={checkoutLoading}
+      aria-busy={checkoutLoading}
       onClick={() => void startCheckout()}
     >
       {checkoutLoading ? (
         <>
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
           {t("redirecting")}
         </>
       ) : (

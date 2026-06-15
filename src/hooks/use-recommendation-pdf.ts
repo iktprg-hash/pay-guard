@@ -8,7 +8,7 @@ import {
 } from "@/lib/export/downloadRecommendationPdf";
 import { downloadPriorityReport } from "@/lib/export/pdfReport";
 import { toast } from "@/components/ui/toast-provider";
-import { useSubscriptionTier } from "@/hooks/use-subscription-tier";
+import { useProAccess } from "@/hooks/use-pro-access";
 import type {
   FinancialProfile,
   PrioritizationResult,
@@ -38,7 +38,7 @@ export type RecommendationPdfInputResolver = () => Promise<
 export function useRecommendationPdfDownload() {
   const t = useTranslations("recommendation");
   const locale = useLocale() as Locale;
-  const { pro } = useSubscriptionTier();
+  const { isProEnabled: pro } = useProAccess();
   const [generatingKey, setGeneratingKey] = useState<string | null>(null);
 
   const isAnyPdfGenerating = generatingKey !== null;

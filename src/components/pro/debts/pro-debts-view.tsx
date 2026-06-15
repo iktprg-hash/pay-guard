@@ -6,7 +6,7 @@ import { Pencil, Plus, Trash2, Wallet } from "lucide-react";
 import { useDebts } from "@/hooks/useProFinancial";
 import { DebtFormSheet } from "@/components/pro/debts/debt-form-sheet";
 import { ProEmptyState, ProPageHeader } from "@/components/pro/pro-page";
-import { ProListPageSkeleton } from "@/components/pro/pro-skeletons";
+import { ProPageSkeleton } from "@/components/pro/pro-skeletons";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -68,8 +68,8 @@ export function ProDebtsView() {
     await deleteDebtAsync(debtId);
   };
 
-  if (isLoading) {
-    return <ProListPageSkeleton label={t("title")} />;
+  if (isLoading && debts.length === 0) {
+    return <ProPageSkeleton variant="list" label={t("title")} />;
   }
 
   return (

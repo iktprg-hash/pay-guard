@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
 import { requireApiUser } from "@/lib/auth/session";
 import {
   createCheckoutSession,
@@ -13,11 +12,9 @@ import {
   serviceUnavailable,
   validationError,
 } from "@/lib/api/errors";
+import { parseJsonBody } from "@/lib/api/parse-request";
 import { checkRateLimit, getClientIp } from "@/lib/security/rateLimit";
-
-const bodySchema = z.object({
-  locale: z.enum(["cs", "ru", "en"]).default("cs"),
-});
+import { billingLocaleBodySchema } from "@/lib/validation/schemas";
 
 /** Create Stripe Checkout Session for Pay Guard Pro (CZK, Czech market). */
 export async function POST(request: NextRequest) {
@@ -44,9 +41,8 @@ export async function POST(request: NextRequest) {
   if (!limit.allowed) return rateLimitError(limit.resetAt);
 
   try {
-    const json = await request.json().catch(() => ({}));
-    const parsed = bodySchema.safeParse(json);
-    if (!parsed.success) return validationError(parsed.error);
+    const parsed = await parseJsonBody(request, billingLocaleBodySchema);
+    if (!parsed.ok) return validationError(parsed.error);
 
     const { locale } = parsed.data;
     const origin = resolveSiteOrigin(request);

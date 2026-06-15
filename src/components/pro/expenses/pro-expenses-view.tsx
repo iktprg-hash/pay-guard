@@ -6,7 +6,7 @@ import { Pencil, Plus, Trash2, TrendingDown } from "lucide-react";
 import { useRecurringExpenses } from "@/hooks/useProFinancial";
 import { ExpenseFormSheet } from "@/components/pro/expenses/expense-form-sheet";
 import { ProEmptyState, ProPageHeader } from "@/components/pro/pro-page";
-import { ProListPageSkeleton } from "@/components/pro/pro-skeletons";
+import { ProPageSkeleton } from "@/components/pro/pro-skeletons";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -68,8 +68,8 @@ export function ProExpensesView() {
     await deleteExpenseAsync(expenseId);
   };
 
-  if (isLoading) {
-    return <ProListPageSkeleton label={t("title")} />;
+  if (isLoading && expenses.length === 0) {
+    return <ProPageSkeleton variant="list" label={t("title")} />;
   }
 
   return (

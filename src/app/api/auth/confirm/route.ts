@@ -1,19 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
 import { validationError } from "@/lib/api/errors";
 import { authErrorResponse } from "@/lib/auth/errors";
-import { AUTH_CONFIRM_OTP_TYPES } from "@/lib/auth/confirm-types";
 import { enforceAuthRateLimit } from "@/lib/auth/rate-limit";
 import { createSessionRouteClient } from "@/lib/auth/supabase-route";
-
-const codeSchema = z.object({
-  code: z.string().min(1).max(512),
-});
-
-const tokenSchema = z.object({
-  token_hash: z.string().min(1).max(512),
-  type: z.enum(AUTH_CONFIRM_OTP_TYPES),
-});
+import { parseJsonBody } from "@/lib/api/parse-request";
+import {
+  authConfirmCodeSchema,
+  authConfirmTokenSchema,
+} from "@/lib/validation/schemas";
 
 /** Potvrzení e-mailu / PKCE — session cookies na serveru */
 export async function POST(request: NextRequest) {
@@ -21,8 +15,8 @@ export async function POST(request: NextRequest) {
   if (limited) return limited;
 
   const body = await request.json().catch(() => null);
-  const codeParsed = codeSchema.safeParse(body);
-  const tokenParsed = tokenSchema.safeParse(body);
+  const codeParsed = authConfirmCodeSchema.safeParse(body);
+  const tokenParsed = authConfirmTokenSchema.safeParse(body);
 
   if (!codeParsed.success && !tokenParsed.success) {
     return validationError(
