@@ -1,11 +1,13 @@
-name: E2E (Playwright)
+# Playwright E2E — smoke + auth/chat on chromium (CI scope).
+# Authenticated checkout/pro-gating projects run locally via `npm run test:e2e:local`.
+name: E2E Tests
 
 on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
 
+# Cancel stale runs on the same branch/PR.
 concurrency:
   group: e2e-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -18,10 +20,11 @@ jobs:
 
     env:
       CI: true
+      # Playwright config skips webServer when this is set; we start prod manually below.
       E2E_NO_WEBSERVER: "1"
       E2E_BASE_URL: http://127.0.0.1:3000
       E2E_LOCALE: cs
-      # Optional — add repository secrets for full auth/API coverage in CI
+      # Optional repository secrets — enable auth setup + API probes in preflight.
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -40,6 +43,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Pin cache key to the installed @playwright/test version.
       - name: Get Playwright version
         id: playwright-version
         run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
@@ -57,37 +61,18 @@ jobs:
       - name: Build application
         run: npm run build
 
-      # Server must stay in the same step as preflight/tests — GHA kills background jobs between steps.
-      - name: Start server and run E2E
+      # Preflight + tests must share this step with the background server.
+      # GitHub Actions kills background processes when a step ends.
+      - name: Start server and run E2E (chromium)
         run: |
           npm run start:prod > server.log 2>&1 &
-          echo $! > server.pid
-          npm run test:e2e:preflight
-          npm run test:e2e -- --project=chromium
+          npm run test:e2e:local -- --project=chromium
 
-      - name: Upload HTML report
+      - name: Upload Playwright HTML report
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-report-chromium
+          name: playwright-report
           path: playwright-report/
           retention-days: 14
-          if-no-files-found: ignore
-
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: playwright-test-results-chromium
-          path: test-results/
-          retention-days: 7
-          if-no-files-found: ignore
-
-      - name: Upload server log
-        uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: server-log
-          path: server.log
-          retention-days: 3
           if-no-files-found: ignore
