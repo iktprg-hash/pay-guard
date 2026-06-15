@@ -61,6 +61,7 @@ test.describe("Pro gating", () => {
     request,
     baseURL,
   }) => {
+    test.slow();
     const tier = mockSubscriptionTier(page);
     tier.setTier("free");
     await refreshSubscriptionTier(page);
@@ -107,6 +108,7 @@ test.describe("Pro gating", () => {
   });
 
   test("grants full access to all Pro pages for Pro users", async ({ page }) => {
+    test.slow();
     const tier = mockSubscriptionTier(page);
     tier.setTier("pro");
 

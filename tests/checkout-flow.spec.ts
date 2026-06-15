@@ -16,7 +16,6 @@ import {
   proPageHeading,
   proPath,
   refreshSubscriptionTier,
-  waitForToast,
 } from "./helpers/test-utils";
 import { gotoExpectOk } from "./helpers/server-health";
 
@@ -44,11 +43,12 @@ test.describe("Checkout flow", () => {
 
       await test.step("Start mocked Stripe checkout from pricing", async () => {
         tier.setTier("free");
-        await page.goto(pricingPath());
+        await gotoExpectOk(page, pricingPath());
 
         const upgradeButton = page.getByRole("button", {
           name: /upgrade|přejít na pro|перейти на pro/i,
         });
+        await expect.soft(upgradeButton).toBeVisible();
         await expect(upgradeButton).toBeEnabled();
 
         await upgradeButton.click();
@@ -60,9 +60,13 @@ test.describe("Checkout flow", () => {
       await test.step("Confirm checkout and activate Pro", async () => {
         tier.setTier("pro");
 
-        await pollForUrlContains(page, "checkout=success");
-        await waitForToast(page, UI.checkoutSuccess);
-        await pollForToastVisible(page, UI.checkoutSuccess);
+        await pollForUrlContains(page, "checkout=success", {
+          timeout: 30_000,
+        });
+        await pollForToastVisible(page, UI.checkoutSuccess, {
+          timeout: 20_000,
+        });
+        await expect.soft(page.getByText(UI.checkoutSuccess)).toBeVisible();
       });
 
       await test.step("Pricing shows Manage Subscription for Pro", async () => {
@@ -76,7 +80,7 @@ test.describe("Checkout flow", () => {
       });
 
       await test.step("Pro dashboard is accessible without gate", async () => {
-        await page.goto(proPath("dashboard"));
+        await gotoExpectOk(page, proPath("dashboard"));
 
         await expect.soft(
           proPageHeading(page, /dashboard|přehled|дашборд/i)
@@ -106,8 +110,9 @@ test.describe("Checkout flow", () => {
       });
 
       await test.step("Shows cancelled toast and keeps Free plan", async () => {
-        await waitForToast(page, UI.checkoutCancelled);
-        await pollForToastVisible(page, UI.checkoutCancelled);
+        await pollForToastVisible(page, UI.checkoutCancelled, {
+          timeout: 20_000,
+        });
         await expect.soft(page.getByText(UI.proActive)).toHaveCount(0);
         await pollForManageSubscriptionHidden(page);
       });

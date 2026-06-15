@@ -78,6 +78,8 @@ export default defineConfig({
           url: `${baseURL}/api/health`,
           reuseExistingServer: true,
           timeout: 90_000,
+          stdout: "pipe",
+          stderr: "pipe",
         },
       }),
 });
