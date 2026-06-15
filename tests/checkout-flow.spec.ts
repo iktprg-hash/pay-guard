@@ -1,14 +1,13 @@
 import { test, expect } from "./fixtures/auth";
 import {
   isBillingEnabledOnPricing,
-  mockBillingConfirmSuccess,
-  mockStripeCheckoutSuccess,
+  mockStripeBillingFlow,
   mockSubscriptionTier,
 } from "./helpers/billing-mocks";
 import {
   UI,
-  pollUntilHidden,
-  pollUntilVisible,
+  pollForNoUpgradeGate,
+  pollForProUnlocked,
   pricingPath,
   proPageHeading,
   proPath,
@@ -37,12 +36,11 @@ test.describe("Checkout flow", () => {
       );
 
       const tier = mockSubscriptionTier(page);
-      await mockBillingConfirmSuccess(page);
+      await mockStripeBillingFlow(page, baseURL!);
 
       await test.step("Start mocked Stripe checkout from pricing", async () => {
         tier.setTier("free");
         await page.goto(pricingPath());
-        await mockStripeCheckoutSuccess(page, baseURL!);
 
         const upgradeButton = page.getByRole("button", {
           name: /upgrade|přejít na pro|перейти на pro/i,
@@ -60,10 +58,7 @@ test.describe("Checkout flow", () => {
 
       await test.step("Pricing shows Manage Subscription for Pro", async () => {
         await page.reload();
-
-        await pollUntilVisible(
-          page.getByRole("button", { name: UI.manageSubscription })
-        );
+        await pollForProUnlocked(page);
 
         await expect.soft(
           page.getByRole("button", { name: UI.manageSubscription })
@@ -78,11 +73,8 @@ test.describe("Checkout flow", () => {
           proPageHeading(page, /dashboard|přehled|дашборд/i)
         ).toBeVisible();
 
-        await pollUntilHidden(
-          page.getByRole("region", { name: UI.upgradeBanner }).first()
-        );
-
-        await expect(
+        await pollForNoUpgradeGate(page);
+        await expect.soft(
           page.getByRole("region", { name: UI.upgradeBanner })
         ).toHaveCount(0);
       });

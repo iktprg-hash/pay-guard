@@ -42,7 +42,7 @@ Otevřete [http://127.0.0.1:3000/cs](http://127.0.0.1:3000/cs) — používejte 
 ```bash
 npm run auth:setup   # checklist Supabase Auth
 npm test
-npm run test:e2e:install   # Playwright Chromium (jednorázově)
+npm run test:e2e:install   # Playwright browsers + deps (jednorázově)
 npm run build
 npm run db:verify    # ověření schématu (vyžaduje DATABASE_URL nebo Supabase)
 ```
@@ -80,13 +80,15 @@ npm run test:e2e:install
 
 Auth storage se ukládá do `playwright/.auth/user.json` (gitignored) přes `tests/auth.setup.ts`.
 
+**Konfigurace:** timeout 90 s, `reuseExistingServer: true`, reporter `list` + HTML lokálně / `dot` + HTML v CI. Všechny URL respektují locale prefix (`E2E_LOCALE`, default `/cs`).
+
 ### Spuštění
 
 **Doporučený lokální workflow** (vyhne se EMFILE / file watcher limitům):
 
 ```bash
-# Terminál 1
-npm run dev
+# Terminál 1 — vždy po větších změnách nebo HTTP 500:
+npm run dev:restart
 
 # Terminál 2
 npm run test:e2e:local                  # všechny E2E
@@ -103,6 +105,17 @@ Plný běh včetně auto-startu dev serveru:
 npm run test:e2e
 ```
 
+### Troubleshooting
+
+| Symptom | Fix |
+|---------|-----|
+| Mass E2E failures (login, smoke, health) | Corrupted `.next/dev/prerender-manifest.json` → **HTTP 500**. Fix: `npm run dev:restart` |
+| `E2E preflight: /api/health returned HTTP 500` | Same — run `npm run dev:restart` (clears `.next` and restarts) |
+| `EMFILE: too many open files` | Run `npm run dev` in a separate terminal, then `npm run test:e2e:local` |
+| Checkout / pricing guest tests **skipped** | Add `STRIPE_SECRET_KEY` + `STRIPE_PRO_PRICE_ID` to `.env.local` |
+
+Preflight check (`tests/global-setup.ts`) verifies `/api/health` before tests when using `E2E_NO_WEBSERVER=1`.
+
 ### Co testy pokrývají
 
 | Soubor | Scénáře |
@@ -112,7 +125,7 @@ npm run test:e2e
 | `tests/checkout-flow.spec.ts` | Guest → pricing → login; Free → mock Stripe checkout → Pro UI |
 | `tests/pro-gating.spec.ts` | Free gate/blur, PDF blocked, Pro full access, tier poll |
 
-Stripe se v checkout testech mockuje přes `page.route` (`tests/helpers/billing-mocks.ts`). Checkout test se **skipne**, pokud není nakonfigurován `STRIPE_SECRET_KEY` + `STRIPE_PRO_PRICE_ID`.
+Stripe se v checkout testech mockuje přes `page.route` (`tests/helpers/billing-mocks.ts` — checkout, confirm, sync). Pro stabilní UI se používá `expect.poll()` (`pollForProUnlocked`, `pollForNoUpgradeGate`). Checkout test se **skipne**, pokud není nakonfigurován `STRIPE_SECRET_KEY` + `STRIPE_PRO_PRICE_ID`.
 
 ### Projects (playwright.config.ts)
 

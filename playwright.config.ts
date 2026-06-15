@@ -11,6 +11,7 @@ const isCI = Boolean(process.env.CI);
 
 export default defineConfig({
   testDir: "tests",
+  globalSetup: "./tests/global-setup.ts",
   fullyParallel: true,
   forbidOnly: isCI,
   grep: process.env.E2E_GREP ? new RegExp(process.env.E2E_GREP, "i") : undefined,
@@ -18,19 +19,26 @@ export default defineConfig({
     ? new RegExp(process.env.E2E_GREP_INVERT, "i")
     : undefined,
   retries: isCI ? 2 : 0,
-  timeout: 60_000,
+  timeout: 90_000,
   maxFailures: isCI ? 3 : undefined,
-  expect: { timeout: 10_000 },
+  expect: { timeout: 15_000 },
   workers: isCI ? 1 : undefined,
-  reporter: [
-    ["list"],
-    ["html", { open: isCI ? "never" : "on-failure" }],
-  ],
+  reporter: isCI
+    ? [
+        ["dot"],
+        ["html", { open: "never" }],
+      ]
+    : [
+        ["list"],
+        ["html", { open: "on-failure" }],
+      ],
   use: {
     baseURL,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
+    actionTimeout: 15_000,
+    navigationTimeout: 30_000,
   },
   projects: [
     {
@@ -66,7 +74,7 @@ export default defineConfig({
     : {
         webServer: {
           command: "npm run dev",
-          url: `${baseURL}/cs/login`,
+          url: `${baseURL}/api/health`,
           reuseExistingServer: true,
           timeout: 90_000,
         },

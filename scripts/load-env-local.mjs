@@ -10,7 +10,14 @@ export function loadEnvLocal(root) {
       if (!trimmed || trimmed.startsWith("#")) continue;
       const m = trimmed.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
       if (m && !process.env[m[1]]) {
-        process.env[m[1]] = m[2];
+        let value = m[2];
+        if (
+          (value.startsWith('"') && value.endsWith('"')) ||
+          (value.startsWith("'") && value.endsWith("'"))
+        ) {
+          value = value.slice(1, -1);
+        }
+        process.env[m[1]] = value;
       }
     }
   } catch {

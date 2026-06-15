@@ -1,6 +1,6 @@
-import type { Page } from "@playwright/test";
-import { E2E_LOCALE } from "../fixtures/auth";
+import { expect, type Page } from "@playwright/test";
 import { pricingPath, UI } from "./test-utils";
+import { gotoExpectOk } from "./server-health";
 
 export type SubscriptionTierMock = "free" | "pro";
 
@@ -9,21 +9,25 @@ export interface TierMockController {
   getTier: () => SubscriptionTierMock;
 }
 
+const TIER_BODY = (tier: SubscriptionTierMock) => {
+  const isPro = tier !== "free";
+  return {
+    tier,
+    pro: isPro,
+    isProEnabled: isPro,
+    expiresAt: isPro ? "2099-01-01T00:00:00.000Z" : null,
+  };
+};
+
 /** Mutable /api/auth/tier mock for checkout and Pro gating flows. */
 export function mockSubscriptionTier(page: Page): TierMockController {
   let tier: SubscriptionTierMock = "free";
 
   void page.route("**/api/auth/tier", async (route) => {
-    const isPro = tier !== "free";
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({
-        tier,
-        pro: isPro,
-        isProEnabled: isPro,
-        expiresAt: isPro ? "2099-01-01T00:00:00.000Z" : null,
-      }),
+      body: JSON.stringify(TIER_BODY(tier)),
     });
   });
 
@@ -37,15 +41,26 @@ export function mockSubscriptionTier(page: Page): TierMockController {
   };
 }
 
+function billingUrls(baseURL: string, sessionId: string) {
+  return {
+    successUrl: `${baseURL}${pricingPath()}?checkout=success&session_id=${sessionId}`,
+    cancelUrl: `${baseURL}${pricingPath()}?checkout=cancelled`,
+  };
+}
+
 /** Mock Stripe Checkout redirect back to pricing success URL. */
 export async function mockStripeCheckoutSuccess(
   page: Page,
   baseURL: string,
   sessionId = "cs_test_e2e_mock"
 ): Promise<string> {
-  const successUrl = `${baseURL}${pricingPath()}?checkout=success&session_id=${sessionId}`;
+  const { successUrl } = billingUrls(baseURL, sessionId);
 
   await page.route("**/api/billing/checkout", async (route) => {
+    if (route.request().method() !== "POST") {
+      await route.fallback();
+      return;
+    }
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -64,9 +79,13 @@ export async function mockStripeCheckoutCancel(
   page: Page,
   baseURL: string
 ): Promise<string> {
-  const cancelUrl = `${baseURL}${pricingPath()}?checkout=cancelled`;
+  const { cancelUrl } = billingUrls(baseURL, "unused");
 
   await page.route("**/api/billing/checkout", async (route) => {
+    if (route.request().method() !== "POST") {
+      await route.fallback();
+      return;
+    }
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -80,17 +99,53 @@ export async function mockStripeCheckoutCancel(
 /** Mock successful checkout confirmation (fallback when webhook is delayed). */
 export async function mockBillingConfirmSuccess(page: Page): Promise<void> {
   await page.route("**/api/billing/confirm", async (route) => {
+    if (route.request().method() !== "POST") {
+      await route.fallback();
+      return;
+    }
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ pro: true }),
+      body: JSON.stringify({ pro: true, tier: "pro" }),
     });
   });
 }
 
+/** Mock billing sync endpoint (used when session_id is absent). */
+export async function mockBillingSyncSuccess(page: Page): Promise<void> {
+  await page.route("**/api/billing/sync", async (route) => {
+    if (route.request().method() !== "POST") {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ pro: true, tier: "pro" }),
+    });
+  });
+}
+
+/**
+ * Full Stripe checkout mock — checkout redirect + confirm + sync.
+ * Use with {@link mockSubscriptionTier} and tier.setTier("pro") after success redirect.
+ */
+export async function mockStripeBillingFlow(
+  page: Page,
+  baseURL: string,
+  sessionId = "cs_test_e2e_mock"
+): Promise<{ successUrl: string; cancelUrl: string }> {
+  const urls = billingUrls(baseURL, sessionId);
+  await mockStripeCheckoutSuccess(page, baseURL, sessionId);
+  await mockBillingConfirmSuccess(page);
+  await mockBillingSyncSuccess(page);
+  return urls;
+}
+
 /** Returns true when pricing page exposes a live Upgrade CTA (Stripe configured). */
 export async function isBillingEnabledOnPricing(page: Page): Promise<boolean> {
-  await page.goto(pricingPath());
+  await gotoExpectOk(page, pricingPath());
+
   const upgrade = page.getByRole("button", {
     name: /upgrade|přejít na pro|перейти на pro/i,
   });
@@ -98,6 +153,34 @@ export async function isBillingEnabledOnPricing(page: Page): Promise<boolean> {
   const manage = page.getByRole("button", {
     name: /manage subscription|spravovat|управлять/i,
   });
+
+  await expect
+    .poll(
+      async () => {
+        if (
+          await page
+            .getByText(/^internal server error$/i)
+            .isVisible()
+            .catch(() => false)
+        ) {
+          return "error";
+        }
+        if (await manage.isVisible().catch(() => false)) return "pro";
+        if (await loginToUpgrade.isVisible().catch(() => false)) return "login";
+        if (await upgrade.isVisible().catch(() => false)) {
+          return (await upgrade.isEnabled()) ? "upgrade" : "disabled";
+        }
+        return "loading";
+      },
+      { timeout: 20_000, intervals: [250, 500, 1000] }
+    )
+    .not.toBe("loading")
+    .then(() => "ok")
+    .catch(() => {
+      throw new Error(
+        `Pricing actions never settled at ${page.url()}. npm run dev:restart`
+      );
+    });
 
   if (await manage.isVisible().catch(() => false)) return false;
   if (await upgrade.isVisible().catch(() => false)) {

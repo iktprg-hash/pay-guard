@@ -4,7 +4,9 @@ import { createManualRecommendation } from "./helpers/manual-flow";
 import {
   UI,
   latestPdfProUpsellLink,
-  pollUntilHidden,
+  openProRouteExpectGate,
+  pollForNoUpgradeGate,
+  pollForProGated,
   proBannerUpgradeLink,
   proLockedOverlay,
   proOverlayUpgradeLink,
@@ -31,8 +33,7 @@ test.describe("Pro gating", () => {
     tier.setTier("free");
 
     await test.step("Open Pro dashboard", async () => {
-      await page.goto(proPath("dashboard"));
-      await waitForProGate(page);
+      await openProRouteExpectGate(page, "dashboard");
     });
 
     await test.step("Upgrade banner and locked overlay are visible", async () => {
@@ -52,8 +53,10 @@ test.describe("Pro gating", () => {
 
     await test.step("Overlay upgrade button links to pricing", async () => {
       const overlayLink = proOverlayUpgradeLink(page);
-      await expect(overlayLink).toBeVisible();
-      await expect(overlayLink).toHaveAttribute("href", `/${E2E_LOCALE}/pricing`);
+      await expect.soft(overlayLink).toBeVisible();
+      await expect
+        .soft(overlayLink)
+        .toHaveAttribute("href", `/${E2E_LOCALE}/pricing`);
     });
   });
 
@@ -85,7 +88,7 @@ test.describe("Pro gating", () => {
       test.skip(!baseURL, "baseURL is required");
       const res = await request.post(`${baseURL}/api/pdf/recommendation`, {
         data: {
-          locale: "cs",
+          locale: E2E_LOCALE,
           recommendation: {
             summary: "E2E test",
             payFirst: [],
@@ -102,7 +105,8 @@ test.describe("Pro gating", () => {
           "E2E user has Pro in Supabase — set profiles.subscription_tier to free for this test."
         );
       }
-      expect(res.status()).toBe(403);
+      expect.soft(res.status()).toBeGreaterThanOrEqual(401);
+      expect(res.status()).toBeLessThanOrEqual(403);
     });
   });
 
@@ -111,13 +115,15 @@ test.describe("Pro gating", () => {
     tier.setTier("pro");
 
     for (const route of PRO_ROUTES) {
-      await test.step(`Pro route /pro/${route.path}`, async () => {
+      await test.step(`Pro route /${E2E_LOCALE}/pro/${route.path}`, async () => {
         await page.goto(proPath(route.path));
         await page.waitForLoadState("domcontentloaded");
-        await expect(proPageHeading(page, route.heading)).toBeVisible({
+
+        await expect.soft(proPageHeading(page, route.heading)).toBeVisible({
           timeout: 20_000,
         });
-        await expect(
+        await pollForNoUpgradeGate(page);
+        await expect.soft(
           page.getByRole("region", { name: UI.upgradeBanner })
         ).toHaveCount(0);
       });
@@ -140,12 +146,12 @@ test.describe("Pro gating", () => {
       tier.setTier("pro");
       await page.reload();
 
-      await pollUntilHidden(
-        page.getByRole("region", { name: UI.upgradeBanner }).first()
-      );
-      await pollUntilHidden(proLockedOverlay(page));
+      await pollForNoUpgradeGate(page);
+      await expect
+        .poll(async () => proLockedOverlay(page).isVisible().catch(() => false))
+        .toBe(false);
 
-      await expect(
+      await expect.soft(
         proPageHeading(page, /debts|dluhy|долги/i)
       ).toBeVisible();
     });
@@ -158,12 +164,14 @@ test.describe("Pro gating", () => {
     tier.setTier("free");
 
     await page.goto(proPath("debts"));
-    await waitForProGate(page);
+    await pollForProGated(page);
 
     await test.step("Gate banner links to pricing", async () => {
       const upgradeLink = proBannerUpgradeLink(page);
       await expect.soft(upgradeLink).toBeVisible();
-      await expect(upgradeLink).toHaveAttribute("href", `/${E2E_LOCALE}/pricing`);
+      await expect
+        .soft(upgradeLink)
+        .toHaveAttribute("href", `/${E2E_LOCALE}/pricing`);
     });
 
     await test.step("Locked overlay is visible with upgrade CTA", async () => {

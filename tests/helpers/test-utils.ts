@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import { E2E_LOCALE } from "../fixtures/auth";
+import { gotoExpectOk } from "./server-health";
 
 /** Locale-aware regex helpers for next-intl UI copy. */
 export const UI = {
@@ -136,10 +137,90 @@ export function proOverlayUpgradeLink(page: Page): Locator {
 
 /** Wait until tier gate finishes loading and the upgrade banner appears. */
 export async function waitForProGate(page: Page): Promise<void> {
-  await page.waitForLoadState("domcontentloaded");
   await expect(
     page.getByRole("region", { name: UI.upgradeBanner }).first()
   ).toBeVisible({ timeout: 20_000 });
+}
+
+/** Open a Pro route and wait for the Free-tier upgrade gate. */
+export async function openProRouteExpectGate(
+  page: Page,
+  segment: string
+): Promise<void> {
+  await gotoExpectOk(page, proPath(segment));
+  await page.waitForResponse(
+    (res) => res.url().includes("/api/auth/tier") && res.ok(),
+    { timeout: 20_000 }
+  );
+  await waitForProGate(page);
+}
+
+/** Poll until Pro gate is visible (Free tier). */
+export async function pollForProGated(
+  page: Page,
+  options: { timeout?: number } = {}
+): Promise<void> {
+  await expect
+    .poll(
+      async () =>
+        page
+          .getByRole("region", { name: UI.upgradeBanner })
+          .first()
+          .isVisible()
+          .catch(() => false),
+      {
+        timeout: options.timeout ?? 20_000,
+        intervals: [300, 500, 1000],
+      }
+    )
+    .toBe(true);
+}
+
+/** Poll until Pro UI is unlocked (Manage subscription / no upgrade gate). */
+export async function pollForProUnlocked(
+  page: Page,
+  options: { timeout?: number } = {}
+): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        const manageVisible = await page
+          .getByRole("button", { name: UI.manageSubscription })
+          .isVisible()
+          .catch(() => false);
+        const proActiveVisible = await page
+          .getByText(UI.proActive)
+          .isVisible()
+          .catch(() => false);
+        const gateCount = await page
+          .getByRole("region", { name: UI.upgradeBanner })
+          .count()
+          .catch(() => -1);
+        return (manageVisible || proActiveVisible) && gateCount === 0;
+      },
+      {
+        timeout: options.timeout ?? 25_000,
+        intervals: [300, 500, 1000],
+      }
+    )
+    .toBe(true);
+}
+
+/** Poll until upgrade gate count is zero on current page. */
+export async function pollForNoUpgradeGate(
+  page: Page,
+  options: { timeout?: number } = {}
+): Promise<void> {
+  await expect
+    .poll(
+      async () =>
+        page.getByRole("region", { name: UI.upgradeBanner }).count(),
+      {
+        timeout: options.timeout ?? 20_000,
+        intervals: [300, 500, 1000],
+      }
+    )
+    .toBe(0);
 }
 
 /** Poll until a locator becomes visible (subscription/UI state changes). */

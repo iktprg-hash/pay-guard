@@ -1,12 +1,14 @@
 #!/usr/bin/env node
-/** Kill stale Next.js dev server and restart Pay Guard on :3000 */
+/** Kill stale Next.js dev server, clear .next cache, restart on :3000 */
 import { execSync, spawn } from "node:child_process";
-import { readFileSync, existsSync } from "node:fs";
+import { existsSync, readFileSync, rmSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isDevCacheCorrupt } from "./check-dev-cache.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const lockPath = join(root, ".next", "dev", "lock");
+const nextDir = join(root, ".next");
 
 function killPort(port) {
   try {
@@ -43,6 +45,15 @@ if (existsSync(lockPath)) {
 }
 
 killPort(3000);
+
+if (existsSync(nextDir) && isDevCacheCorrupt()) {
+  console.log("Removing corrupted .next dev cache (prerender-manifest.json)…");
+}
+
+if (existsSync(nextDir)) {
+  rmSync(nextDir, { recursive: true, force: true });
+  console.log("Removed .next cache");
+}
 
 console.log("Starting dev server on http://127.0.0.1:3000 …");
 const child = spawn("npm", ["run", "dev"], {
