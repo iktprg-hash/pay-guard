@@ -27,4 +27,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Webhook idempotency fail-closed in production without service role
 - Pro API guards (`requireProApiWithRateLimit`) on PDF, sessions, and chat history routes
 
+### Fixed
+
+- E2E CI: pass `UPSTASH_*` secrets to prod server startup (`instrumentation` assert)
+- Prod Check CI: scope `NODE_ENV=production` to checklist step only (build no longer fails on GHA)
+- `prod:checklist` / `db:verify`: explicit `ws` transport for Supabase client on Node.js 20 (GHA runners)
+
 [0.2.0]: https://github.com/iktprg-hash/pay-guard/releases/tag/v0.2.0
