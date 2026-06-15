@@ -7,6 +7,7 @@ import { extractSupabaseUserId } from "@/lib/billing/subscription-sync";
 import {
   isStripeEventProcessed,
   markStripeEventType,
+  releaseStripeEventLock,
 } from "@/lib/billing/webhook-idempotency";
 import { getStripeClient } from "@/lib/billing/stripe-client";
 
@@ -99,6 +100,7 @@ export async function handleStripeWebhookEvent(
     return { ok: true };
   } catch (error) {
     console.error("[stripe/webhook] handler error", event.type, error);
+    await releaseStripeEventLock(event.id);
     return { ok: false, status: 500, error: "Webhook handler failed" };
   }
 }

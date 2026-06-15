@@ -13,11 +13,12 @@ export async function isStripeEventProcessed(eventId: string): Promise<boolean> 
 
   const { data: existing } = await supabase
     .from("stripe_webhook_events")
-    .select("id")
+    .select("id, event_type")
     .eq("id", eventId)
     .maybeSingle();
 
-  if (existing?.id) return true;
+  // Fully processed — skip. "pending" means a prior attempt failed mid-handler.
+  if (existing?.id && existing.event_type !== "pending") return true;
 
   const { error } = await supabase.from("stripe_webhook_events").insert({
     id: eventId,
@@ -43,4 +44,16 @@ export async function markStripeEventType(
     .from("stripe_webhook_events")
     .update({ event_type: eventType })
     .eq("id", eventId);
+}
+
+/** Drop pending lock so Stripe retries can re-run the handler after 500. */
+export async function releaseStripeEventLock(eventId: string): Promise<void> {
+  const supabase = createServiceClient();
+  if (!supabase) return;
+
+  await supabase
+    .from("stripe_webhook_events")
+    .delete()
+    .eq("id", eventId)
+    .eq("event_type", "pending");
 }
