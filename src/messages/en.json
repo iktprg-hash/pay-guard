@@ -486,6 +486,7 @@
       "amount": "Amount",
       "category": "Category",
       "frequency": "Frequency",
+      "nextDate": "Next date",
       "emptyTitle": "No recurring expenses",
       "emptyDescription": "Track regular expenses for a clearer monthly forecast.",
       "categories": {

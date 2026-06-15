@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
   try {
     const { recommendation, profile, locale } = parsed.data;
     const pdfBuffer = await renderRecommendationPdfBuffer({
-      recommendation,
+      recommendation: recommendation as PrioritizationResult,
       profile: profile as FinancialProfile | undefined,
       locale,
     });

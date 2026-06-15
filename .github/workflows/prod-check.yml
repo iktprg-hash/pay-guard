@@ -1,0 +1,60 @@
+# Lightweight production gate — build + env checklist on every push to main.
+name: Prod Check
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: prod-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  prod-check:
+    name: Build & prod checklist
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      CI: true
+      NODE_ENV: production
+      # Required for prod:checklist blockers (configure as repository secrets).
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
+      UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+      # Optional — fewer warnings in checklist when set.
+      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+      STRIPE_PRO_PRICE_ID: ${{ secrets.STRIPE_PRO_PRICE_ID }}
+      STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+      XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+      NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Production build
+        run: npm run build
+
+      - name: Run production checklist
+        run: npm run prod:checklist
+
+      # Skipped when Upstash secrets are absent — prod:checklist already flags missing vars.
+      - name: Verify Upstash (optional)
+        run: |
+          if [ -z "$UPSTASH_REDIS_REST_URL" ] || [ -z "$UPSTASH_REDIS_REST_TOKEN" ]; then
+            echo "Skipping verify:upstash — Upstash secrets not configured"
+            exit 0
+          fi
+          npm run verify:upstash

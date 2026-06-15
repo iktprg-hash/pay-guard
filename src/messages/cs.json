@@ -486,6 +486,7 @@
       "amount": "Částka",
       "category": "Kategorie",
       "frequency": "Frekvence",
+      "nextDate": "Další datum",
       "emptyTitle": "Žádné pravidelné výdaje",
       "emptyDescription": "Sledujte pravidelné výdaje pro měsíční prognózu.",
       "categories": {

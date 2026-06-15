@@ -453,7 +453,7 @@ Soukromý projekt — kontaktujte autora pro použití mimo osobní účely.
 - [ ] **Stripe webhook настроен и протестирован** — endpoint на production-домене; `npm run verify:webhook` + `npm run verify:stripe`
 - [ ] **Rate limits проверены** — `UPSTASH_REDIS_REST_URL` + `TOKEN` в production; `npm run verify:upstash`
 - [ ] **PWA assets обновлены** — `npm run pwa:assets` (иконки + splash в `/public/icons/` и `/public/splash/`)
-- [ ] **GitHub Actions E2E passed** — workflow **E2E Tests** зелёный на PR / push в `main`; при падении скачайте artifact `playwright-report`
+- [ ] **GitHub Actions (E2E + Prod Check) зелёные** — workflows **E2E Tests** и **Prod Check** зелёные на push в `main`; при падении E2E скачайте artifact `playwright-report`
 
 ### Быстрый блок команд
 
