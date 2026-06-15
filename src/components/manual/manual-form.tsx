@@ -272,7 +272,7 @@ export function ManualForm() {
       )}
 
       {result && (
-        <RecommendationCard result={result} />
+        <RecommendationCard result={result} profile={profile} />
       )}
     </form>
   );

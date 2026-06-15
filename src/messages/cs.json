@@ -132,7 +132,13 @@
     "level2": "Střední",
     "level3": "Nízký",
     "exportPdf": "Stáhnout PDF",
-    "exportPdfPro": "PDF — Pro"
+    "exportPdfPro": "PDF — Pro",
+    "downloadPdf": "Stáhnout PDF",
+    "generatingPdf": "Generuji PDF…",
+    "pdfSuccess": "PDF bylo staženo",
+    "pdfFailed": "PDF se nepodařilo vygenerovat",
+    "pdfProOnly": "PDF export je dostupný v tarifu Pro",
+    "pdfMissing": "V této konzultaci není uložené doporučení"
   },
   "manual": {
     "title": "Ruční zadání",
@@ -386,6 +392,8 @@
       "urgentDebtsTitle": "Naléhavé dluhy",
       "urgentDebtsDescription": "Priorita 0–1 — brzy splatné nebo kritické.",
       "manageDebts": "Spravovat dluhy",
+      "downloadPdf": "Stáhnout PDF",
+      "generatingPdf": "Generuji PDF…",
       "noUrgentDebts": "Žádné naléhavé dluhy",
       "noUrgentDebtsHint": "Přidejte dluhy pro zobrazení priorit.",
       "addDebt": "Přidat dluh",

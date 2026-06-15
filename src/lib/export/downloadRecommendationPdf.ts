@@ -1,0 +1,52 @@
+import type {
+  FinancialProfile,
+  PrioritizationResult,
+  UserFinancialProfile,
+} from "@/lib/types/financial";
+import type { Locale } from "@/i18n/routing";
+
+export class PdfDownloadError extends Error {
+  constructor(
+    message: string,
+    readonly code?: string
+  ) {
+    super(message);
+    this.name = "PdfDownloadError";
+  }
+}
+
+export interface DownloadRecommendationPdfOptions {
+  recommendation: PrioritizationResult;
+  profile?: FinancialProfile | UserFinancialProfile;
+  locale: Locale;
+}
+
+/** Download Pro recommendation PDF from server API. */
+export async function downloadRecommendationPdf(
+  options: DownloadRecommendationPdfOptions
+): Promise<void> {
+  const res = await fetch("/api/pdf/recommendation", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(options),
+  });
+
+  if (res.status === 403) {
+    const data = (await res.json().catch(() => ({}))) as { code?: string };
+    throw new PdfDownloadError("Pro subscription required", data.code ?? "PRO_REQUIRED");
+  }
+
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new PdfDownloadError(data.error ?? "PDF generation failed");
+  }
+
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `pay-guard-${new Date().toISOString().split("T")[0]}.pdf`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}

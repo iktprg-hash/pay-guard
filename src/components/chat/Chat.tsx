@@ -420,7 +420,12 @@ export function Chat() {
         ) : (
           <>
             {messages.map((msg) => (
-              <Message key={msg.id} message={msg} locale={dateLocale} />
+              <Message
+                key={msg.id}
+                message={msg}
+                locale={dateLocale}
+                profile={profile}
+              />
             ))}
             {isLoading && <TypingIndicator label={t("thinking")} />}
           </>

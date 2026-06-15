@@ -132,7 +132,13 @@
     "level2": "Medium",
     "level3": "Low",
     "exportPdf": "Download PDF",
-    "exportPdfPro": "PDF — Pro"
+    "exportPdfPro": "PDF — Pro",
+    "downloadPdf": "Download PDF",
+    "generatingPdf": "Generating PDF…",
+    "pdfSuccess": "PDF downloaded",
+    "pdfFailed": "Could not generate PDF",
+    "pdfProOnly": "PDF export is available on Pro",
+    "pdfMissing": "This consultation has no saved recommendation"
   },
   "manual": {
     "title": "Manual input",
@@ -386,6 +392,8 @@
       "urgentDebtsTitle": "Urgent debts",
       "urgentDebtsDescription": "Priority levels 0–1 — due soon or critical.",
       "manageDebts": "Manage debts",
+      "downloadPdf": "Download PDF",
+      "generatingPdf": "Generating PDF…",
       "noUrgentDebts": "No urgent debts",
       "noUrgentDebtsHint": "Add debts to see prioritization here.",
       "addDebt": "Add debt",

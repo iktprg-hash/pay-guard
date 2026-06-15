@@ -6,14 +6,17 @@ import {
   AlertOctagon,
   AlertTriangle,
   ArrowRight,
+  Download,
   LayoutDashboard,
+  Loader2,
   Sparkles,
   TrendingDown,
   TrendingUp,
   Wallet,
 } from "lucide-react";
-import { analyzeDebt } from "@/services/priorityEngine";
+import { analyzeDebt, runPriorityEngine } from "@/services/priorityEngine";
 import { useProFinancialSummary } from "@/hooks/useProFinancial";
+import { useRecommendationPdfDownload } from "@/hooks/use-recommendation-pdf";
 import { DashboardSkeleton } from "@/components/pro/pro-skeletons";
 import { ProEmptyState, ProPageHeader, StatCard } from "@/components/pro/pro-page";
 import { Button } from "@/components/ui/button";
@@ -35,8 +38,9 @@ import {
 } from "@/components/ui/table";
 import { formatDate, formatMoney } from "@/lib/utils";
 import { isPaidTier } from "@/lib/types/financial";
-import type { Debt } from "@/lib/types/financial";
+import type { Debt, FinancialProfile } from "@/lib/types/financial";
 import type { Locale } from "@/i18n/routing";
+import { hasMinimumRecommendationData } from "@/lib/grok/recommendation-readiness";
 
 /** Whether the profile has no meaningful financial data yet. */
 function isProfileEmpty(summary: ReturnType<typeof useProFinancialSummary>["summary"]) {
@@ -115,6 +119,32 @@ export function ProDashboardView() {
   const locale = useLocale() as Locale;
   const { summary, isLoading, isError, error, refetch } =
     useProFinancialSummary();
+  const { downloadPdf, isGenerating, isPro } = useRecommendationPdfDownload();
+
+  const handleDownloadPdf = () => {
+    if (!summary.profile) return;
+
+    const profile: FinancialProfile = {
+      availableFunds: summary.profile.availableFunds,
+      monthlyIncome: summary.profile.monthlyIncome,
+      monthlyExpenses: summary.profile.monthlyExpenses,
+      incomeStability: summary.profile.incomeStability,
+      debts: summary.profile.debts,
+    };
+
+    if (!hasMinimumRecommendationData(profile)) return;
+
+    const recommendation = runPriorityEngine(profile, locale);
+    void downloadPdf({ recommendation, profile, locale });
+  };
+
+  const canExportPdf =
+    isPro &&
+    summary.profile &&
+    hasMinimumRecommendationData({
+      availableFunds: summary.profile.availableFunds,
+      debts: summary.profile.debts,
+    });
 
   if (isLoading) {
     return <DashboardSkeleton />;
@@ -147,7 +177,28 @@ export function ProDashboardView() {
 
   return (
     <div className="space-y-8">
-      <ProPageHeader title={t("title")} description={t("subtitle")} />
+      <ProPageHeader
+        title={t("title")}
+        description={t("subtitle")}
+        action={
+          canExportPdf ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              disabled={isGenerating}
+              onClick={handleDownloadPdf}
+            >
+              {isGenerating ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              ) : (
+                <Download className="h-4 w-4" aria-hidden />
+              )}
+              {isGenerating ? t("generatingPdf") : t("downloadPdf")}
+            </Button>
+          ) : undefined
+        }
+      />
 
       {!paid && (
         <Card className="overflow-hidden border-primary/30 bg-gradient-to-r from-primary/5 to-transparent">

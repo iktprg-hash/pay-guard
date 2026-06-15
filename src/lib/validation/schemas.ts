@@ -49,6 +49,39 @@ export const prioritizeRequestSchema = z.object({
   locale: z.enum(LOCALES).default("cs"),
 });
 
+const paymentRecommendationSchema = z.object({
+  debtId: z.string().min(1).max(100),
+  creditor: z.string().min(1).max(200),
+  recommendedAmount: z.number().min(0).max(100_000_000),
+  priority: z.number(),
+  priorityLevel: z.union([
+    z.literal(0),
+    z.literal(1),
+    z.literal(2),
+    z.literal(3),
+  ]).optional(),
+  reason: z.string().max(2_000),
+  explanation: z.string().max(4_000),
+  category: debtCategoryEnum,
+});
+
+export const prioritizationResultSchema = z.object({
+  recommendations: z.array(paymentRecommendationSchema).max(50),
+  totalAllocated: z.number().min(0).max(100_000_000),
+  remainingFunds: z.number(),
+  lifeBuffer: z.number().min(0).max(100_000_000),
+  lifeBufferPercent: z.number().min(0).max(1),
+  spendableFunds: z.number().min(0).max(100_000_000),
+  summary: z.string().max(4_000),
+  warnings: z.array(z.string().max(1_000)).max(20),
+});
+
+export const pdfRecommendationRequestSchema = z.object({
+  recommendation: prioritizationResultSchema,
+  profile: financialProfileSchema.optional(),
+  locale: z.enum(LOCALES),
+});
+
 export const storedMessageSchema = z.object({
   id: z.string().uuid(),
   role: z.enum(["user", "assistant", "system"]),

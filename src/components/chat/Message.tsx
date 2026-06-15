@@ -4,11 +4,12 @@ import { Shield, User } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { RecommendationCard } from "./recommendation-card";
-import type { ChatMessage } from "@/lib/types/financial";
+import type { ChatMessage, FinancialProfile } from "@/lib/types/financial";
 
 interface MessageProps {
   message: ChatMessage;
   locale?: string;
+  profile?: FinancialProfile;
 }
 
 /** Jednoduchý markdown: **bold**, *italic*, odrážky */
@@ -47,7 +48,7 @@ function formatContent(text: string) {
   });
 }
 
-export function Message({ message, locale }: MessageProps) {
+export function Message({ message, locale, profile }: MessageProps) {
   const t = useTranslations("chat");
   const isUser = message.role === "user";
 
@@ -91,7 +92,10 @@ export function Message({ message, locale }: MessageProps) {
           </div>
 
           {message.recommendation && (
-            <RecommendationCard result={message.recommendation} />
+            <RecommendationCard
+              result={message.recommendation}
+              profile={profile}
+            />
           )}
 
           <time className="block text-[11px] text-muted-foreground/60">

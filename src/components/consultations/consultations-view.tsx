@@ -6,6 +6,8 @@ import { useLocale, useTranslations } from "next-intl";
 import {
   AlertTriangle,
   Cloud,
+  Download,
+  Loader2,
   MessageSquare,
   Plus,
   RefreshCw,
@@ -24,10 +26,13 @@ import {
   useChatHistory,
   type ConsultationSessionItem,
 } from "@/hooks/use-chat-history";
+import { useRecommendationPdfDownload } from "@/hooks/use-recommendation-pdf";
 import { useSubscriptionTier } from "@/hooks/use-subscription-tier";
+import { extractRecommendationFromMessages } from "@/lib/export/extractRecommendation";
 import type { Locale } from "@/i18n/routing";
 import { getIntlLocale } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { toast } from "@/components/ui/toast-provider";
 
 function formatDate(iso: string, locale: Locale): string {
   return new Date(iso).toLocaleString(getIntlLocale(locale), {
@@ -48,6 +53,11 @@ interface SessionCardProps {
   syncedLabel: string;
   localOnlyLabel: string;
   untitledLabel: string;
+  downloadPdfLabel: string;
+  generatingPdfLabel: string;
+  isPro: boolean;
+  isGeneratingPdf: boolean;
+  onDownloadPdf: (sessionId: string) => void;
 }
 
 function SessionCard({
@@ -59,6 +69,11 @@ function SessionCard({
   syncedLabel,
   localOnlyLabel,
   untitledLabel,
+  downloadPdfLabel,
+  generatingPdfLabel,
+  isPro,
+  isGeneratingPdf,
+  onDownloadPdf,
 }: SessionCardProps) {
   return (
     <article
@@ -109,12 +124,28 @@ function SessionCard({
         {formatDate(session.updatedAt, locale)}
       </time>
 
-      <div className="mt-auto pt-2">
+      <div className="mt-auto flex flex-col gap-2 pt-2 sm:flex-row">
         <Button asChild size="sm" className="w-full sm:w-auto">
           <Link href={`/${locale}?session=${session.sessionId}`}>
             {openLabel}
           </Link>
         </Button>
+        {session.hasRecommendation && isPro && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full gap-1.5 sm:w-auto"
+            disabled={isGeneratingPdf}
+            onClick={() => onDownloadPdf(session.sessionId)}
+          >
+            {isGeneratingPdf ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+            ) : (
+              <Download className="h-3.5 w-3.5" aria-hidden />
+            )}
+            {isGeneratingPdf ? generatingPdfLabel : downloadPdfLabel}
+          </Button>
+        )}
       </div>
     </article>
   );
@@ -122,17 +153,22 @@ function SessionCard({
 
 export function ConsultationsView() {
   const t = useTranslations("consultations");
+  const tRec = useTranslations("recommendation");
   const tErrors = useTranslations("errors");
   const locale = useLocale() as Locale;
   const { user, loading: authLoading } = useAuth();
   const { pro: hasProCloud } = useSubscriptionTier();
+  const { downloadPdf, isGenerating, isPro } = useRecommendationPdfDownload();
+  const [downloadingSessionId, setDownloadingSessionId] = useState<string | null>(
+    null
+  );
 
   const [sessions, setSessions] = useState<ConsultationSessionItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  const { listSessions } = useChatHistory({
+  const { listSessions, restore } = useChatHistory({
     locale,
     messages: [],
     profile: { availableFunds: 0, debts: [] },
@@ -166,6 +202,32 @@ export function ConsultationsView() {
   }, [authLoading, loadSessions]);
 
   const messagesLabel = (count: number) => t("messages", { count });
+
+  const handleDownloadPdf = useCallback(
+    async (sessionId: string) => {
+      setDownloadingSessionId(sessionId);
+      try {
+        const saved = await restore(sessionId);
+        const recommendation = saved
+          ? extractRecommendationFromMessages(saved.messages)
+          : null;
+
+        if (!saved || !recommendation) {
+          toast(tRec("pdfMissing"), "error");
+          return;
+        }
+
+        await downloadPdf({
+          recommendation,
+          profile: saved.profile,
+          locale,
+        });
+      } finally {
+        setDownloadingSessionId(null);
+      }
+    },
+    [downloadPdf, locale, restore, tRec]
+  );
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
@@ -238,6 +300,13 @@ export function ConsultationsView() {
                 syncedLabel={t("synced")}
                 localOnlyLabel={t("localOnly")}
                 untitledLabel={t("untitled")}
+                downloadPdfLabel={tRec("downloadPdf")}
+                generatingPdfLabel={tRec("generatingPdf")}
+                isPro={isPro}
+                isGeneratingPdf={
+                  isGenerating && downloadingSessionId === session.sessionId
+                }
+                onDownloadPdf={(sessionId) => void handleDownloadPdf(sessionId)}
               />
             </li>
           ))}
