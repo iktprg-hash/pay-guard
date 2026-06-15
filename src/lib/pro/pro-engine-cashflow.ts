@@ -7,6 +7,28 @@ import type {
 } from "@/lib/types/financial";
 import { toFinancialProfile } from "@/lib/types/financial";
 
+/** Aggregated Pro cash-flow metrics shared by summary, forecast, and Priority Engine. */
+export interface ProSummaryCashFlowMetrics {
+  /** Sum of recurring income catalog (monthly equivalent). */
+  monthlyRecurringIncome: number;
+  /** Sum of recurring expense catalog (monthly equivalent). */
+  monthlyRecurringExpense: number;
+  /** Income used by engine: recurring catalog preferred over session snapshot. */
+  resolvedMonthlyIncome: number;
+  /** Expenses used by engine: recurring catalog preferred over session snapshot. */
+  resolvedMonthlyExpenses: number;
+  /** Sum of minimum debt payments (or full balance when min is unset). */
+  minimumDebtPayments: number;
+  /** Real monthly cash flow: income − expenses − minimum debt payments. */
+  netMonthlyCashFlow: number;
+  /** Declared stability adjusted when net cash flow is negative. */
+  effectiveIncomeStability: IncomeStability | undefined;
+  /** First forecast month (0-based) where balance drops below zero. */
+  projectedDeficitMonthIndex: number | null;
+  /** True when recurring or snapshot income/expense data exists. */
+  hasCashFlowSignal: boolean;
+}
+
 export const PRO_ENGINE_FORECAST_MONTHS = 3;
 
 export interface ProEngineForecastMonth {
@@ -183,4 +205,43 @@ export function buildEngineProfileFromUser(
   profile: UserFinancialProfile
 ): FinancialProfile {
   return toFinancialProfile(profile);
+}
+
+/**
+ * Single source of truth for Pro dashboard, forecast, and Priority Engine cash flow.
+ * Delegates net/buffer/forecast math to {@link buildProEngineCashFlowContext}.
+ */
+export function buildProSummaryCashFlowMetrics(
+  profile: UserFinancialProfile | undefined,
+  now: Date = new Date()
+): ProSummaryCashFlowMetrics {
+  const recurringIncomes = profile?.recurringIncomes ?? [];
+  const recurringExpenses = profile?.recurringExpenses ?? [];
+
+  const monthlyRecurringIncome = sumRecurringMonthly(recurringIncomes);
+  const monthlyRecurringExpense = sumRecurringMonthly(recurringExpenses);
+
+  const engineProfile: FinancialProfile = profile
+    ? toFinancialProfile(profile)
+    : { availableFunds: 0, debts: [] };
+
+  const ctx = buildProEngineCashFlowContext(engineProfile, now);
+
+  const hasCashFlowSignal =
+    ctx.incomeFromRecurring ||
+    ctx.expensesFromRecurring ||
+    ctx.monthlyIncome > 0 ||
+    ctx.monthlyExpenses > 0;
+
+  return {
+    monthlyRecurringIncome,
+    monthlyRecurringExpense,
+    resolvedMonthlyIncome: ctx.monthlyIncome,
+    resolvedMonthlyExpenses: ctx.monthlyExpenses,
+    minimumDebtPayments: ctx.minimumDebtPayments,
+    netMonthlyCashFlow: ctx.netMonthlyCashFlow,
+    effectiveIncomeStability: ctx.effectiveStability,
+    projectedDeficitMonthIndex: ctx.projectedDeficitMonthIndex,
+    hasCashFlowSignal,
+  };
 }

@@ -89,16 +89,19 @@ function buildRecommendations(
   return recs;
 }
 
-/** Build a multi-month cash flow projection from Pro financial summary. */
+/**
+ * Build a multi-month cash flow projection from Pro financial summary.
+ * Uses the same net formula as Priority Engine ({@link buildProSummaryCashFlowMetrics}).
+ */
 export function buildCashFlowForecast(
   summary: ProFinancialSummary,
   monthCount: number = DEFAULT_FORECAST_MONTHS,
   now: Date = new Date()
 ): CashFlowForecastResult {
-  const income = summary.monthlyRecurringIncome;
-  const expenses = summary.monthlyRecurringExpense;
+  const income = summary.resolvedMonthlyIncome;
+  const expenses = summary.resolvedMonthlyExpenses;
   const debtPayments = summary.minimumPaymentsDue;
-  const netMonthlyChange = income - expenses - debtPayments;
+  const netMonthlyChange = summary.netMonthlyCashFlow;
 
   const hasData =
     summary.debtCount > 0 ||

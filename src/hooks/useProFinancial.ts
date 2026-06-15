@@ -60,7 +60,6 @@ import type {
   AppCurrency,
   Debt,
   FinancialProfile,
-  Frequency,
   PrioritizationResult,
   RecurringExpense,
   RecurringIncome,
@@ -68,6 +67,7 @@ import type {
 } from "@/lib/types/financial";
 import { DEFAULT_APP_CURRENCY } from "@/lib/types/financial";
 import { amountToMonthlyEquivalent } from "@/lib/financial/recurring-utils";
+import { buildProSummaryCashFlowMetrics } from "@/lib/pro/pro-engine-cashflow";
 import { analyzeDebt } from "@/services/priorityEngine";
 
 // ---------------------------------------------------------------------------
@@ -237,15 +237,6 @@ function patchProfileExpenses(
 /** Convert recurring amount to an approximate monthly equivalent. */
 export { amountToMonthlyEquivalent } from "@/lib/financial/recurring-utils";
 
-function sumMonthlyRecurring<T extends { amount: number; frequency: Frequency }>(
-  items: T[]
-): number {
-  return items.reduce(
-    (sum, item) => sum + amountToMonthlyEquivalent(item.amount, item.frequency),
-    0
-  );
-}
-
 function createOptimisticListMutationHandlers<T extends { id: string }>(
   queryClient: QueryClient,
   queryKey: QueryKey,
@@ -346,8 +337,16 @@ export interface ProFinancialSummary {
   urgentDebts: Debt[];
   monthlyRecurringIncome: number;
   monthlyRecurringExpense: number;
-  /** Recurring income minus recurring expenses (monthly equivalent). */
+  /** Income resolved for engine (recurring preferred over snapshot). */
+  resolvedMonthlyIncome: number;
+  /** Expenses resolved for engine (recurring preferred over snapshot). */
+  resolvedMonthlyExpenses: number;
+  /** Real monthly cash flow: income − expenses − minimum debt payments. */
   netMonthlyCashFlow: number;
+  /** Stability adjusted when net cash flow is negative (matches Priority Engine). */
+  effectiveIncomeStability?: UserFinancialProfile["incomeStability"];
+  /** First forecast month (0-based) with negative balance, if any. */
+  projectedDeficitMonthIndex: number | null;
   /** Snapshot from latest session, when available. */
   monthlyIncome?: number;
   monthlyExpenses?: number;
@@ -369,31 +368,29 @@ function buildProFinancialSummary(
   profile: UserFinancialProfile | undefined
 ): ProFinancialSummary {
   const debts = profile?.debts ?? [];
-  const recurringIncomes = profile?.recurringIncomes ?? [];
-  const recurringExpenses = profile?.recurringExpenses ?? [];
 
   const analyzed = debts.map((debt) => analyzeDebt(debt));
   const criticalDebts = analyzed.filter((a) => a.level === 0).map((a) => a.debt);
   const urgentDebts = analyzed.filter((a) => a.level <= 1).map((a) => a.debt);
 
-  const monthlyRecurringIncome = sumMonthlyRecurring(recurringIncomes);
-  const monthlyRecurringExpense = sumMonthlyRecurring(recurringExpenses);
+  const cashFlow = buildProSummaryCashFlowMetrics(profile);
 
   return {
     profile,
     currency: profile?.currency ?? DEFAULT_APP_CURRENCY,
     availableFunds: profile?.availableFunds ?? 0,
     totalDebtAmount: debts.reduce((sum, d) => sum + d.amount, 0),
-    minimumPaymentsDue: debts.reduce(
-      (sum, d) => sum + (d.minimumPayment ?? d.amount),
-      0
-    ),
+    minimumPaymentsDue: cashFlow.minimumDebtPayments,
     debtCount: debts.length,
     criticalDebts,
     urgentDebts,
-    monthlyRecurringIncome,
-    monthlyRecurringExpense,
-    netMonthlyCashFlow: monthlyRecurringIncome - monthlyRecurringExpense,
+    monthlyRecurringIncome: cashFlow.monthlyRecurringIncome,
+    monthlyRecurringExpense: cashFlow.monthlyRecurringExpense,
+    resolvedMonthlyIncome: cashFlow.resolvedMonthlyIncome,
+    resolvedMonthlyExpenses: cashFlow.resolvedMonthlyExpenses,
+    netMonthlyCashFlow: cashFlow.netMonthlyCashFlow,
+    effectiveIncomeStability: cashFlow.effectiveIncomeStability,
+    projectedDeficitMonthIndex: cashFlow.projectedDeficitMonthIndex,
     monthlyIncome: profile?.monthlyIncome,
     monthlyExpenses: profile?.monthlyExpenses,
     incomeStability: profile?.incomeStability,

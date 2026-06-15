@@ -16,7 +16,10 @@ function baseSummary(
     urgentDebts: [],
     monthlyRecurringIncome: 30_000,
     monthlyRecurringExpense: 20_000,
+    resolvedMonthlyIncome: 30_000,
+    resolvedMonthlyExpenses: 20_000,
     netMonthlyCashFlow: 10_000,
+    projectedDeficitMonthIndex: null,
     subscriptionTier: "pro",
     ...overrides,
   };
@@ -25,7 +28,10 @@ function baseSummary(
 describe("buildCashFlowForecast", () => {
   it("projects 3 months with compound balance", () => {
     const result = buildCashFlowForecast(
-      baseSummary({ minimumPaymentsDue: 5_000 }),
+      baseSummary({
+        minimumPaymentsDue: 5_000,
+        netMonthlyCashFlow: 5_000,
+      }),
       3,
       new Date(2026, 5, 15)
     );
@@ -44,8 +50,11 @@ describe("buildCashFlowForecast", () => {
         availableFunds: 2_000,
         monthlyRecurringIncome: 10_000,
         monthlyRecurringExpense: 12_000,
+        resolvedMonthlyIncome: 10_000,
+        resolvedMonthlyExpenses: 12_000,
         minimumPaymentsDue: 3_000,
         netMonthlyCashFlow: -5_000,
+        projectedDeficitMonthIndex: 0,
       })
     );
 

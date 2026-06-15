@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildEngineProfileFromUser,
   buildProEngineCashFlowContext,
+  buildProSummaryCashFlowMetrics,
   inferEffectiveStability,
 } from "./pro-engine-cashflow";
 import type { FinancialProfile } from "@/lib/types/financial";
@@ -91,5 +93,56 @@ describe("pro-engine-cashflow", () => {
   it("downgrades stability under sustained deficit", () => {
     expect(inferEffectiveStability("stable", 20_000, -5_000)).toBe("variable");
     expect(inferEffectiveStability("variable", 10_000, -3_000)).toBe("uncertain");
+  });
+
+  it("buildProSummaryCashFlowMetrics matches engine net with debt payments", () => {
+    const profile = {
+      userId: "u1",
+      availableFunds: 10_000,
+      currency: "CZK" as const,
+      incomeStability: "stable" as const,
+      subscriptionTier: "pro" as const,
+      lastUpdated: "2026-06-01",
+      debts: [
+        {
+          id: "d1",
+          creditor: "Loan",
+          amount: 20_000,
+          minimumPayment: 5_000,
+          category: "loans" as const,
+        },
+      ],
+      recurringIncomes: [
+        {
+          id: "i1",
+          source: "Job",
+          amount: 30_000,
+          frequency: "monthly" as const,
+          category: "salary" as const,
+          nextDate: "2026-06-01",
+          createdAt: "2026-06-01",
+        },
+      ],
+      recurringExpenses: [
+        {
+          id: "e1",
+          name: "Living",
+          amount: 20_000,
+          frequency: "monthly" as const,
+          category: "food" as const,
+          nextDate: "2026-06-01",
+          createdAt: "2026-06-01",
+        },
+      ],
+    };
+
+    const metrics = buildProSummaryCashFlowMetrics(profile);
+    const ctx = buildProEngineCashFlowContext(buildEngineProfileFromUser(profile));
+
+    expect(metrics.netMonthlyCashFlow).toBe(5_000);
+    expect(metrics.netMonthlyCashFlow).toBe(ctx.netMonthlyCashFlow);
+    expect(metrics.minimumDebtPayments).toBe(5_000);
+    expect(metrics.monthlyRecurringIncome).toBe(30_000);
+    expect(metrics.monthlyRecurringExpense).toBe(20_000);
   });
 });

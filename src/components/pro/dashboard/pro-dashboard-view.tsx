@@ -316,6 +316,17 @@ export function ProDashboardView() {
                     −{formatMoney(summary.monthlyRecurringExpense, locale)}
                   </span>
                 </div>
+                {summary.minimumPaymentsDue > 0 && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                      {t("minimumDebtPayments")}
+                    </span>
+                    <span className="font-medium tabular-nums text-amber-600 dark:text-amber-400">
+                      −{formatMoney(summary.minimumPaymentsDue, locale)}
+                    </span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between border-t pt-3 text-sm font-semibold">
                   <span>{t("netCashFlow")}</span>
                   <span className="tabular-nums">
@@ -350,7 +361,10 @@ export function ProDashboardView() {
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">{t("incomeStability")}</span>
                   <span className="font-medium capitalize">
-                    {summary.incomeStability ?? "—"}
+                    {summary.effectiveIncomeStability &&
+                    summary.effectiveIncomeStability !== summary.incomeStability
+                      ? `${summary.incomeStability ?? "—"} → ${summary.effectiveIncomeStability}`
+                      : (summary.incomeStability ?? "—")}
                   </span>
                 </div>
                 <div className="flex justify-between border-t pt-3">
