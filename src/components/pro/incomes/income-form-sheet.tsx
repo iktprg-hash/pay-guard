@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Loader2 } from "lucide-react";
+import { ProCategorySelect } from "@/components/pro/forms/pro-category-select";
 import { ProFormField, ProSelect } from "@/components/pro/forms/pro-form-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +15,12 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { FREQUENCIES, type Frequency, type RecurringIncome } from "@/lib/types/financial";
+import {
+  FREQUENCIES,
+  INCOME_CATEGORY_PRESETS,
+  type Frequency,
+  type RecurringIncome,
+} from "@/lib/types/financial";
 
 interface IncomeFormSheetProps {
   open: boolean;
@@ -30,6 +36,7 @@ function emptyIncome(): RecurringIncome {
     source: "",
     amount: 0,
     frequency: "monthly",
+    category: "salary",
     nextDate: new Date().toISOString().slice(0, 10),
     createdAt: new Date().toISOString(),
   };
@@ -49,7 +56,11 @@ export function IncomeFormSheet({
 
   useEffect(() => {
     if (open) {
-      setForm(income ? { ...income } : emptyIncome());
+      setForm(
+        income
+          ? { ...income, category: income.category ?? "other" }
+          : emptyIncome()
+      );
     }
   }, [open, income]);
 
@@ -60,14 +71,20 @@ export function IncomeFormSheet({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.source.trim() || form.amount <= 0 || !form.nextDate) return;
-    await onSave({ ...form, source: form.source.trim() });
+    if (!form.source.trim() || form.amount <= 0 || !form.nextDate || !form.category) {
+      return;
+    }
+    await onSave({
+      ...form,
+      source: form.source.trim(),
+      category: form.category.trim(),
+    });
     onOpenChange(false);
   };
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="overflow-y-auto">
+      <SheetContent side="right" className="overflow-y-auto sm:max-w-md">
         <SheetHeader>
           <SheetTitle>{income ? t("editIncome") : t("addIncome")}</SheetTitle>
           <SheetDescription>{t("formDescription")}</SheetDescription>
@@ -83,6 +100,15 @@ export function IncomeFormSheet({
               required
             />
           </ProFormField>
+
+          <ProCategorySelect
+            id="income-category"
+            label={t("category")}
+            value={form.category}
+            onChange={(category) => setForm((f) => ({ ...f, category }))}
+            presets={INCOME_CATEGORY_PRESETS}
+            translationNamespace="pro.incomes"
+          />
 
           <ProFormField label={t("amount")} htmlFor="income-amount">
             <Input

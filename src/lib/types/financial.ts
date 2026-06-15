@@ -16,17 +16,36 @@ export { DEBT_CATEGORIES };
 /** Debt / obligation category — affects Priority Engine weighting */
 // DebtCategory is defined in debt-constants.ts and re-exported above.
 
-/** Recurring expense category (Pro budget tracking) */
-export type ExpenseCategory =
+/** Recurring expense category preset (Pro budget tracking) */
+export type ExpenseCategoryPreset =
   | "housing"
   | "utilities"
-  | "transport"
   | "food"
+  | "transport"
+  | "communication"
   | "health"
   | "entertainment"
   | "subscriptions"
   | "shopping"
+  | "education"
+  | "insurance"
+  | "childcare"
   | "other";
+
+/** Stored category slug — preset or custom (e.g. custom:pet-care) */
+export type ExpenseCategory = string;
+
+/** Recurring income category preset */
+export type IncomeCategoryPreset =
+  | "salary"
+  | "freelance"
+  | "rental"
+  | "benefits"
+  | "investments"
+  | "other";
+
+/** Stored income category slug — preset or custom */
+export type IncomeCategory = string;
 
 /** Recurrence interval for incomes, expenses, and recurring debts */
 export type Frequency = "monthly" | "weekly" | "biweekly" | "one_time";
@@ -53,17 +72,33 @@ export type PriorityLevel = 0 | 1 | 2 | 3;
 // Constants (single source of truth for validation & UI)
 // ---------------------------------------------------------------------------
 
-export const EXPENSE_CATEGORIES = [
+export const EXPENSE_CATEGORY_PRESETS = [
   "housing",
   "utilities",
-  "transport",
   "food",
+  "transport",
+  "communication",
   "health",
   "entertainment",
   "subscriptions",
   "shopping",
+  "education",
+  "insurance",
+  "childcare",
   "other",
-] as const satisfies readonly ExpenseCategory[];
+] as const satisfies readonly ExpenseCategoryPreset[];
+
+/** @deprecated Use EXPENSE_CATEGORY_PRESETS */
+export const EXPENSE_CATEGORIES = EXPENSE_CATEGORY_PRESETS;
+
+export const INCOME_CATEGORY_PRESETS = [
+  "salary",
+  "freelance",
+  "rental",
+  "benefits",
+  "investments",
+  "other",
+] as const satisfies readonly IncomeCategoryPreset[];
 
 export const FREQUENCIES = [
   "monthly",
@@ -113,6 +148,8 @@ export interface RecurringIncome {
   source: string;
   amount: number;
   frequency: Frequency;
+  /** Preset slug or custom:your-label */
+  category: IncomeCategory;
   /** Next expected payment date (ISO date YYYY-MM-DD) */
   nextDate: string;
   notes?: string;

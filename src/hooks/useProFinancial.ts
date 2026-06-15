@@ -67,6 +67,7 @@ import type {
   UserFinancialProfile,
 } from "@/lib/types/financial";
 import { DEFAULT_APP_CURRENCY } from "@/lib/types/financial";
+import { amountToMonthlyEquivalent } from "@/lib/financial/recurring-utils";
 import { analyzeDebt } from "@/services/priorityEngine";
 
 // ---------------------------------------------------------------------------
@@ -234,23 +235,7 @@ function patchProfileExpenses(
 }
 
 /** Convert recurring amount to an approximate monthly equivalent. */
-export function amountToMonthlyEquivalent(
-  amount: number,
-  frequency: Frequency
-): number {
-  switch (frequency) {
-    case "monthly":
-      return amount;
-    case "weekly":
-      return (amount * 52) / 12;
-    case "biweekly":
-      return (amount * 26) / 12;
-    case "one_time":
-      return 0;
-    default:
-      return amount;
-  }
-}
+export { amountToMonthlyEquivalent } from "@/lib/financial/recurring-utils";
 
 function sumMonthlyRecurring<T extends { amount: number; frequency: Frequency }>(
   items: T[]

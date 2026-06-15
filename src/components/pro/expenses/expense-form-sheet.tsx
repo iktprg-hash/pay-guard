@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Loader2 } from "lucide-react";
+import { ProCategorySelect } from "@/components/pro/forms/pro-category-select";
 import { ProFormField, ProSelect } from "@/components/pro/forms/pro-form-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,9 +16,8 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import {
-  EXPENSE_CATEGORIES,
+  EXPENSE_CATEGORY_PRESETS,
   FREQUENCIES,
-  type ExpenseCategory,
   type Frequency,
   type RecurringExpense,
 } from "@/lib/types/financial";
@@ -36,7 +36,7 @@ function emptyExpense(): RecurringExpense {
     name: "",
     amount: 0,
     frequency: "monthly",
-    category: "other",
+    category: "housing",
     nextDate: new Date().toISOString().slice(0, 10),
     createdAt: new Date().toISOString(),
   };
@@ -56,14 +56,13 @@ export function ExpenseFormSheet({
 
   useEffect(() => {
     if (open) {
-      setForm(expense ? { ...expense } : emptyExpense());
+      setForm(
+        expense
+          ? { ...expense, category: expense.category ?? "other" }
+          : emptyExpense()
+      );
     }
   }, [open, expense]);
-
-  const categoryOptions = EXPENSE_CATEGORIES.map((cat) => ({
-    value: cat,
-    label: t(`categories.${cat}` as "categories.housing"),
-  }));
 
   const frequencyOptions = FREQUENCIES.map((f) => ({
     value: f,
@@ -72,14 +71,20 @@ export function ExpenseFormSheet({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim() || form.amount <= 0 || !form.nextDate) return;
-    await onSave({ ...form, name: form.name.trim() });
+    if (!form.name.trim() || form.amount <= 0 || !form.nextDate || !form.category) {
+      return;
+    }
+    await onSave({
+      ...form,
+      name: form.name.trim(),
+      category: form.category.trim(),
+    });
     onOpenChange(false);
   };
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="overflow-y-auto">
+      <SheetContent side="right" className="overflow-y-auto sm:max-w-md">
         <SheetHeader>
           <SheetTitle>{expense ? t("editExpense") : t("addExpense")}</SheetTitle>
           <SheetDescription>{t("formDescription")}</SheetDescription>
@@ -96,6 +101,15 @@ export function ExpenseFormSheet({
             />
           </ProFormField>
 
+          <ProCategorySelect
+            id="expense-category"
+            label={t("category")}
+            value={form.category}
+            onChange={(category) => setForm((f) => ({ ...f, category }))}
+            presets={EXPENSE_CATEGORY_PRESETS}
+            translationNamespace="pro.expenses"
+          />
+
           <ProFormField label={t("amount")} htmlFor="expense-amount">
             <Input
               id="expense-amount"
@@ -107,20 +121,6 @@ export function ExpenseFormSheet({
                 setForm((f) => ({ ...f, amount: Number(e.target.value) || 0 }))
               }
               required
-            />
-          </ProFormField>
-
-          <ProFormField label={t("category")} htmlFor="expense-category">
-            <ProSelect
-              id="expense-category"
-              value={form.category}
-              options={categoryOptions}
-              onChange={(e) =>
-                setForm((f) => ({
-                  ...f,
-                  category: e.target.value as ExpenseCategory,
-                }))
-              }
             />
           </ProFormField>
 

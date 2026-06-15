@@ -117,6 +117,7 @@ interface RecurringIncomeRow {
   source: string;
   amount: number;
   frequency: string;
+  category: string;
   next_date: string;
   notes: string | null;
   created_at: string;
@@ -198,6 +199,7 @@ function recurringIncomeToRow(
     source: income.source,
     amount: income.amount,
     frequency: income.frequency,
+    category: income.category ?? "other",
     next_date: income.nextDate.slice(0, 10),
     notes: income.notes ?? null,
     updated_at: new Date().toISOString(),
@@ -210,6 +212,7 @@ function recurringIncomeRowToDomain(row: RecurringIncomeRow): RecurringIncome {
     source: row.source,
     amount: Number(row.amount),
     frequency: row.frequency as Frequency,
+    category: row.category ?? "other",
     nextDate: parseDateOnly(row.next_date) ?? row.next_date,
     notes: row.notes ?? undefined,
     createdAt: row.created_at,
