@@ -164,22 +164,24 @@ Stripe se v checkout testech mockuje přes `page.route` (`tests/helpers/billing-
 
 ## Proměnné prostředí
 
+Kompletní seznam s komentáři: [`.env.example`](./.env.example) · lokální kopie: `cp .env.example .env.local`
+
 | Proměnná | Popis |
 |----------|--------|
+| `NEXT_PUBLIC_SITE_URL` | Veřejná URL (checkout redirect, metadata) — **prod povinné** |
 | `NEXT_PUBLIC_SUPABASE_URL` | URL Supabase projektu |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Anon key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Service role (server only) |
-| `XAI_API_KEY` | xAI Grok — bez klíče demo režim |
-| `XAI_MODEL` | Grok model (volitelné, default `grok-3-mini`) |
 | `UPSTASH_REDIS_REST_URL` | Rate limiting (prod, povinné) |
 | `UPSTASH_REDIS_REST_TOKEN` | Rate limiting (prod, povinné) |
+| `XAI_API_KEY` | xAI Grok — bez klíče demo režim |
+| `XAI_MODEL` | Grok model (volitelné, default `grok-3-mini`) |
 | `STRIPE_SECRET_KEY` | Stripe secret (test/live) |
 | `STRIPE_WEBHOOK_SECRET` | Webhook signing secret (fallback) |
 | `STRIPE_WEBHOOK_SECRET_TEST` | Test-mode webhook secret |
 | `STRIPE_WEBHOOK_SECRET_LIVE` | Live-mode webhook secret |
 | `STRIPE_PRO_PRICE_ID` | Recurring CZK price id (`price_…`) |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe publishable key |
-| `NEXT_PUBLIC_SITE_URL` | Veřejná URL (checkout redirect, metadata) |
 
 `.env.local` nikdy necommitujte.
 
@@ -216,13 +218,36 @@ Nebo s `DATABASE_URL`: `npm run db:apply:003` / `npm run db:hint`.
 
 ## Nasazení (Vercel)
 
+> **První deploy:** podrobný průvodce v [DEPLOY.md](./DEPLOY.md)
+
 1. Propojte repozitář s Vercel
-2. Nastavte env proměnné (viz tabulka výše)
+2. Nastavte env proměnné v **Vercel Dashboard → Settings → Environment Variables → Production** (viz tabulka níže)
 3. Ověřte migrace **001–010** v Supabase
 4. `npm run prod:checklist` lokálně před prvním deployem
-5. Po deployi: Auth redirect URLs + Site URL na produkční doménu
-6. Stripe webhook endpoint: `https://<domain>/api/billing/webhook` (nebo `/api/webhooks/stripe` dle konfigurace)
-7. `npm run verify:upstash` v produkčním env
+5. Po deployi: Auth redirect URLs + Site URL na produkční doménu (`npm run domain:setup -- https://…`)
+6. Stripe webhook: `https://<domain>/api/webhooks/stripe`
+7. Po změně env na Vercel vždy **Redeploy**
+
+### Env proměnné ve Vercel (Production)
+
+| Proměnná | Povinné | Poznámka |
+|----------|---------|----------|
+| `NEXT_PUBLIC_SITE_URL` | ✅ | `https://pay-guard-xxxx.vercel.app` |
+| `NEXT_PUBLIC_SUPABASE_URL` | ✅ | Supabase → Settings → API |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ | |
+| `SUPABASE_SERVICE_ROLE_KEY` | ✅ | Server only, nikdy `NEXT_PUBLIC_*` |
+| `UPSTASH_REDIS_REST_URL` | ✅ | Rate limits — bez Upstash prod fail-closed |
+| `UPSTASH_REDIS_REST_TOKEN` | ✅ | |
+| `XAI_API_KEY` | ✅ | Chat / prioritizace |
+| `XAI_MODEL` | — | Volitelné (`grok-3-mini`) |
+| `STRIPE_SECRET_KEY` | ✅ | Pro checkout (`sk_live_…`) |
+| `STRIPE_PRO_PRICE_ID` | ✅ | CZK recurring `price_…` |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | ✅ | `pk_live_…` |
+| `STRIPE_WEBHOOK_SECRET` nebo `STRIPE_WEBHOOK_SECRET_LIVE` | ✅ | Signing secret z Stripe Dashboard |
+
+**Nepřidávat do Production:** `AUTH_DEV_REGISTER`, `AUTH_SKIP_RATE_LIMIT`
+
+Šablona: [`.env.example`](./.env.example)
 
 ```bash
 npm run verify:upstash      # ověření Redis + rate limiter
@@ -235,6 +260,7 @@ npm run build               # finální build před releasem
 **Infrastruktura**
 
 - [ ] Migrace **001–010** aplikované v Supabase SQL Editoru
+- [ ] **Všechny env proměnné ve Vercel Production** — viz [DEPLOY.md](./DEPLOY.md) a `.env.example` (zejména `NEXT_PUBLIC_SITE_URL`, Supabase, Upstash, XAI, Stripe)
 - [ ] **Upstash Redis** (`UPSTASH_REDIS_REST_URL` + `TOKEN`) v produkčním env
 - [ ] **Custom SMTP** (Supabase Auth → Email)
 - [ ] **Confirm email: ON** (prod)
@@ -447,6 +473,7 @@ Soukromý projekt — kontaktujte autora pro použití mimo osobní účely.
 Финальная проверка перед merge в `main`, тегом или production deploy. Отмечайте пункты только после реальной проверки.
 
 - [ ] **Все E2E тесты зелёные** — `npm run dev:restart`, затем `npm run test:e2e:local` (ожидается: **24 passed**, 2 skipped без Stripe)
+- [ ] **Все env-переменные заданы в Vercel** — особенно `NEXT_PUBLIC_SITE_URL`, Supabase, Upstash, XAI, Stripe ([DEPLOY.md](./DEPLOY.md), [`.env.example`](./.env.example))
 - [ ] **`npm run build` успешен** — без ошибок TypeScript / Next.js
 - [ ] **`npm run prod:checklist` пройден** — env, Supabase, Stripe, безопасность
 - [ ] **Supabase миграции 001–010 + pro_schema применены** — включая `20260615_pro_schema.sql`; проверка: `npm run db:verify`
