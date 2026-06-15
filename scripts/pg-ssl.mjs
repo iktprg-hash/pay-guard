@@ -6,5 +6,10 @@ export function pgSslConfig(connectionString) {
   ) {
     return false;
   }
+  // Some networks / Node builds reject Supabase pooler chain ("self-signed certificate").
+  // Dev-only escape hatch: DATABASE_SSL_NO_VERIFY=1 npm run db:apply
+  if (process.env.DATABASE_SSL_NO_VERIFY === "1") {
+    return { rejectUnauthorized: false };
+  }
   return { rejectUnauthorized: true };
 }
