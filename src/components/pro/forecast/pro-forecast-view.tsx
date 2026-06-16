@@ -10,7 +10,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { useCashFlowForecast } from "@/hooks/useCashFlowForecast";
-import { ProEmptyState, ProPageHeader, StatCard } from "@/components/pro/pro-page";
+import { ProEmptyState, ProPageHeader, ProSectionHeading, StatCard } from "@/components/pro/pro-page";
 import { ProPageSkeleton } from "@/components/pro/pro-skeletons";
 import { ProRefreshingIndicator } from "@/components/pro/pro-refreshing-indicator";
 import { Button } from "@/components/ui/button";
@@ -175,7 +175,7 @@ export function ProForecastView() {
             namespace="pro.forecast"
           />
 
-          <Card className="border-primary/20">
+          <Card className="border-primary/20 bg-gradient-to-br from-primary/5 via-card to-card">
             <CardHeader>
               <CardTitle className="text-base">{t("recommendationsTitle")}</CardTitle>
               <CardDescription>{t("recommendationsDescription")}</CardDescription>
@@ -189,80 +189,88 @@ export function ProForecastView() {
             </CardContent>
           </Card>
 
-          <div className="grid gap-6 lg:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">{t("chartTitle")}</CardTitle>
-                <CardDescription>{t("chartDescription")}</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <ProForecastChart
-                  months={forecast.months}
-                  chartScaleMax={forecast.chartScaleMax}
-                  locale={locale}
-                  legend={t("chartLegend")}
-                />
-                <ProForecastMonthCards
-                  months={forecast.months}
-                  locale={locale}
-                  perMonthLabel={t("perMonth")}
-                />
-              </CardContent>
-            </Card>
+          <section aria-labelledby="forecast-visual-heading">
+            <ProSectionHeading
+              id="forecast-visual-heading"
+              title={t("visualSectionTitle")}
+              description={t("visualSectionDescription")}
+              className="mb-4"
+            />
+            <div className="grid gap-6 xl:grid-cols-5">
+              <Card className="overflow-hidden xl:col-span-3">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">{t("chartTitle")}</CardTitle>
+                  <CardDescription>{t("chartDescription")}</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <ProForecastChart
+                    months={forecast.months}
+                    chartScaleMax={forecast.chartScaleMax}
+                    locale={locale}
+                    legend={t("chartLegend")}
+                  />
+                  <ProForecastMonthCards
+                    months={forecast.months}
+                    locale={locale}
+                    perMonthLabel={t("perMonth")}
+                  />
+                </CardContent>
+              </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">{t("breakdownTitle")}</CardTitle>
-                <CardDescription>{t("breakdownDescription")}</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">
-                    {t("recurringIncome")}
-                  </span>
-                  <span className="font-medium tabular-nums text-emerald-600 dark:text-emerald-400">
-                    +{formatMoney(summary.monthlyRecurringIncome, locale)}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">
-                    {t("recurringExpense")}
-                  </span>
-                  <span className="font-medium tabular-nums text-destructive">
-                    −{formatMoney(summary.monthlyRecurringExpense, locale)}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">
-                    {t("minimumPayments")}
-                  </span>
-                  <span className="font-medium tabular-nums text-destructive">
-                    −{formatMoney(summary.minimumPaymentsDue, locale)}
-                  </span>
-                </div>
-                <div className="flex justify-between border-t pt-3 font-semibold">
-                  <span>{t("netResult")}</span>
-                  <span
-                    className={cn(
-                      "tabular-nums",
-                      forecast.netMonthlyChange >= 0
-                        ? "text-emerald-600 dark:text-emerald-400"
-                        : "text-destructive"
-                    )}
-                  >
-                    {formatMoney(forecast.netMonthlyChange, locale)}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+              <Card className="xl:col-span-2">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">{t("breakdownTitle")}</CardTitle>
+                  <CardDescription>{t("breakdownDescription")}</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">
+                      {t("recurringIncome")}
+                    </span>
+                    <span className="font-medium tabular-nums text-emerald-600 dark:text-emerald-400">
+                      +{formatMoney(summary.monthlyRecurringIncome, locale)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">
+                      {t("recurringExpense")}
+                    </span>
+                    <span className="font-medium tabular-nums text-destructive">
+                      −{formatMoney(summary.monthlyRecurringExpense, locale)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">
+                      {t("minimumPayments")}
+                    </span>
+                    <span className="font-medium tabular-nums text-destructive">
+                      −{formatMoney(summary.minimumPaymentsDue, locale)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between border-t pt-3 font-semibold">
+                    <span>{t("netResult")}</span>
+                    <span
+                      className={cn(
+                        "tabular-nums",
+                        forecast.netMonthlyChange >= 0
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : "text-destructive"
+                      )}
+                    >
+                      {formatMoney(forecast.netMonthlyChange, locale)}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </section>
 
           <Card>
             <CardHeader>
               <CardTitle className="text-base">{t("tableTitle")}</CardTitle>
               <CardDescription>{t("tableDescription")}</CardDescription>
             </CardHeader>
-            <CardContent className="overflow-x-auto">
+            <CardContent>
               <ProForecastTable months={forecast.months} locale={locale} />
             </CardContent>
           </Card>

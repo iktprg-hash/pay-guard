@@ -59,7 +59,7 @@ export function ProEmptyState({
   steps,
 }: ProEmptyStateProps) {
   return (
-    <Card className="border-dashed">
+    <Card className="border-dashed bg-gradient-to-b from-muted/30 to-card">
       <CardContent className="flex flex-col items-center justify-center py-12 text-center">
         <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-primary/15 to-primary/5 ring-1 ring-primary/20 text-muted-foreground">
           {icon}

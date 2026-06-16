@@ -19,7 +19,8 @@ export type ForecastRecommendationKind =
   | "monthly_deficit"
   | "projected_deficit"
   | "critical_debts"
-  | "urgent_debts";
+  | "urgent_debts"
+  | "stable_outlook";
 
 export interface ForecastRecommendation {
   kind: ForecastRecommendationKind;
@@ -84,6 +85,14 @@ function buildRecommendations(
       kind: "urgent_debts",
       count: urgentOnly,
     });
+  }
+
+  if (
+    recs.length === 0 &&
+    months.length > 0 &&
+    months.every((m) => m.endingBalance >= 0)
+  ) {
+    recs.push({ kind: "stable_outlook" });
   }
 
   return recs;

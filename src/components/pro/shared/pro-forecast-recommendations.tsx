@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { AlertTriangle, Lightbulb } from "lucide-react";
+import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import type {
   ForecastMonth,
   ForecastRecommendation,
@@ -32,15 +32,19 @@ export function ProForecastRecommendations({
 
   if (items.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">{t("noRecommendations")}</p>
+      <div className="flex items-start gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-sm">
+        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+        <span>{t("noRecommendations")}</span>
+      </div>
     );
   }
 
   return (
-    <ul className={cn("space-y-2", compact ? "space-y-1.5" : "space-y-3")}>
+    <ol className={cn("space-y-2", compact ? "space-y-1.5" : "space-y-3")}>
       {items.map((rec, i) => {
         const isDanger =
           rec.kind === "projected_deficit" || rec.kind === "critical_debts";
+        const isStable = rec.kind === "stable_outlook";
 
         let text: string;
         switch (rec.kind) {
@@ -65,6 +69,9 @@ export function ProForecastRecommendations({
           case "urgent_debts":
             text = t("recUrgentDebts", { count: rec.count ?? 0 });
             break;
+          case "stable_outlook":
+            text = t("recStableOutlook");
+            break;
           default:
             text = "";
         }
@@ -75,20 +82,29 @@ export function ProForecastRecommendations({
             className={cn(
               "flex gap-3 rounded-lg border text-sm",
               compact ? "px-2.5 py-2" : "p-3",
-              isDanger
-                ? "border-destructive/30 bg-destructive/5"
-                : "border-amber-500/30 bg-amber-500/5"
+              isStable
+                ? "border-emerald-500/30 bg-emerald-500/5"
+                : isDanger
+                  ? "border-destructive/30 bg-destructive/5"
+                  : "border-amber-500/30 bg-amber-500/5"
             )}
           >
-            {isDanger ? (
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
-            ) : (
-              <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
-            )}
-            <span>{text}</span>
+            <span
+              className={cn(
+                "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
+                isStable
+                  ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                  : isDanger
+                    ? "bg-destructive/15 text-destructive"
+                    : "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+              )}
+            >
+              {i + 1}
+            </span>
+            <span className="flex-1">{text}</span>
           </li>
         );
       })}
-    </ul>
+    </ol>
   );
 }

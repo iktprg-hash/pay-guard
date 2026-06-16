@@ -209,16 +209,25 @@ function invalidateProProfile(queryClient: QueryClient, userId: string) {
 }
 
 /** Invalidate profile + catalog lists so Dashboard and Forecast stay in sync. */
-function invalidateProCatalogSync(queryClient: QueryClient, userId: string) {
-  invalidateProProfile(queryClient, userId);
+export function invalidateProCatalogSync(
+  queryClient: QueryClient,
+  userId: string
+) {
+  void queryClient.invalidateQueries({
+    queryKey: proFinancialKeys.profile(userId),
+    refetchType: "active",
+  });
   void queryClient.invalidateQueries({
     queryKey: proFinancialKeys.debts(userId),
+    refetchType: "active",
   });
   void queryClient.invalidateQueries({
     queryKey: proFinancialKeys.incomes(userId),
+    refetchType: "active",
   });
   void queryClient.invalidateQueries({
     queryKey: proFinancialKeys.expenses(userId),
+    refetchType: "active",
   });
 }
 
@@ -229,7 +238,10 @@ function patchProfileDebts(
 ) {
   queryClient.setQueryData<UserFinancialProfile>(
     proFinancialKeys.profile(userId),
-    (prev) => (prev ? { ...prev, debts } : prev)
+    (prev) =>
+      prev
+        ? { ...prev, debts, lastUpdated: new Date().toISOString() }
+        : prev
   );
 }
 
@@ -240,7 +252,10 @@ function patchProfileIncomes(
 ) {
   queryClient.setQueryData<UserFinancialProfile>(
     proFinancialKeys.profile(userId),
-    (prev) => (prev ? { ...prev, recurringIncomes } : prev)
+    (prev) =>
+      prev
+        ? { ...prev, recurringIncomes, lastUpdated: new Date().toISOString() }
+        : prev
   );
 }
 
@@ -251,7 +266,10 @@ function patchProfileExpenses(
 ) {
   queryClient.setQueryData<UserFinancialProfile>(
     proFinancialKeys.profile(userId),
-    (prev) => (prev ? { ...prev, recurringExpenses } : prev)
+    (prev) =>
+      prev
+        ? { ...prev, recurringExpenses, lastUpdated: new Date().toISOString() }
+        : prev
   );
 }
 
