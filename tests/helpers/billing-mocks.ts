@@ -174,7 +174,7 @@ export async function isBillingEnabledOnPricing(page: Page): Promise<boolean> {
   await gotoExpectOk(page, pricingPath());
 
   const upgrade = page.getByRole("button", {
-    name: /upgrade|přejít na pro|перейти на pro/i,
+    name: /upgrade to pro|objednat pro|оформить pro|přejít na pro|перейти на pro/i,
   });
   const loginToUpgrade = page.getByRole("link", { name: UI.loginToUpgrade });
   const manage = page.getByRole("button", {

@@ -181,31 +181,42 @@
   },
   "pricing": {
     "title": "Тарифы",
-    "free": "Бесплатно",
-    "pro": "Pro",
-    "freePrice": "0 Kč",
-    "proPrice": "~75 Kč / мес",
-    "freeFeatures": [
-      "Чат с Pay Guard",
-      "Базовые рекомендации",
-      "Ручной ввод данных"
-    ],
-    "proFeatures": [
-      "История разговоров",
-      "Расширенный анализ",
-      "Сохранённые приоритеты",
-      "Приоритетная поддержка"
-    ],
-    "upgrade": "Перейти на Pro",
-    "currentPlan": "Ваш план",
-    "comingSoon": "скоро",
+    "free": {
+      "name": "Free",
+      "price": "0 Kč",
+      "cta": "Текущий план",
+      "ctaGuest": "Начать бесплатно",
+      "features": [
+        "Чат с Grok (с согласия)",
+        "Ручной ввод данных",
+        "Приоритизация платежей",
+        "Базовый PDF-экспорт"
+      ]
+    },
+    "pro": {
+      "name": "Pro",
+      "price": "199 Kč / месяц",
+      "cta": "Оформить Pro",
+      "ctaManage": "Управлять подпиской",
+      "activating": "Активируем Pro…",
+      "activated": "Pro активирован! Добро пожаловать.",
+      "cancelled": "Оплата отменена. Вы можете вернуться к этому в любое время.",
+      "retryBtn": "Попробовать снова",
+      "processing": "Платёж обрабатывается, это займёт пару секунд…",
+      "errorContact": "Написать в поддержку",
+      "syncFailed": "Не удалось активировать Pro. Попробуйте снова.",
+      "proActive": "Pro активен",
+      "features": [
+        "Всё из Free",
+        "Pro Dashboard (прогнозы, доходы, расходы)",
+        "История консультаций",
+        "Расширенный PDF",
+        "Синхронизация между устройствами"
+      ]
+    },
     "loginToUpgrade": "Войти и перейти на Pro",
     "redirecting": "Перенаправление…",
-    "proActive": "Pro активен",
     "alreadyPro": "У вас уже активен Pro",
-    "checkoutSuccess": "Спасибо! Pro уже активен.",
-    "checkoutCancelled": "Оплата отменена",
-    "checkoutActivating": "Подтверждаем оплату…",
     "billingNotConfigured": "Оплата Pro пока недоступна.",
     "billingIssueMissingSecret": "Не задан STRIPE_SECRET_KEY — добавьте в .env.local.",
     "billingIssuePlaceholderSecret": "Замените placeholder STRIPE_SECRET_KEY на sk_test_ или sk_live_.",

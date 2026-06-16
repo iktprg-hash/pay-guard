@@ -145,11 +145,20 @@ export async function runE2ePreflight(
     }
   }
 
+  const preflightEmail = `e2e-preflight-${Date.now()}@pay-guard.test`;
   const otpRes = await fetchProbe(otpUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email: "e2e-preflight@pay-guard.test" }),
+    body: JSON.stringify({ email: preflightEmail }),
   });
+
+  if (otpRes.status === 429) {
+    console.warn(
+      "E2E preflight: send-otp returned HTTP 429 (rate limited) — route is up; continuing."
+    );
+    return;
+  }
+
   if (!otpRes.ok) {
     fail([
       `E2E preflight: ${otpUrl} returned HTTP ${otpRes.status}.`,

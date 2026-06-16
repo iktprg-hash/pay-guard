@@ -35,7 +35,6 @@ export function PricingActions({
   webhookConfigured,
 }: PricingActionsProps) {
   const t = useTranslations("pricing");
-  const tBilling = useTranslations("billing");
   const tToast = useTranslations("toast");
   const locale = useLocale() as Locale;
   const { user, loading: authLoading } = useAuth();
@@ -117,7 +116,7 @@ export function PricingActions({
     return (
       <Button className="mt-6 w-full" disabled aria-busy="true">
         <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
-        {t("upgrade")}
+        {t("pro.cta")}
       </Button>
     );
   }
@@ -126,7 +125,7 @@ export function PricingActions({
     return (
       <div className="mt-6 space-y-3">
         <Badge className="w-full justify-center py-2 text-sm">
-          {t("proActive")}
+          {t("pro.proActive")}
         </Badge>
         {checkoutEnabled && (
           <Button
@@ -134,14 +133,14 @@ export function PricingActions({
             className="w-full gap-2"
             disabled={portalLoading}
             onClick={() => void openPortal()}
-            aria-label={tBilling("manage")}
+            aria-label={t("pro.ctaManage")}
           >
             {portalLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
             ) : (
               <CreditCard className="h-4 w-4" aria-hidden />
             )}
-            {tBilling("manage")}
+            {t("pro.ctaManage")}
           </Button>
         )}
       </div>
@@ -155,7 +154,7 @@ export function PricingActions({
     return (
       <div className="mt-6 space-y-2">
         <Button className="w-full" disabled>
-          {t("upgrade")}
+          {t("pro.cta")}
         </Button>
         <p className="text-center text-xs text-muted-foreground">{t(issueKey)}</p>
       </div>
@@ -191,7 +190,7 @@ export function PricingActions({
             {t("redirecting")}
           </>
         ) : (
-          t("upgrade")
+          t("pro.cta")
         )}
       </Button>
     </div>

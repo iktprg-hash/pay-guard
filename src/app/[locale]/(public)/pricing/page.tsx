@@ -5,8 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { getStripeBillingConfigStatus } from "@/lib/billing/config";
 import { PricingActions } from "@/components/pricing/pricing-actions";
-import { FreePlanBadge } from "@/components/pricing/free-plan-badge";
-import { CheckoutResultToast } from "@/components/pricing/checkout-result-toast";
+import { FreePlanActions } from "@/components/pricing/free-plan-actions";
+import { CheckoutFlowHandler } from "@/components/pricing/checkout-flow-handler";
 
 export default async function PricingPage({
   params,
@@ -18,13 +18,13 @@ export default async function PricingPage({
   const t = await getTranslations("pricing");
   const billing = getStripeBillingConfigStatus();
 
-  const freeFeatures = t.raw("freeFeatures") as string[];
-  const proFeatures = t.raw("proFeatures") as string[];
+  const freeFeatures = t.raw("free.features") as string[];
+  const proFeatures = t.raw("pro.features") as string[];
 
   return (
     <div className="mx-auto max-w-4xl flex-1 px-4 py-12">
       <Suspense fallback={null}>
-        <CheckoutResultToast />
+        <CheckoutFlowHandler />
       </Suspense>
       <h1 className="mb-8 text-center text-3xl font-bold">{t("title")}</h1>
 
@@ -32,8 +32,8 @@ export default async function PricingPage({
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
-              {t("free")}
-              <span className="text-2xl font-bold">{t("freePrice")}</span>
+              {t("free.name")}
+              <span className="text-2xl font-bold">{t("free.price")}</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -45,7 +45,7 @@ export default async function PricingPage({
                 </li>
               ))}
             </ul>
-            <FreePlanBadge />
+            <FreePlanActions />
           </CardContent>
         </Card>
 
@@ -53,10 +53,10 @@ export default async function PricingPage({
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
               <span className="flex items-center gap-2">
-                {t("pro")}
-                <Badge>{t("pro")}</Badge>
+                {t("pro.name")}
+                <Badge>{t("pro.name")}</Badge>
               </span>
-              <span className="text-2xl font-bold text-primary">{t("proPrice")}</span>
+              <span className="text-2xl font-bold text-primary">{t("pro.price")}</span>
             </CardTitle>
           </CardHeader>
           <CardContent>

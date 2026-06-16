@@ -4,14 +4,13 @@ import {
   mockStripeBillingSuite,
   mockSubscriptionTier,
 } from "./helpers/billing-mocks";
-import { E2E_LONG_TIMEOUT, E2E_TOAST_TIMEOUT } from "./helpers/e2e-timeouts";
+import { E2E_LONG_TIMEOUT } from "./helpers/e2e-timeouts";
 import {
   UI,
   openProRouteExpectGate,
   pollForManageSubscriptionHidden,
   pollForNoUpgradeGate,
   pollForProUnlocked,
-  pollForToastVisible,
   pollForUrlContains,
   pricingPath,
   proPageHeading,
@@ -52,7 +51,7 @@ test.describe("Checkout flow", () => {
         await waitForPricingUpgradeReady(page);
 
         const upgradeButton = page.getByRole("button", {
-          name: /upgrade|přejít na pro|перейти на pro/i,
+          name: /upgrade to pro|objednat pro|оформить pro|přejít na pro|перейти на pro/i,
         });
         await expect.soft(upgradeButton).toBeVisible();
         await expect.soft(upgradeButton).toBeEnabled();
@@ -67,16 +66,23 @@ test.describe("Checkout flow", () => {
         await billing.done;
       });
 
-      await test.step("Confirm checkout and activate Pro", async () => {
-        await pollForToastVisible(page, UI.checkoutSuccess, {
-          timeout: E2E_TOAST_TIMEOUT,
+      await test.step("Confirm checkout, show success banner, redirect to dashboard", async () => {
+        await expect
+          .poll(
+            async () =>
+              page.getByText(UI.checkoutSuccess).isVisible().catch(() => false),
+            { timeout: E2E_LONG_TIMEOUT, intervals: [300, 500, 1000] }
+          )
+          .toBe(true);
+
+        await pollForUrlContains(page, "/pro/dashboard", {
+          timeout: E2E_LONG_TIMEOUT,
         });
-        await expect.soft(page.getByText(UI.checkoutSuccess)).toBeVisible();
         await waitForTierSettled(page);
       });
 
       await test.step("Pricing shows Manage Subscription for Pro", async () => {
-        await page.reload({ waitUntil: "domcontentloaded" });
+        await gotoExpectOk(page, pricingPath());
         await waitForTierSettled(page);
         await pollForProUnlocked(page, { timeout: E2E_LONG_TIMEOUT });
 
@@ -118,10 +124,14 @@ test.describe("Checkout flow", () => {
         });
       });
 
-      await test.step("Shows cancelled toast and keeps Free plan", async () => {
-        await pollForToastVisible(page, UI.checkoutCancelled, {
-          timeout: E2E_TOAST_TIMEOUT,
-        });
+      await test.step("Shows cancelled banner and keeps Free plan", async () => {
+        await expect
+          .poll(
+            async () =>
+              page.getByText(UI.checkoutCancelled).isVisible().catch(() => false),
+            { timeout: E2E_LONG_TIMEOUT, intervals: [300, 500, 1000] }
+          )
+          .toBe(true);
         await expect.soft(page.getByText(UI.proActive)).toHaveCount(0);
         await pollForManageSubscriptionHidden(page);
       });

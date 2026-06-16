@@ -181,31 +181,42 @@
   },
   "pricing": {
     "title": "Ceník",
-    "free": "Zdarma",
-    "pro": "Pro",
-    "freePrice": "0 Kč",
-    "proPrice": "~75 Kč / měsíc",
-    "freeFeatures": [
-      "Chat s Pay Guard",
-      "Základní doporučení plateb",
-      "Ruční zadání dat"
-    ],
-    "proFeatures": [
-      "Historie konverzací",
-      "Rozšířená analýza závazků",
-      "Uložené priority a scénáře",
-      "Prioritní podpora"
-    ],
-    "upgrade": "Přejít na Pro",
-    "currentPlan": "Váš plán",
-    "comingSoon": "brzy",
+    "free": {
+      "name": "Zdarma",
+      "price": "0 Kč",
+      "cta": "Aktuální plán",
+      "ctaGuest": "Začít zdarma",
+      "features": [
+        "Chat s Grok (se souhlasem)",
+        "Ruční zadání dat",
+        "Prioritizace plateb",
+        "Základní PDF export"
+      ]
+    },
+    "pro": {
+      "name": "Pro",
+      "price": "199 Kč / měsíc",
+      "cta": "Objednat Pro",
+      "ctaManage": "Spravovat předplatné",
+      "activating": "Aktivujeme Pro…",
+      "activated": "Pro aktivováno! Vítejte.",
+      "cancelled": "Platba byla zrušena. Můžete se kdykoli vrátit.",
+      "retryBtn": "Zkusit znovu",
+      "processing": "Platba se zpracovává, chvilku to potrvá…",
+      "errorContact": "Napsat podporu",
+      "syncFailed": "Pro se nepodařilo aktivovat. Zkuste to znovu.",
+      "proActive": "Pro je aktivní",
+      "features": [
+        "Vše ze Zdarma",
+        "Pro Dashboard (prognózy, příjmy, výdaje)",
+        "Historie konzultací",
+        "Rozšířený PDF export",
+        "Synchronizace mezi zařízeními"
+      ]
+    },
     "loginToUpgrade": "Přihlásit se a přejít na Pro",
     "redirecting": "Přesměrování…",
-    "proActive": "Pro je aktivní",
     "alreadyPro": "Pro tarif už máte aktivní",
-    "checkoutSuccess": "Děkujeme! Pro tarif je nyní aktivní.",
-    "checkoutCancelled": "Platba byla zrušena",
-    "checkoutActivating": "Potvrzujeme platbu…",
     "billingNotConfigured": "Platba za Pro zatím není k dispozici.",
     "billingIssueMissingSecret": "Chybí Stripe secret key — nastavte STRIPE_SECRET_KEY v .env.local.",
     "billingIssuePlaceholderSecret": "Nahraďte placeholder Stripe secret key klíčem sk_test_ nebo sk_live_.",

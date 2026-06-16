@@ -17,10 +17,12 @@ export const UI = {
     /upgrade to pay guard pro|upgradujte na pay guard pro|přejít na pay guard pro|перейдите на pay guard pro/i,
   upgradeCta: /upgrade to pro|přejít na pro|перейти на pro/i,
   proOverlay: /^pro$/i,
-  proActive: /pro is active|pro je aktivní|pro tarif|pro активен/i,
+  proActive: /pro is active|pro je aktivní|pro aktivováno|pro активен/i,
   manageSubscription:
     /manage subscription|spravovat předplatné|управлять подпиской/i,
-  checkoutSuccess: /thank you|děkujeme|спасибо/i,
+  checkoutSuccess:
+    /pro activated|pro aktivováno|pro активирован|welcome aboard|vítejte|добро пожаловать/i,
+  checkoutActivating: /activating pro|aktivujeme pro|активируем pro/i,
   checkoutCancelled:
     /checkout was cancelled|platba byla zrušena|оплата отменена/i,
   loginToUpgrade:
@@ -115,7 +117,7 @@ export async function waitForPricingUpgradeReady(
 ): Promise<void> {
   const timeout = options.timeout ?? E2E_POLL_TIMEOUT;
   const upgrade = page.getByRole("button", {
-    name: /upgrade|přejít na pro|перейти на pro/i,
+    name: /upgrade to pro|objednat pro|оформить pro|přejít na pro|перейти на pro/i,
   });
 
   await expect

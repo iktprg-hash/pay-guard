@@ -181,31 +181,42 @@
   },
   "pricing": {
     "title": "Pricing",
-    "free": "Free",
-    "pro": "Pro",
-    "freePrice": "0 CZK",
-    "proPrice": "~75 CZK / month",
-    "freeFeatures": [
-      "Chat with Pay Guard",
-      "Basic payment recommendations",
-      "Manual data entry"
-    ],
-    "proFeatures": [
-      "Conversation history",
-      "Extended debt analysis",
-      "Saved priorities & scenarios",
-      "Priority support"
-    ],
-    "upgrade": "Upgrade to Pro",
-    "currentPlan": "Your plan",
-    "comingSoon": "coming soon",
+    "free": {
+      "name": "Free",
+      "price": "0 CZK",
+      "cta": "Current plan",
+      "ctaGuest": "Start for free",
+      "features": [
+        "Chat with Pay Guard (with consent)",
+        "Manual data entry",
+        "Payment prioritization",
+        "Basic PDF export"
+      ]
+    },
+    "pro": {
+      "name": "Pro",
+      "price": "199 Kč / month",
+      "cta": "Upgrade to Pro",
+      "ctaManage": "Manage subscription",
+      "activating": "Activating Pro…",
+      "activated": "Pro activated! Welcome aboard.",
+      "cancelled": "Checkout was cancelled. You can return anytime.",
+      "retryBtn": "Try again",
+      "processing": "Payment is processing — this may take a few seconds…",
+      "errorContact": "Contact support",
+      "syncFailed": "Could not activate Pro. Please try again.",
+      "proActive": "Pro is active",
+      "features": [
+        "Everything in Free",
+        "Pro Dashboard (forecasts, income, expenses)",
+        "Consultation history",
+        "Extended PDF export",
+        "Sync across devices"
+      ]
+    },
     "loginToUpgrade": "Sign in to upgrade to Pro",
     "redirecting": "Redirecting…",
-    "proActive": "Pro is active",
     "alreadyPro": "You already have Pro",
-    "checkoutSuccess": "Thank you! Pro is now active.",
-    "checkoutCancelled": "Checkout was cancelled",
-    "checkoutActivating": "Confirming your payment…",
     "billingNotConfigured": "Pro checkout is not available yet.",
     "billingIssueMissingSecret": "Stripe secret key is missing — set STRIPE_SECRET_KEY in .env.local.",
     "billingIssuePlaceholderSecret": "Replace the Stripe secret key placeholder with your sk_test_ or sk_live_ key.",
