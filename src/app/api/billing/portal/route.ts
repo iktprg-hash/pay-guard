@@ -48,7 +48,10 @@ export async function POST(request: NextRequest) {
     if (error instanceof StripeServiceError) {
       if (error.code === "no_customer") {
         return NextResponse.json(
-          { error: error.message, code: "no_customer" },
+          {
+            error: "No billing account found. Please complete a purchase first.",
+            code: "no_customer",
+          },
           { status: 404 }
         );
       }

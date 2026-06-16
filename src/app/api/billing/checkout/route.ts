@@ -23,15 +23,14 @@ import { billingLocaleBodySchema } from "@/lib/validation/schemas";
 export async function POST(request: NextRequest) {
   const billing = getStripeBillingConfigStatus();
   if (!billing.checkoutEnabled) {
-    const detail = billing.checkoutBlocker
-      ? describeStripeBillingIssue(billing.checkoutBlocker)
-      : "Billing is not configured";
+    if (billing.checkoutBlocker) {
+      console.error(
+        "[api/billing/checkout] Billing misconfigured:",
+        describeStripeBillingIssue(billing.checkoutBlocker)
+      );
+    }
     return NextResponse.json(
-      {
-        error: "Billing is not configured",
-        code: "billing_not_configured",
-        detail,
-      },
+      { error: "Billing is not configured", code: "billing_not_configured" },
       { status: 503 }
     );
   }
