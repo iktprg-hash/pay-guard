@@ -205,6 +205,7 @@ function useProMutationErrors() {
 function invalidateProProfile(queryClient: QueryClient, userId: string) {
   void queryClient.invalidateQueries({
     queryKey: proFinancialKeys.profile(userId),
+    refetchType: "active",
   });
 }
 
@@ -931,7 +932,7 @@ export function useSaveProProfileSettings(options?: {
       }
     },
     onSettled: () => {
-      if (userId) invalidateProProfile(queryClient, userId);
+      if (userId) invalidateProCatalogSync(queryClient, userId);
     },
   });
 

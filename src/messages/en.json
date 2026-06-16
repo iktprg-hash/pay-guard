@@ -635,6 +635,7 @@
       "chartTitle": "Balance projection",
       "chartDescription": "Estimated balance at the end of each month.",
       "chartLegend": "Bar height shows projected end-of-month balance.",
+      "chartDeficitHint": "Red bars indicate a projected deficit.",
       "tableTitle": "3-month forecast table",
       "tableDescription": "Month-by-month income, expenses, debt payments, and balance.",
       "tableTotalRow": "3-month total",

@@ -635,6 +635,7 @@
       "chartTitle": "Projekce zůstatku",
       "chartDescription": "Odhadovaný zůstatek na konci každého měsíce.",
       "chartLegend": "Výška sloupce = odhadovaný zůstatek na konci měsíce.",
+      "chartDeficitHint": "Červené sloupce značí projekci deficitu.",
       "tableTitle": "Tabulka prognózy na 3 měsíce",
       "tableDescription": "Měsíční příjmy, výdaje, splátky a zůstatek.",
       "tableTotalRow": "Součet za 3 měsíce",

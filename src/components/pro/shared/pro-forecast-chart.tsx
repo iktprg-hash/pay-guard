@@ -32,6 +32,8 @@ export const ProForecastChart = memo(function ProForecastChart({
 }: ProForecastChartProps) {
   const t = useTranslations("pro.forecast");
 
+  const hasDeficit = months.some((m) => m.endingBalance < 0);
+
   return (
     <div className="space-y-3">
       <div
@@ -87,7 +89,12 @@ export const ProForecastChart = memo(function ProForecastChart({
           );
         })}
       </div>
-      {legend && <p className="text-xs text-muted-foreground">{legend}</p>}
+      {legend && (
+        <p className="text-xs text-muted-foreground">
+          {legend}
+          {hasDeficit ? ` ${t("chartDeficitHint")}` : ""}
+        </p>
+      )}
     </div>
   );
 });
