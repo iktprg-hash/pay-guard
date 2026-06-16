@@ -1,7 +1,8 @@
 import { expect, type APIRequestContext, type Page, type Response } from "@playwright/test";
+import { E2E_POLL_TIMEOUT } from "./e2e-timeouts";
 
 const DEV_RESTART_HINT = "Run: npm run dev:restart";
-const HYDRATION_POLL = [250, 400, 600, 900] as const;
+const HYDRATION_POLL = [300, 500, 750, 1000] as const;
 
 /** Fail fast when Next.js dev server returns 5xx (often corrupted .next cache). */
 export function assertHttpOk(
@@ -31,7 +32,7 @@ export async function gotoExpectOk(page: Page, url: string): Promise<Response> {
           .isVisible()
           .catch(() => false)),
       {
-        timeout: 10_000,
+        timeout: E2E_POLL_TIMEOUT,
         intervals: [...HYDRATION_POLL],
       }
     )

@@ -1,5 +1,6 @@
 import { E2E_LOCALE, test, expect } from "./fixtures/auth";
 import { mockSubscriptionTier } from "./helpers/billing-mocks";
+import { E2E_LONG_TIMEOUT, E2E_TIER_TIMEOUT } from "./helpers/e2e-timeouts";
 import { createManualRecommendation } from "./helpers/manual-flow";
 import {
   UI,
@@ -8,6 +9,7 @@ import {
   openProRouteExpectGate,
   openProRouteExpectUnlocked,
   pollForGateFullyUnlocked,
+  pollForProGated,
   proBannerUpgradeLink,
   proBlurredPreview,
   proLockedOverlay,
@@ -20,6 +22,7 @@ import {
 
 /** Serial — tier mocks + Pro routes share one dev server; parallel caused HTTP 500. */
 test.describe.configure({ mode: "serial" });
+test.slow();
 
 const PRO_ROUTES = [
   { path: "dashboard", heading: /dashboard|přehled|дашборд/i },
@@ -31,12 +34,13 @@ const PRO_ROUTES = [
 
 test.describe("Pro gating", () => {
   test("shows upgrade gate on Pro dashboard for Free users", async ({ page }) => {
-    test.slow();
     const tier = mockSubscriptionTier(page);
     tier.setTier("free");
+    await refreshSubscriptionTier(page);
 
     await test.step("Open Pro dashboard", async () => {
       await openProRouteExpectGate(page, "dashboard");
+      await pollForProGated(page, { timeout: E2E_LONG_TIMEOUT });
     });
 
     await test.step("Upgrade banner, blur, and locked overlay are visible", async () => {
@@ -63,7 +67,6 @@ test.describe("Pro gating", () => {
     request,
     baseURL,
   }) => {
-    test.slow();
     const tier = mockSubscriptionTier(page);
     tier.setTier("free");
     await refreshSubscriptionTier(page);
@@ -110,13 +113,15 @@ test.describe("Pro gating", () => {
   });
 
   test("grants full access to all Pro pages for Pro users", async ({ page }) => {
-    test.slow();
     const tier = mockSubscriptionTier(page);
     tier.setTier("pro");
+    await refreshSubscriptionTier(page);
 
     for (const route of PRO_ROUTES) {
       await test.step(`Pro route /${E2E_LOCALE}/pro/${route.path}`, async () => {
-        await openProRouteExpectUnlocked(page, route.path, route.heading);
+        await openProRouteExpectUnlocked(page, route.path, route.heading, {
+          timeout: E2E_LONG_TIMEOUT,
+        });
 
         await expect.soft(proPageHeading(page, route.heading)).toBeVisible();
         await expect.soft(
@@ -127,9 +132,9 @@ test.describe("Pro gating", () => {
   });
 
   test("ProFeatureGate unlocks after tier upgrade (poll)", async ({ page }) => {
-    test.slow();
     const tier = mockSubscriptionTier(page);
     tier.setTier("free");
+    await refreshSubscriptionTier(page);
 
     await test.step("Gate visible while Free", async () => {
       await openProRouteExpectGate(page, "debts");
@@ -139,8 +144,8 @@ test.describe("Pro gating", () => {
     await test.step("Upgrade tier mock → gate and overlay disappear", async () => {
       tier.setTier("pro");
       await page.reload({ waitUntil: "domcontentloaded" });
-      await waitForTierSettled(page, { timeout: 30_000 });
-      await pollForGateFullyUnlocked(page, { timeout: 30_000 });
+      await waitForTierSettled(page, { timeout: E2E_TIER_TIMEOUT });
+      await pollForGateFullyUnlocked(page, { timeout: E2E_LONG_TIMEOUT });
 
       await expect.soft(
         proPageHeading(page, /debts|dluhy|долги/i)
@@ -153,9 +158,9 @@ test.describe("Pro gating", () => {
   test("ProFeatureGate renders blur overlay and upgrade CTA", async ({
     page,
   }) => {
-    test.slow();
     const tier = mockSubscriptionTier(page);
     tier.setTier("free");
+    await refreshSubscriptionTier(page);
 
     await test.step("Gate with blur is visible on debts page", async () => {
       await openProRouteExpectGate(page, "debts");

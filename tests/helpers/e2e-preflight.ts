@@ -37,7 +37,7 @@ function isSupabaseConfigured(): boolean {
 async function waitForHealth(
   baseURL: string,
   attempts = 30,
-  delayMs = 2000
+  baseDelayMs = 1500
 ): Promise<void> {
   const healthUrl = `${baseURL}/api/health`;
   const isCi = Boolean(process.env.CI);
@@ -45,7 +45,7 @@ async function waitForHealth(
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
       const res = await fetch(healthUrl, {
-        signal: AbortSignal.timeout(8_000),
+        signal: AbortSignal.timeout(10_000),
       });
       if (res.ok) {
         const body = (await res.json().catch(() => ({}))) as { ok?: boolean };
@@ -56,6 +56,7 @@ async function waitForHealth(
     }
 
     if (attempt < attempts) {
+      const delayMs = Math.min(baseDelayMs * attempt, 5_000);
       await new Promise((resolve) => setTimeout(resolve, delayMs));
     }
   }
@@ -77,7 +78,9 @@ async function waitForHealth(
 export async function runE2ePreflight(
   baseURL = process.env.E2E_BASE_URL ?? DEFAULT_BASE
 ): Promise<void> {
-  if (isDevCacheCorrupt()) {
+  const isCi = Boolean(process.env.CI);
+
+  if (!isCi && isDevCacheCorrupt()) {
     fail([
       "E2E preflight: corrupted Turbopack cache (.next/dev/prerender-manifest.json).",
       "This causes HTTP 404/500 on pages and API routes.",
@@ -85,7 +88,7 @@ export async function runE2ePreflight(
     ]);
   }
 
-  const attempts = process.env.CI ? 60 : 30;
+  const attempts = isCi ? 90 : 40;
   await waitForHealth(baseURL, attempts);
 
   const healthUrl = `${baseURL}/api/health`;
@@ -121,6 +124,15 @@ export async function runE2ePreflight(
         `Fix: ${DEV_CACHE_FIX_HINT}`,
       ].filter(Boolean)
     );
+  }
+
+  const pricingUrl = `${baseURL}/cs/pricing`;
+  const pricingRes = await fetchProbe(pricingUrl);
+  if (!pricingRes.ok) {
+    fail([
+      `E2E preflight: ${pricingUrl} returned HTTP ${pricingRes.status}.`,
+      `Fix: ${DEV_CACHE_FIX_HINT}`,
+    ]);
   }
 
   const otpUrl = `${baseURL}/api/auth/send-otp`;

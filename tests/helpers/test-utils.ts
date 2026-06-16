@@ -1,9 +1,15 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import { E2E_LOCALE } from "../fixtures/auth";
 import { gotoExpectOk } from "./server-health";
+import {
+  E2E_LONG_TIMEOUT,
+  E2E_POLL_TIMEOUT,
+  E2E_TIER_TIMEOUT,
+  E2E_TOAST_TIMEOUT,
+} from "./e2e-timeouts";
 
 /** Default backoff for UI state polls (TanStack Query / Stripe redirects). */
-export const POLL_INTERVALS = [250, 400, 600, 900, 1200] as const;
+export const POLL_INTERVALS = [300, 500, 750, 1000, 1500] as const;
 
 /** Locale-aware regex helpers for next-intl UI copy. */
 export const UI = {
@@ -57,10 +63,13 @@ export function latestPdfProUpsellLink(page: Page): Locator {
 export async function refreshSubscriptionTier(page: Page): Promise<void> {
   const tierResponse = page.waitForResponse(
     (res) => res.url().includes("/api/auth/tier") && res.ok(),
-    { timeout: 20_000 }
+    { timeout: E2E_TIER_TIMEOUT }
   );
-  await gotoExpectOk(page, pricingPath());
-  await tierResponse.catch(() => undefined);
+  try {
+    await gotoExpectOk(page, pricingPath());
+  } finally {
+    await tierResponse.catch(() => undefined);
+  }
   await waitForTierSettled(page);
 }
 
@@ -69,7 +78,7 @@ export async function waitForTierSettled(
   page: Page,
   options: { timeout?: number } = {}
 ): Promise<void> {
-  const timeout = options.timeout ?? 20_000;
+  const timeout = options.timeout ?? E2E_TIER_TIMEOUT;
 
   await page
     .waitForResponse(
@@ -80,8 +89,17 @@ export async function waitForTierSettled(
 
   await expect
     .poll(
-      async () =>
-        (await page.locator('[role="status"][aria-busy="true"]').count()) === 0,
+      async () => {
+        const busyCount = await page
+          .locator('[role="status"][aria-busy="true"]')
+          .count()
+          .catch(() => -1);
+        const gateLoading = await page
+          .getByText(/loading pro|načítám pro|загрузка pro/i)
+          .isVisible()
+          .catch(() => false);
+        return busyCount === 0 && !gateLoading;
+      },
       {
         timeout,
         intervals: [...POLL_INTERVALS],
@@ -90,29 +108,95 @@ export async function waitForTierSettled(
     .toBe(true);
 }
 
+/** Wait until pricing Upgrade CTA is interactive (tier/auth loading finished). */
+export async function waitForPricingUpgradeReady(
+  page: Page,
+  options: { timeout?: number } = {}
+): Promise<void> {
+  const timeout = options.timeout ?? E2E_POLL_TIMEOUT;
+  const upgrade = page.getByRole("button", {
+    name: /upgrade|přejít na pro|перейти на pro/i,
+  });
+
+  await expect
+    .poll(
+      async () => {
+        if (
+          await page
+            .getByText(/^internal server error$/i)
+            .isVisible()
+            .catch(() => false)
+        ) {
+          return "error";
+        }
+        if (await upgrade.isVisible().catch(() => false)) {
+          return (await upgrade.isEnabled()) ? "ready" : "disabled";
+        }
+        return "loading";
+      },
+      { timeout, intervals: [...POLL_INTERVALS] }
+    )
+    .toBe("ready");
+}
+
+/** Poll checkout redirect + billing confirm (Stripe mock flow). */
+export async function pollForCheckoutSuccess(
+  page: Page,
+  options: { timeout?: number } = {}
+): Promise<void> {
+  const timeout = options.timeout ?? E2E_LONG_TIMEOUT;
+
+  await expect
+    .poll(async () => page.url().includes("checkout=success"), {
+      timeout,
+      intervals: [...POLL_INTERVALS],
+    })
+    .toBe(true);
+
+  await waitForBillingConfirm(page, { timeout });
+}
+
+/** Track billing confirm/sync responses (attach before checkout click). */
+export function watchBillingConfirm(
+  page: Page,
+  options: { timeout?: number } = {}
+): { done: Promise<void> } {
+  const timeout = options.timeout ?? E2E_LONG_TIMEOUT;
+  const matchesBilling = (url: string) =>
+    url.includes("/api/billing/confirm") || url.includes("/api/billing/sync");
+
+  let seen = false;
+  const onResponse = (res: { url: () => string; ok: () => boolean }) => {
+    if (matchesBilling(res.url()) && res.ok()) seen = true;
+  };
+  page.on("response", onResponse);
+
+  const done = expect
+    .poll(async () => seen, {
+      timeout,
+      intervals: [...POLL_INTERVALS],
+    })
+    .toBe(true)
+    .finally(() => {
+      page.off("response", onResponse);
+    });
+
+  return { done };
+}
+
 /** Wait for checkout confirm/sync after Stripe redirect. */
 export async function waitForBillingConfirm(
   page: Page,
   options: { timeout?: number } = {}
 ): Promise<void> {
-  const timeout = options.timeout ?? 25_000;
-
-  await page
-    .waitForResponse(
-      (res) =>
-        (res.url().includes("/api/billing/confirm") ||
-          res.url().includes("/api/billing/sync")) &&
-        res.ok(),
-      { timeout }
-    )
-    .catch(() => undefined);
+  await watchBillingConfirm(page, options).done;
 }
 
 /** Wait for toast/alert copy (next-intl toasts use role=alert or role=status). */
 export async function waitForToast(
   page: Page,
   pattern: RegExp,
-  timeout = 15_000
+  timeout = E2E_TOAST_TIMEOUT
 ): Promise<Locator> {
   const toast = page
     .locator('[role="alert"], [role="status"]')
@@ -140,7 +224,7 @@ export async function fillFinancialForm(
     dueDate = "2026-12-31",
   } = options;
 
-  await expect(page.locator("#funds")).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator("#funds")).toBeVisible({ timeout: E2E_POLL_TIMEOUT });
   await page.locator("#funds").fill(funds);
   await page
     .getByLabel(/creditor|věřitel|кредитор/i)
@@ -161,7 +245,7 @@ export async function fillFinancialForm(
 /** Wait until RecommendationCard heading is visible. */
 export async function waitForRecommendation(page: Page): Promise<void> {
   await expect(latestRecommendationHeading(page)).toBeVisible({
-    timeout: 20_000,
+    timeout: E2E_POLL_TIMEOUT,
   });
 }
 
@@ -191,7 +275,7 @@ export function proOverlayUpgradeLink(page: Page): Locator {
 export async function waitForProGate(page: Page): Promise<void> {
   await expect(
     page.getByRole("region", { name: UI.upgradeBanner }).first()
-  ).toBeVisible({ timeout: 20_000 });
+  ).toBeVisible({ timeout: E2E_POLL_TIMEOUT });
 }
 
 /** Open a Pro route and wait until tier gate is gone and page heading is visible. */
@@ -201,7 +285,7 @@ export async function openProRouteExpectUnlocked(
   heading: RegExp,
   options: { timeout?: number } = {}
 ): Promise<void> {
-  const timeout = options.timeout ?? 20_000;
+  const timeout = options.timeout ?? E2E_LONG_TIMEOUT;
 
   await gotoExpectOk(page, proPath(segment));
   await waitForTierSettled(page, { timeout });
@@ -227,7 +311,7 @@ export async function pollForUrlContains(
 ): Promise<void> {
   await expect
     .poll(async () => page.url().includes(fragment), {
-      timeout: options.timeout ?? 20_000,
+      timeout: options.timeout ?? E2E_LONG_TIMEOUT,
       intervals: [...POLL_INTERVALS],
     })
     .toBe(true);
@@ -246,7 +330,7 @@ export async function pollForToastVisible(
 
   await expect
     .poll(async () => toast.isVisible().catch(() => false), {
-      timeout: options.timeout ?? 15_000,
+      timeout: options.timeout ?? E2E_POLL_TIMEOUT,
       intervals: [...POLL_INTERVALS],
     })
     .toBe(true);
@@ -261,7 +345,7 @@ export async function pollForManageSubscriptionHidden(
 
   await expect
     .poll(async () => !(await manage.isVisible().catch(() => false)), {
-      timeout: options.timeout ?? 15_000,
+      timeout: options.timeout ?? E2E_POLL_TIMEOUT,
       intervals: [...POLL_INTERVALS],
     })
     .toBe(true);
@@ -281,7 +365,7 @@ export async function pollForProGated(
           .isVisible()
           .catch(() => false),
       {
-        timeout: options.timeout ?? 20_000,
+        timeout: options.timeout ?? E2E_LONG_TIMEOUT,
         intervals: [...POLL_INTERVALS],
       }
     )
@@ -311,7 +395,7 @@ export async function pollForProUnlocked(
         return (manageVisible || proActiveVisible) && gateCount === 0;
       },
       {
-        timeout: options.timeout ?? 25_000,
+        timeout: options.timeout ?? E2E_LONG_TIMEOUT,
         intervals: [...POLL_INTERVALS],
       }
     )
@@ -331,7 +415,7 @@ export async function pollForNoUpgradeGate(
           .count()
           .catch(() => -1),
       {
-        timeout: options.timeout ?? 20_000,
+        timeout: options.timeout ?? E2E_LONG_TIMEOUT,
         intervals: [...POLL_INTERVALS],
       }
     )
@@ -347,7 +431,7 @@ export async function pollForOverlayHidden(
     .poll(
       async () => (await proLockedOverlay(page).count()) === 0,
       {
-        timeout: options.timeout ?? 20_000,
+        timeout: options.timeout ?? E2E_LONG_TIMEOUT,
         intervals: [...POLL_INTERVALS],
       }
     )
@@ -359,7 +443,7 @@ export async function pollForGateFullyUnlocked(
   page: Page,
   options: { timeout?: number } = {}
 ): Promise<void> {
-  const timeout = options.timeout ?? 25_000;
+  const timeout = options.timeout ?? E2E_LONG_TIMEOUT;
 
   await expect
     .poll(
@@ -407,7 +491,7 @@ export async function pollUntilVisible(
 ): Promise<void> {
   await expect
     .poll(async () => locator.isVisible().catch(() => false), {
-      timeout: options.timeout ?? 15_000,
+      timeout: options.timeout ?? E2E_POLL_TIMEOUT,
       intervals: options.intervals ?? [...POLL_INTERVALS],
     })
     .toBe(true);
@@ -420,7 +504,7 @@ export async function pollUntilHidden(
 ): Promise<void> {
   await expect
     .poll(async () => locator.isVisible().catch(() => false), {
-      timeout: options.timeout ?? 15_000,
+      timeout: options.timeout ?? E2E_POLL_TIMEOUT,
       intervals: [...POLL_INTERVALS],
     })
     .toBe(false);
