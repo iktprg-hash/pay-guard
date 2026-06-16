@@ -597,12 +597,7 @@ export function useDebts(options: UseDebtsOptions = {}): UseDebtsResult {
     onMutate: optimistic.onMutateSave,
     onError: (error, variables, context) =>
       optimistic.onError(error, variables, context, "proSaveFailed"),
-    onSuccess: (data) => {
-      optimistic.onSuccess(data);
-      if (syncCatalogProfile && userId) {
-        invalidateProCatalogSync(queryClient, userId);
-      }
-    },
+    onSuccess: optimistic.onSuccess,
     onSettled: optimistic.onSettled,
   });
 
@@ -612,12 +607,7 @@ export function useDebts(options: UseDebtsOptions = {}): UseDebtsResult {
     onMutate: optimistic.onMutateDelete,
     onError: (error, variables, context) =>
       optimistic.onError(error, variables, context, "proDeleteFailed"),
-    onSuccess: (data) => {
-      optimistic.onSuccess(data);
-      if (syncCatalogProfile && userId) {
-        invalidateProCatalogSync(queryClient, userId);
-      }
-    },
+    onSuccess: optimistic.onSuccess,
     onSettled: optimistic.onSettled,
   });
 
@@ -710,10 +700,7 @@ export function useRecurringIncomes(
     onMutate: optimistic.onMutateSave,
     onError: (error, variables, context) =>
       optimistic.onError(error, variables, context, "proSaveFailed"),
-    onSuccess: (data) => {
-      optimistic.onSuccess(data);
-      if (userId) invalidateProCatalogSync(queryClient, userId);
-    },
+    onSuccess: optimistic.onSuccess,
     onSettled: optimistic.onSettled,
   });
 
@@ -723,10 +710,7 @@ export function useRecurringIncomes(
     onMutate: optimistic.onMutateDelete,
     onError: (error, variables, context) =>
       optimistic.onError(error, variables, context, "proDeleteFailed"),
-    onSuccess: (data) => {
-      optimistic.onSuccess(data);
-      if (userId) invalidateProCatalogSync(queryClient, userId);
-    },
+    onSuccess: optimistic.onSuccess,
     onSettled: optimistic.onSettled,
   });
 
@@ -821,10 +805,7 @@ export function useRecurringExpenses(
     onMutate: optimistic.onMutateSave,
     onError: (error, variables, context) =>
       optimistic.onError(error, variables, context, "proSaveFailed"),
-    onSuccess: (data) => {
-      optimistic.onSuccess(data);
-      if (userId) invalidateProCatalogSync(queryClient, userId);
-    },
+    onSuccess: optimistic.onSuccess,
     onSettled: optimistic.onSettled,
   });
 
@@ -834,10 +815,7 @@ export function useRecurringExpenses(
     onMutate: optimistic.onMutateDelete,
     onError: (error, variables, context) =>
       optimistic.onError(error, variables, context, "proDeleteFailed"),
-    onSuccess: (data) => {
-      optimistic.onSuccess(data);
-      if (userId) invalidateProCatalogSync(queryClient, userId);
-    },
+    onSuccess: optimistic.onSuccess,
     onSettled: optimistic.onSettled,
   });
 

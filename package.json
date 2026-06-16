@@ -37,6 +37,7 @@
     "verify:upstash": "node scripts/verify-upstash.mjs",
     "verify:stripe": "node scripts/verify-stripe.mjs",
     "verify:webhook": "node scripts/verify-webhook.mjs",
+    "stage2:check": "npm run verify:stripe && npm run verify:webhook",
     "prod:checklist": "node scripts/prod-checklist.mjs",
     "prod:checklist:strict": "node scripts/prod-checklist.mjs --strict",
     "domain:setup": "node scripts/domain-setup.mjs"

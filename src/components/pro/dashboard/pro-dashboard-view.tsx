@@ -158,17 +158,29 @@ export function ProDashboardView() {
             : t("subtitle")
         }
         action={
-          canExportPdf ? (
-            <PdfDownloadButton
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              iconClassName="h-4 w-4"
-              isGenerating={isGeneratingPdf}
-              downloadLabel={t("downloadPdf")}
-              generatingLabel={t("generatingPdf")}
-              onClick={handleDownloadPdf}
-            />
+          !empty || canExportPdf ? (
+            <div className="flex flex-wrap gap-2">
+              {!empty && (
+                <Button variant="outline" size="sm" asChild>
+                  <Link href={`/${locale}/pro/forecast`}>
+                    {t("forecastViewDetails")}
+                    <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                  </Link>
+                </Button>
+              )}
+              {canExportPdf ? (
+                <PdfDownloadButton
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  iconClassName="h-4 w-4"
+                  isGenerating={isGeneratingPdf}
+                  downloadLabel={t("downloadPdf")}
+                  generatingLabel={t("generatingPdf")}
+                  onClick={handleDownloadPdf}
+                />
+              ) : null}
+            </div>
           ) : undefined
         }
       />

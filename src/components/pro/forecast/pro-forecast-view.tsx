@@ -99,6 +99,13 @@ export function ProForecastView() {
             ? `${t("subtitle")} · ${t("lastUpdated", { date: lastUpdatedLabel })}`
             : t("subtitle")
         }
+        action={
+          forecast.hasData ? (
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/${locale}/pro/dashboard`}>{t("viewDashboard")}</Link>
+            </Button>
+          ) : undefined
+        }
       />
 
       <ProRefreshingIndicator
