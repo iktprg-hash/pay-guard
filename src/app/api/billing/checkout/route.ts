@@ -69,13 +69,19 @@ export async function POST(request: NextRequest) {
       }
       if (error.code === "already_pro") {
         return NextResponse.json(
-          { error: error.message, code: "already_pro" },
+          {
+            error: "You already have an active Pro subscription.",
+            code: "already_pro",
+          },
           { status: 409 }
         );
       }
       if (error.code === "email_required") {
         return NextResponse.json(
-          { error: error.message, code: "email_required" },
+          {
+            error: "An email address is required to start a subscription.",
+            code: "email_required",
+          },
           { status: 422 }
         );
       }
