@@ -53,7 +53,7 @@ export function buildContentSecurityPolicy(options: CspOptions = {}): string {
   return [
     "default-src 'self'",
     scriptSrc,
-    "style-src 'self' 'unsafe-inline'",
+    "style-src 'self' 'unsafe-inline'", // accepted risk: Tailwind/shadcn inline styles; nonce-based style-src deferred
     `connect-src 'self' https://${supabaseHost} wss://${supabaseHost} https://api.x.ai`,
     "img-src 'self' blob: data:",
     "font-src 'self' data:",

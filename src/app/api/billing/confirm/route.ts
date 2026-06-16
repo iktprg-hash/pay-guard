@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/auth/session";
 import { isStripeBillingConfigured } from "@/lib/billing/config";
 import { revalidateSubscriptionPages } from "@/lib/billing/revalidate-subscription";
-import { syncCheckoutSessionForUser } from "@/lib/billing/sync-checkout";
+import { syncCheckoutSessionForUser, describeBillingSyncClientError } from "@/lib/billing/sync-checkout";
 import { getSubscriptionStatus } from "@/lib/stripe";
 import {
   rateLimitError,
@@ -41,7 +41,10 @@ export async function POST(request: NextRequest) {
 
     if (!result.ok) {
       return NextResponse.json(
-        { error: "Could not confirm checkout", code: result.code, detail: result.detail },
+        {
+          error: describeBillingSyncClientError(result.code),
+          code: result.code,
+        },
         { status: 422 }
       );
     }

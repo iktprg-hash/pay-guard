@@ -83,10 +83,8 @@ export async function POST(request: NextRequest) {
     }
 
     console.error("[api/billing/checkout]", error);
-    const detail =
-      error instanceof Error ? error.message : undefined;
     return NextResponse.json(
-      { error: "Checkout failed", code: "stripe_error", detail },
+      { error: "Checkout failed", code: "stripe_error" },
       { status: 500 }
     );
   }

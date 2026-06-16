@@ -7,7 +7,27 @@ import { getStripeClient } from "@/lib/billing/stripe-client";
 
 export type BillingSyncResult =
   | { ok: true }
-  | { ok: false; code: string; detail?: string };
+  | { ok: false; code: string };
+
+/** User-safe message for billing sync/confirm API responses (no internal ops details). */
+export function describeBillingSyncClientError(code: string): string {
+  switch (code) {
+    case "session_mismatch":
+      return "This checkout session does not belong to your account.";
+    case "session_incomplete":
+      return "Payment is still processing. Please wait a moment and try again.";
+    case "no_subscription":
+      return "No subscription was found for this checkout.";
+    case "profile_update_failed":
+      return "Could not activate Pro yet. Please try again.";
+    case "customer_not_found":
+      return "No billing account was found for your email.";
+    case "no_active_subscription":
+      return "No active subscription was found.";
+    default:
+      return "Could not complete billing sync.";
+  }
+}
 
 function sessionBelongsToUser(
   session: Stripe.Checkout.Session,
@@ -27,10 +47,12 @@ async function applySubscriptionId(
   const subscription = await stripe.subscriptions.retrieve(subscriptionId);
   const applied = await applyStripeSubscriptionToUser(userId, subscription);
   if (!applied) {
+    console.error(
+      "[billing/sync-checkout] profile update failed — check SUPABASE_SERVICE_ROLE_KEY"
+    );
     return {
       ok: false,
       code: "profile_update_failed",
-      detail: "Could not update profile (check SUPABASE_SERVICE_ROLE_KEY)",
     };
   }
   return { ok: true };
@@ -90,10 +112,12 @@ export async function syncActiveSubscriptionByEmail(
     if (active) {
       const applied = await applyStripeSubscriptionToUser(userId, active);
       if (!applied) {
+        console.error(
+          "[billing/sync-checkout] profile update failed — check SUPABASE_SERVICE_ROLE_KEY"
+        );
         return {
           ok: false,
           code: "profile_update_failed",
-          detail: "Could not update profile (check SUPABASE_SERVICE_ROLE_KEY)",
         };
       }
       return { ok: true };

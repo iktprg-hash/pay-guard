@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/auth/session";
 import { isStripeBillingConfigured } from "@/lib/billing/config";
-import { syncActiveSubscriptionByEmail } from "@/lib/billing/sync-checkout";
+import { syncActiveSubscriptionByEmail, describeBillingSyncClientError } from "@/lib/billing/sync-checkout";
 import { revalidateSubscriptionPages } from "@/lib/billing/revalidate-subscription";
 import { getSubscriptionStatus } from "@/lib/stripe";
 import {
@@ -42,7 +42,10 @@ export async function POST(request: NextRequest) {
 
     if (!result.ok) {
       return NextResponse.json(
-        { error: "Could not sync subscription", code: result.code, detail: result.detail },
+        {
+          error: describeBillingSyncClientError(result.code),
+          code: result.code,
+        },
         { status: 422 }
       );
     }
