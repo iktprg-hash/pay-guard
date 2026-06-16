@@ -50,10 +50,12 @@ import {
   getRecurringIncomes,
   getUserFinancialProfile,
   saveDebts,
+  saveProProfileSnapshot,
   saveRecurringExpenses,
   saveRecurringIncomes,
   type CreateFinancialSessionOptions,
   type FinancialSessionRecord,
+  type ProProfileSnapshotInput,
   type ProResult,
 } from "@/lib/supabase/pro-financial";
 import type {
@@ -315,6 +317,7 @@ function createOptimisticListMutationHandlers<T extends { id: string }>(
 interface ProListHookBase<T> {
   isLoading: boolean;
   isFetching: boolean;
+  isError: boolean;
   error: Error | null;
   refetch: UseQueryResult<T[], Error>["refetch"];
   isSaving: boolean;
@@ -582,6 +585,7 @@ export function useDebts(options: UseDebtsOptions = {}): UseDebtsResult {
     debts: query.data ?? [],
     isLoading: query.isLoading,
     isFetching: query.isFetching,
+    isError: query.isError,
     error: query.error,
     refetch: query.refetch,
     saveDebts: saveMutation.mutate,
@@ -690,6 +694,7 @@ export function useRecurringIncomes(
     incomes: query.data ?? [],
     isLoading: query.isLoading,
     isFetching: query.isFetching,
+    isError: query.isError,
     error: query.error,
     refetch: query.refetch,
     saveIncomes: saveMutation.mutate,
@@ -800,6 +805,7 @@ export function useRecurringExpenses(
     expenses: query.data ?? [],
     isLoading: query.isLoading,
     isFetching: query.isFetching,
+    isError: query.isError,
     error: query.error,
     refetch: query.refetch,
     saveExpenses: saveMutation.mutate,
@@ -811,6 +817,90 @@ export function useRecurringExpenses(
     isMutating: saveMutation.isPending || deleteMutation.isPending,
     saveError: saveMutation.error,
     deleteError: deleteMutation.error,
+  };
+}
+
+function patchProfileSnapshot(
+  queryClient: QueryClient,
+  userId: string,
+  patch: Pick<UserFinancialProfile, "availableFunds" | "incomeStability">
+) {
+  queryClient.setQueryData<UserFinancialProfile>(
+    proFinancialKeys.profile(userId),
+    (prev) => (prev ? { ...prev, ...patch } : prev)
+  );
+}
+
+export interface UseSaveProProfileSettingsResult {
+  saveProfileSettings: (input: ProProfileSnapshotInput) => void;
+  saveProfileSettingsAsync: (
+    input: ProProfileSnapshotInput
+  ) => Promise<UserFinancialProfile>;
+  isSaving: boolean;
+  error: Error | null;
+}
+
+/** Save available funds and income stability for Pro Priority Engine. */
+export function useSaveProProfileSettings(options?: {
+  showErrorToast?: boolean;
+  showSuccessToast?: boolean;
+}): UseSaveProProfileSettingsResult {
+  const userId = useProUserId();
+  const queryClient = useQueryClient();
+  const reportError = useProMutationErrors();
+  const t = useTranslations("pro.dashboard");
+  const showErrorToast = options?.showErrorToast ?? true;
+  const showSuccessToast = options?.showSuccessToast ?? true;
+
+  const mutation = useMutation({
+    mutationFn: (input: ProProfileSnapshotInput) => {
+      if (!userId) throw new Error("Sign in required");
+      return unwrapProResult(saveProProfileSnapshot(userId, input));
+    },
+    onMutate: async (input) => {
+      if (!userId) return;
+      await queryClient.cancelQueries({
+        queryKey: proFinancialKeys.profile(userId),
+      });
+      const previous = readProfileCache(queryClient, userId);
+      patchProfileSnapshot(queryClient, userId, {
+        availableFunds: input.availableFunds,
+        incomeStability: input.incomeStability,
+      });
+      return { previous };
+    },
+    onError: (error, _input, context) => {
+      if (userId && context?.previous) {
+        queryClient.setQueryData(
+          proFinancialKeys.profile(userId),
+          context.previous
+        );
+      }
+      if (showErrorToast) {
+        reportError(
+          error,
+          isProRequiredError(error) ? "proRequired" : "proSaveFailed"
+        );
+      }
+    },
+    onSuccess: (data) => {
+      if (userId) {
+        queryClient.setQueryData(proFinancialKeys.profile(userId), data);
+      }
+      if (showSuccessToast) {
+        toast(t("profileSaved"), "success");
+      }
+    },
+    onSettled: () => {
+      if (userId) invalidateProProfile(queryClient, userId);
+    },
+  });
+
+  return {
+    saveProfileSettings: mutation.mutate,
+    saveProfileSettingsAsync: mutation.mutateAsync,
+    isSaving: mutation.isPending,
+    error: mutation.error,
   };
 }
 

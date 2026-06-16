@@ -217,9 +217,10 @@ export async function listUserSessions(
     const { data: sessions, error } = await supabase
       .from("financial_sessions")
       .select(
-        "id, profile_data, recommendation, created_at, updated_at"
+        "id, profile_data, recommendation, created_at, updated_at, source"
       )
       .eq("user_id", userId)
+      .neq("source", "api")
       .order("updated_at", { ascending: false });
 
     if (error || !sessions?.length) return [];

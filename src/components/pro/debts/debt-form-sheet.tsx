@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 import { ProFormField, ProSelect } from "@/components/pro/forms/pro-form-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Sheet,
   SheetContent,
@@ -63,6 +64,13 @@ export function DebtFormSheet({
       ...form,
       creditor: form.creditor.trim(),
       dueDate: form.dueDate || undefined,
+      criticalDate: form.criticalDate || undefined,
+      criticalNote: form.criticalNote?.trim() || undefined,
+      notes: form.notes?.trim() || undefined,
+      interestRate:
+        form.interestRate != null && form.interestRate > 0
+          ? form.interestRate
+          : undefined,
     });
     onOpenChange(false);
   };
@@ -140,6 +148,60 @@ export function DebtFormSheet({
                     : undefined,
                 }))
               }
+            />
+          </ProFormField>
+
+          <ProFormField label={t("criticalDate")} htmlFor="debt-critical">
+            <Input
+              id="debt-critical"
+              type="date"
+              value={form.criticalDate?.slice(0, 10) ?? ""}
+              onChange={(e) =>
+                setForm((f) => ({
+                  ...f,
+                  criticalDate: e.target.value || undefined,
+                }))
+              }
+            />
+          </ProFormField>
+
+          <ProFormField label={t("criticalNote")} htmlFor="debt-critical-note">
+            <Input
+              id="debt-critical-note"
+              value={form.criticalNote ?? ""}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, criticalNote: e.target.value }))
+              }
+              placeholder={t("criticalNotePlaceholder")}
+            />
+          </ProFormField>
+
+          <ProFormField label={t("interestRate")} htmlFor="debt-rate">
+            <Input
+              id="debt-rate"
+              type="number"
+              min={0}
+              step={0.1}
+              value={form.interestRate ?? ""}
+              onChange={(e) =>
+                setForm((f) => ({
+                  ...f,
+                  interestRate: e.target.value
+                    ? Number(e.target.value)
+                    : undefined,
+                }))
+              }
+              placeholder={t("interestRatePlaceholder")}
+            />
+          </ProFormField>
+
+          <ProFormField label={t("notes")} htmlFor="debt-notes">
+            <Textarea
+              id="debt-notes"
+              value={form.notes ?? ""}
+              onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+              placeholder={t("notesPlaceholder")}
+              rows={3}
             />
           </ProFormField>
 

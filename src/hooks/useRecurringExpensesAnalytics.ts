@@ -14,7 +14,10 @@ export interface UseRecurringExpensesAnalyticsResult {
   monthlyTotal: number;
   byCategory: CategoryTotal[];
   isLoading: boolean;
+  isFetching: boolean;
+  isError: boolean;
   error: Error | null;
+  refetch: ReturnType<typeof useRecurringExpenses>["refetch"];
 }
 
 /** Expense list + category totals for Pro expenses page. */
@@ -41,7 +44,10 @@ export function useRecurringExpensesAnalytics(): UseRecurringExpensesAnalyticsRe
     monthlyTotal,
     byCategory,
     isLoading: query.isLoading,
+    isFetching: query.isFetching,
+    isError: query.isError,
     error: query.error,
+    refetch: query.refetch,
     saveExpensesAsync: query.saveExpensesAsync,
     deleteExpenseAsync: query.deleteExpenseAsync,
     isSaving: query.isSaving,

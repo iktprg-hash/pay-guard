@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
-import { CalendarRange, TrendingDown, TrendingUp } from "lucide-react";
+import { CalendarRange, TrendingDown, TrendingUp, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -30,6 +30,12 @@ export function ProDashboardForecastEmpty() {
       <CardContent className="flex flex-1 flex-col items-center justify-center gap-4 pb-10 text-center">
         <p className="max-w-sm text-sm text-muted-foreground">{t("forecastEmptyHint")}</p>
         <div className="flex flex-wrap justify-center gap-2">
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/${locale}/pro/debts`}>
+              <Wallet className="mr-2 h-4 w-4" />
+              {t("addDebt")}
+            </Link>
+          </Button>
           <Button variant="outline" size="sm" asChild>
             <Link href={`/${locale}/pro/incomes`}>
               <TrendingUp className="mr-2 h-4 w-4" />

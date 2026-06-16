@@ -8,6 +8,10 @@ import { ExpenseFormSheet } from "@/components/pro/expenses/expense-form-sheet";
 import { useCategoryDisplayLabel } from "@/components/pro/forms/pro-category-select";
 import { ProEmptyState, ProPageHeader, StatCard } from "@/components/pro/pro-page";
 import { ProPageSkeleton } from "@/components/pro/pro-skeletons";
+import {
+  ProListErrorCard,
+  ProListRefreshing,
+} from "@/components/pro/shared/pro-list-page-states";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -94,7 +98,10 @@ export function ProExpensesView() {
     monthlyTotal,
     byCategory,
     isLoading,
+    isFetching,
+    isError,
     error,
+    refetch,
     saveExpensesAsync,
     deleteExpenseAsync,
     isSaving,
@@ -131,6 +138,17 @@ export function ProExpensesView() {
     return <ProPageSkeleton variant="list" label={t("title")} />;
   }
 
+  if (isError && expenses.length === 0) {
+    return (
+      <ProListErrorCard
+        title={t("errorTitle")}
+        description={error?.message ?? t("errorGeneric")}
+        retryLabel={t("retry")}
+        onRetry={() => void refetch()}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       <ProPageHeader
@@ -144,10 +162,15 @@ export function ProExpensesView() {
         }
       />
 
-      {error && (
-        <p className="text-sm text-destructive" role="alert">
-          {error.message}
-        </p>
+      <ProListRefreshing visible={isFetching && !isLoading} label={t("refreshingData")} />
+
+      {isError && (
+        <ProListErrorCard
+          title={t("errorTitle")}
+          description={error?.message ?? t("errorGeneric")}
+          retryLabel={t("retry")}
+          onRetry={() => void refetch()}
+        />
       )}
 
       {expenses.length === 0 ? (

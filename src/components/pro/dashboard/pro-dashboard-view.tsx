@@ -32,8 +32,10 @@ import { ProDashboardForecastSummary } from "@/components/pro/dashboard/pro-dash
 import { ProDashboardEngineInsight } from "@/components/pro/dashboard/pro-dashboard-engine-insight";
 import { ProDashboardForecastEmpty } from "@/components/pro/dashboard/pro-dashboard-forecast-empty";
 import { ProDashboardEngineEmpty } from "@/components/pro/dashboard/pro-dashboard-engine-empty";
+import { ProDashboardProfileSettings } from "@/components/pro/dashboard/pro-dashboard-profile-settings";
 import { ProDashboardDebtTable } from "@/components/pro/dashboard/pro-dashboard-debt-table";
 import { ProRefreshingIndicator } from "@/components/pro/pro-refreshing-indicator";
+import { formatIncomeStabilityDisplay } from "@/lib/pro/format-income-stability";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -192,6 +194,12 @@ export function ProDashboardView() {
             incomeTotal={0}
             expenseTotal={0}
           />
+          <div className="max-w-md">
+            <ProDashboardProfileSettings
+              availableFunds={summary.availableFunds}
+              incomeStability={summary.incomeStability}
+            />
+          </div>
           <ProEmptyState
             icon={<LayoutDashboard className="h-6 w-6" />}
             title={t("emptyProfileTitle")}
@@ -319,7 +327,12 @@ export function ProDashboardView() {
             </div>
           </section>
 
-          <section className="grid gap-4 lg:grid-cols-2">
+          <section className="grid gap-4 lg:grid-cols-3">
+            <ProDashboardProfileSettings
+              availableFunds={summary.availableFunds}
+              incomeStability={summary.incomeStability}
+            />
+
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">{t("cashFlowTitle")}</CardTitle>
@@ -401,12 +414,13 @@ export function ProDashboardView() {
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">{t("incomeStability")}</span>
-                  <span className="font-medium capitalize">
-                    {summary.effectiveIncomeStability &&
-                    summary.effectiveIncomeStability !== summary.incomeStability
-                      ? `${summary.incomeStability ?? "—"} → ${summary.effectiveIncomeStability}`
-                      : (summary.incomeStability ?? "—")}
+                  <span className="text-muted-foreground">{t("engineEffectiveStability")}</span>
+                  <span className="font-medium">
+                    {formatIncomeStabilityDisplay(
+                      summary.incomeStability,
+                      summary.effectiveIncomeStability,
+                      t
+                    )}
                   </span>
                 </div>
                 <div className="flex justify-between border-t pt-3">

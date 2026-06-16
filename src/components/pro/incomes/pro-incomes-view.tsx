@@ -8,6 +8,10 @@ import { IncomeFormSheet } from "@/components/pro/incomes/income-form-sheet";
 import { useCategoryDisplayLabel } from "@/components/pro/forms/pro-category-select";
 import { ProEmptyState, ProPageHeader, StatCard } from "@/components/pro/pro-page";
 import { ProPageSkeleton } from "@/components/pro/pro-skeletons";
+import {
+  ProListErrorCard,
+  ProListRefreshing,
+} from "@/components/pro/shared/pro-list-page-states";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -26,17 +30,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { MonthCashProjection } from "@/lib/pro/recurring-projection";
+import { formatForecastMonth } from "@/lib/pro/format-forecast-month";
 import { formatDate, formatMoney } from "@/lib/utils";
 import { INCOME_CATEGORY_PRESETS, type RecurringIncome } from "@/lib/types/financial";
 import type { Locale } from "@/i18n/routing";
-
-function formatForecastMonth(yearMonth: string, locale: Locale): string {
-  const [year, month] = yearMonth.split("-").map(Number);
-  return new Intl.DateTimeFormat(locale, {
-    month: "long",
-    year: "numeric",
-  }).format(new Date(year, month - 1, 1));
-}
 
 const IncomeProjectionChart = memo(function IncomeProjectionChart({
   projection,
@@ -92,7 +89,10 @@ export function ProIncomesView() {
     projection,
     projectionTotal,
     isLoading,
+    isFetching,
+    isError,
     error,
+    refetch,
     saveIncomesAsync,
     deleteIncomeAsync,
     isSaving,
@@ -129,6 +129,17 @@ export function ProIncomesView() {
     return <ProPageSkeleton variant="list" label={t("title")} />;
   }
 
+  if (isError && incomes.length === 0) {
+    return (
+      <ProListErrorCard
+        title={t("errorTitle")}
+        description={error?.message ?? t("errorGeneric")}
+        retryLabel={t("retry")}
+        onRetry={() => void refetch()}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       <ProPageHeader
@@ -142,10 +153,15 @@ export function ProIncomesView() {
         }
       />
 
-      {error && (
-        <p className="text-sm text-destructive" role="alert">
-          {error.message}
-        </p>
+      <ProListRefreshing visible={isFetching && !isLoading} label={t("refreshingData")} />
+
+      {isError && (
+        <ProListErrorCard
+          title={t("errorTitle")}
+          description={error?.message ?? t("errorGeneric")}
+          retryLabel={t("retry")}
+          onRetry={() => void refetch()}
+        />
       )}
 
       {incomes.length === 0 ? (

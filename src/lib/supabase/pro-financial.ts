@@ -18,6 +18,7 @@ import type {
   Frequency,
   PrioritizationResult,
   RecurringExpense,
+  IncomeStability,
   RecurringIncome,
   SubscriptionTier,
   UserFinancialProfile,
@@ -270,6 +271,20 @@ function parseFinancialProfileSnapshot(raw: unknown): Partial<FinancialProfile> 
   };
 }
 
+function mergeProfileSnapshots(
+  base: Partial<FinancialProfile>,
+  proOverlay: Partial<FinancialProfile>
+): Partial<FinancialProfile> {
+  return {
+    availableFunds:
+      proOverlay.availableFunds ?? base.availableFunds ?? undefined,
+    incomeStability:
+      proOverlay.incomeStability ?? base.incomeStability ?? undefined,
+    monthlyIncome: base.monthlyIncome ?? proOverlay.monthlyIncome,
+    monthlyExpenses: base.monthlyExpenses ?? proOverlay.monthlyExpenses,
+  };
+}
+
 async function syncCatalogDebts(
   supabase: SupabaseClient,
   userId: string,
@@ -344,15 +359,30 @@ export async function getUserFinancialProfile(
 
   const profile = profileRow as ProfileRow;
 
-  const { data: latestSession } = await supabase
-    .from("financial_sessions")
-    .select("profile_data, created_at")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const [{ data: latestSession }, { data: proSnapshotSession }] =
+    await Promise.all([
+      supabase
+        .from("financial_sessions")
+        .select("profile_data, created_at")
+        .eq("user_id", userId)
+        .neq("source", "api")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("financial_sessions")
+        .select("profile_data, created_at, updated_at")
+        .eq("user_id", userId)
+        .eq("source", "api")
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
 
-  const snapshot = parseFinancialProfileSnapshot(latestSession?.profile_data);
+  const snapshot = mergeProfileSnapshots(
+    parseFinancialProfileSnapshot(latestSession?.profile_data),
+    parseFinancialProfileSnapshot(proSnapshotSession?.profile_data)
+  );
 
   const [debtsResult, incomesResult, expensesResult] = await Promise.all([
     getDebts(userId),
@@ -366,6 +396,7 @@ export async function getUserFinancialProfile(
 
   const lastUpdated =
     profile.financial_last_updated ??
+    proSnapshotSession?.updated_at ??
     latestSession?.created_at ??
     new Date().toISOString();
 
@@ -383,6 +414,83 @@ export async function getUserFinancialProfile(
     subscriptionTier: profile.subscription_tier ?? "free",
     subscriptionExpiresAt: profile.subscription_expires_at ?? null,
   });
+}
+
+export interface ProProfileSnapshotInput {
+  availableFunds: number;
+  incomeStability?: IncomeStability;
+}
+
+/** Persist Pro-editable profile fields (available funds, income stability). */
+export async function saveProProfileSnapshot(
+  userId: string,
+  input: ProProfileSnapshotInput
+): Promise<ProResult<UserFinancialProfile>> {
+  const blocked = guardProAccess(await ensureProAccess(userId));
+  if (blocked) return blocked;
+
+  const supabase = getClient();
+
+  const { data: existing } = await supabase
+    .from("financial_sessions")
+    .select("id, profile_data, currency")
+    .eq("user_id", userId)
+    .eq("source", "api")
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const previous = parseFinancialProfileSnapshot(existing?.profile_data);
+  const profilePayload = {
+    availableFunds: input.availableFunds,
+    incomeStability: input.incomeStability ?? previous.incomeStability,
+    monthlyIncome: previous.monthlyIncome,
+    monthlyExpenses: previous.monthlyExpenses,
+  };
+
+  if (existing?.id) {
+    const { error } = await supabase
+      .from("financial_sessions")
+      .update({
+        profile_data: profilePayload,
+        available_funds: input.availableFunds,
+        income_stability: input.incomeStability ?? previous.incomeStability ?? null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", existing.id)
+      .eq("user_id", userId);
+
+    if (error) {
+      return fromSupabaseError(error, "Failed to save profile settings");
+    }
+  } else {
+    const { data: profileRow } = await supabase
+      .from("profiles")
+      .select("currency")
+      .eq("id", userId)
+      .maybeSingle();
+
+    const currency =
+      (profileRow?.currency as AppCurrency | undefined) ?? DEFAULT_APP_CURRENCY;
+
+    const { error } = await supabase.from("financial_sessions").insert({
+      id: crypto.randomUUID(),
+      user_id: userId,
+      currency,
+      source: "api",
+      title: null,
+      profile_data: profilePayload,
+      recommendation: null,
+      available_funds: input.availableFunds,
+      income_stability: input.incomeStability ?? null,
+    });
+
+    if (error) {
+      return fromSupabaseError(error, "Failed to save profile settings");
+    }
+  }
+
+  return getUserFinancialProfile(userId);
 }
 
 /** Save user debt catalog (session_id IS NULL). Replaces full catalog set. */

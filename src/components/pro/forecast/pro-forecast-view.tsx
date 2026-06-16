@@ -16,7 +16,6 @@ import { ProEmptyState, ProPageHeader, StatCard } from "@/components/pro/pro-pag
 import { ProPageSkeleton } from "@/components/pro/pro-skeletons";
 import { ProRefreshingIndicator } from "@/components/pro/pro-refreshing-indicator";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -35,8 +34,10 @@ import {
 import type { ForecastMonth, ForecastRecommendation } from "@/lib/pro/cash-flow-forecast";
 import { formatForecastMonth } from "@/lib/pro/format-forecast-month";
 import { ProForecastChart } from "@/components/pro/shared/pro-forecast-chart";
-import { analyzeDebt } from "@/services/priorityEngine";
-import { cn, formatDate, formatMoney } from "@/lib/utils";
+import { ProDashboardDebtTable } from "@/components/pro/dashboard/pro-dashboard-debt-table";
+import { buildProEngineCashFlowContext } from "@/lib/pro/pro-engine-cashflow";
+import { toFinancialProfile } from "@/lib/types/financial";
+import { cn, formatMoney } from "@/lib/utils";
 import type { Debt } from "@/lib/types/financial";
 import type { Locale } from "@/i18n/routing";
 
@@ -98,60 +99,6 @@ const ForecastTable = memo(function ForecastTable({
             </TableCell>
           </TableRow>
         ))}
-      </TableBody>
-    </Table>
-  );
-});
-
-const DebtPriorityTable = memo(function DebtPriorityTable({
-  debts,
-  locale,
-}: {
-  debts: Debt[];
-  locale: Locale;
-}) {
-  const t = useTranslations("pro.dashboard");
-
-  if (debts.length === 0) return null;
-
-  const sorted = [...debts].sort(
-    (a, b) => analyzeDebt(a).level - analyzeDebt(b).level
-  );
-
-  return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>{t("creditor")}</TableHead>
-          <TableHead>{t("amount")}</TableHead>
-          <TableHead>{t("dueDate")}</TableHead>
-          <TableHead>{t("priority")}</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {sorted.map((debt) => {
-          const analysis = analyzeDebt(debt);
-          return (
-            <TableRow key={debt.id}>
-              <TableCell className="font-medium">{debt.creditor}</TableCell>
-              <TableCell className="tabular-nums">
-                {formatMoney(debt.amount, locale)}
-              </TableCell>
-              <TableCell>
-                {debt.dueDate
-                  ? formatDate(debt.dueDate, locale)
-                  : debt.criticalDate
-                    ? formatDate(debt.criticalDate, locale)
-                    : "—"}
-              </TableCell>
-              <TableCell>
-                <Badge variant={analysis.level === 0 ? "warning" : "secondary"}>
-                  {t("priorityLevel", { level: analysis.level })}
-                </Badge>
-              </TableCell>
-            </TableRow>
-          );
-        })}
       </TableBody>
     </Table>
   );
@@ -251,6 +198,11 @@ export function ProForecastView() {
     }
     return merged;
   }, [summary.criticalDebts, summary.urgentDebts]);
+
+  const engineCashFlow = useMemo(() => {
+    if (!summary.profile) return undefined;
+    return buildProEngineCashFlowContext(toFinancialProfile(summary.profile));
+  }, [summary.profile]);
 
   if (isLoading && !summary.profile) {
     return <ProPageSkeleton variant="forecast" label={t("title")} />;
@@ -448,7 +400,13 @@ export function ProForecastView() {
                 <CardDescription>{t("debtsDescription")}</CardDescription>
               </CardHeader>
               <CardContent className="overflow-x-auto">
-                <DebtPriorityTable debts={priorityDebts} locale={locale} />
+                <ProDashboardDebtTable
+                  debts={priorityDebts}
+                  locale={locale}
+                  cashFlow={engineCashFlow}
+                  emptyTitle={t("debtsEmptyTitle")}
+                  emptyHint={t("debtsEmptyHint")}
+                />
               </CardContent>
             </Card>
           )}

@@ -6,6 +6,10 @@ vi.mock("@/lib/supabase/client", () => ({
   createClient: () => ({ from: mockFrom }),
 }));
 
+vi.mock("@/lib/supabase/ensure-pro-access", () => ({
+  ensureProAccess: vi.fn(async () => ({ ok: true as const })),
+}));
+
 import {
   getDebts,
   getUserFinancialProfile,
@@ -79,25 +83,30 @@ describe("pro-financial", () => {
         };
       }
       if (table === "financial_sessions") {
+        const sessionRow = {
+          data: {
+            profile_data: {
+              availableFunds: 8000,
+              monthlyIncome: 35000,
+            },
+            created_at: "2026-06-14T12:00:00Z",
+            updated_at: "2026-06-14T12:00:00Z",
+          },
+          error: null,
+        };
+        const chain = {
+          maybeSingle: vi.fn().mockResolvedValue(sessionRow),
+          limit: vi.fn().mockReturnThis(),
+          order: vi.fn().mockReturnThis(),
+          neq: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+        };
+        chain.limit.mockReturnValue(chain);
+        chain.order.mockReturnValue(chain);
+        chain.neq.mockReturnValue(chain);
+        chain.eq.mockReturnValue(chain);
         return {
-          select: vi.fn(() => ({
-            eq: vi.fn(() => ({
-              order: vi.fn(() => ({
-                limit: vi.fn(() => ({
-                  maybeSingle: vi.fn().mockResolvedValue({
-                    data: {
-                      profile_data: {
-                        availableFunds: 8000,
-                        monthlyIncome: 35000,
-                      },
-                      created_at: "2026-06-14T12:00:00Z",
-                    },
-                    error: null,
-                  }),
-                })),
-              })),
-            })),
-          })),
+          select: vi.fn(() => chain),
         };
       }
       if (table === "debts") {

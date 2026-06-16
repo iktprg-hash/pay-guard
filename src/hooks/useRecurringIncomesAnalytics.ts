@@ -16,7 +16,10 @@ export interface UseRecurringIncomesAnalyticsResult {
   projection: MonthCashProjection[];
   projectionTotal: number;
   isLoading: boolean;
+  isFetching: boolean;
+  isError: boolean;
   error: Error | null;
+  refetch: ReturnType<typeof useRecurringIncomes>["refetch"];
 }
 
 /** Income list + 3-month receipt projection for Pro incomes page. */
@@ -54,7 +57,10 @@ export function useRecurringIncomesAnalytics(): UseRecurringIncomesAnalyticsResu
     projection,
     projectionTotal,
     isLoading: query.isLoading,
+    isFetching: query.isFetching,
+    isError: query.isError,
     error: query.error,
+    refetch: query.refetch,
     saveIncomesAsync: query.saveIncomesAsync,
     deleteIncomeAsync: query.deleteIncomeAsync,
     isSaving: query.isSaving,

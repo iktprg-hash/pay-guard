@@ -7,6 +7,10 @@ import { useDebts } from "@/hooks/useProFinancial";
 import { DebtFormSheet } from "@/components/pro/debts/debt-form-sheet";
 import { ProEmptyState, ProPageHeader } from "@/components/pro/pro-page";
 import { ProPageSkeleton } from "@/components/pro/pro-skeletons";
+import {
+  ProListErrorCard,
+  ProListRefreshing,
+} from "@/components/pro/shared/pro-list-page-states";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -35,7 +39,10 @@ export function ProDebtsView() {
   const {
     debts,
     isLoading,
+    isFetching,
+    isError,
     error,
+    refetch,
     saveDebtsAsync,
     deleteDebtAsync,
     isSaving,
@@ -72,6 +79,17 @@ export function ProDebtsView() {
     return <ProPageSkeleton variant="list" label={t("title")} />;
   }
 
+  if (isError && debts.length === 0) {
+    return (
+      <ProListErrorCard
+        title={t("errorTitle")}
+        description={error?.message ?? t("errorGeneric")}
+        retryLabel={t("retry")}
+        onRetry={() => void refetch()}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       <ProPageHeader
@@ -85,10 +103,15 @@ export function ProDebtsView() {
         }
       />
 
-      {error && (
-        <p className="text-sm text-destructive" role="alert">
-          {error.message}
-        </p>
+      <ProListRefreshing visible={isFetching && !isLoading} label={t("refreshingData")} />
+
+      {isError && (
+        <ProListErrorCard
+          title={t("errorTitle")}
+          description={error?.message ?? t("errorGeneric")}
+          retryLabel={t("retry")}
+          onRetry={() => void refetch()}
+        />
       )}
 
       {debts.length === 0 ? (
