@@ -246,12 +246,6 @@ export function ProDashboardView() {
         </>
       ) : (
         <>
-          <ProDashboardQuickActions
-            debtCount={summary.debtCount}
-            incomeTotal={summary.monthlyRecurringIncome}
-            expenseTotal={summary.monthlyRecurringExpense}
-          />
-
           <ProDashboardHealthBanner
             criticalCount={summary.criticalDebts.length}
             netMonthlyCashFlow={summary.netMonthlyCashFlow}
@@ -267,6 +261,12 @@ export function ProDashboardView() {
               }),
               healthy: t("healthHealthy"),
             }}
+          />
+
+          <ProDashboardQuickActions
+            debtCount={summary.debtCount}
+            incomeTotal={summary.monthlyRecurringIncome}
+            expenseTotal={summary.monthlyRecurringExpense}
           />
 
           <section aria-labelledby="pro-metrics-heading">

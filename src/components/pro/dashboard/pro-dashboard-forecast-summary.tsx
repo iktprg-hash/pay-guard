@@ -7,6 +7,7 @@ import { ProForecastChart } from "@/components/pro/shared/pro-forecast-chart";
 import { ProForecastMonthCards } from "@/components/pro/shared/pro-forecast-month-cards";
 import { ProForecastInsightBanner } from "@/components/pro/shared/pro-forecast-insight-banner";
 import { ProForecastRecommendations } from "@/components/pro/shared/pro-forecast-recommendations";
+import { ProForecastConclusion } from "@/components/pro/shared/pro-forecast-conclusion";
 import type { CashFlowForecastResult } from "@/lib/pro/cash-flow-forecast";
 import { Button } from "@/components/ui/button";
 import {
@@ -49,6 +50,14 @@ export function ProDashboardForecastSummary({
       </CardHeader>
       <CardContent className="space-y-4">
         <ProForecastInsightBanner months={forecast.months} locale={locale} />
+
+        <ProForecastConclusion
+          months={forecast.months}
+          netMonthlyChange={forecast.netMonthlyChange}
+          locale={locale}
+          namespace="pro.dashboard"
+          compact
+        />
 
         <ProForecastChart
           months={forecast.months}

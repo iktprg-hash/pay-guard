@@ -25,7 +25,9 @@ import { ProForecastChart } from "@/components/pro/shared/pro-forecast-chart";
 import { ProForecastMonthCards } from "@/components/pro/shared/pro-forecast-month-cards";
 import { ProForecastInsightBanner } from "@/components/pro/shared/pro-forecast-insight-banner";
 import { ProForecastRecommendations } from "@/components/pro/shared/pro-forecast-recommendations";
+import { ProForecastConclusion } from "@/components/pro/shared/pro-forecast-conclusion";
 import { ProForecastTable } from "@/components/pro/shared/pro-forecast-table";
+import { ProDashboardQuickActions } from "@/components/pro/dashboard/pro-dashboard-quick-actions";
 import { ProDashboardDebtTable } from "@/components/pro/dashboard/pro-dashboard-debt-table";
 import { buildProEngineCashFlowContext } from "@/lib/pro/pro-engine-cashflow";
 import { toFinancialProfile } from "@/lib/types/financial";
@@ -147,6 +149,12 @@ export function ProForecastView() {
         />
       ) : (
         <>
+          <ProDashboardQuickActions
+            debtCount={summary.debtCount}
+            incomeTotal={summary.monthlyRecurringIncome}
+            expenseTotal={summary.monthlyRecurringExpense}
+          />
+
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard
               label={t("startingBalance")}
@@ -201,6 +209,12 @@ export function ProForecastView() {
             months={forecast.months}
             locale={locale}
             namespace="pro.forecast"
+          />
+
+          <ProForecastConclusion
+            months={forecast.months}
+            netMonthlyChange={forecast.netMonthlyChange}
+            locale={locale}
           />
 
           <Card className="border-primary/20 bg-gradient-to-br from-primary/5 via-card to-card">

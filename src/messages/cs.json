@@ -464,6 +464,11 @@
       "forecastChartLegend": "Projekce koncového zůstatku po měsících.",
       "forecastDeficitWarning": "Projekce deficitu do {month} — upravte příjmy nebo výdaje.",
       "forecastHealthySummary": "Projekce zůstatku {amount} do {month}.",
+      "conclusionTitle": "Stručně",
+      "conclusionDescription": "Srozumitelný výsledek 3měsíční prognózy.",
+      "conclusionProjectedDeficit": "Zůstatek může klesnout na {amount} v {month}. Zkontrolujte výdaje a prioritizujte kritické dluhy.",
+      "conclusionMonthlyDeficit": "Měsíční výdaje převyšují příjmy o {amount}. Snižte pravidelné výdaje nebo navyšte příjmy.",
+      "conclusionStable": "Výhled je stabilní — projekce zůstatku {amount} do {month}. Sledujte pravidelné příjmy a výdaje.",
       "forecastEndBalance": "Zůstatek za 3 měsíce",
       "forecastEndBalanceHint": "projekce koncového zůstatku",
       "planningFundsLabel": "Plánovací prostředky",
@@ -680,7 +685,12 @@
       "retry": "Zkusit znovu",
       "refreshingData": "Aktualizuji prognózu z nejnovějších dat…",
       "forecastDeficitWarning": "Projekce deficitu do {month} — upravte příjmy nebo výdaje.",
-      "forecastHealthySummary": "Projekce zůstatku {amount} do {month}."
+      "forecastHealthySummary": "Projekce zůstatku {amount} do {month}.",
+      "conclusionTitle": "Stručně",
+      "conclusionDescription": "Srozumitelný výsledek 3měsíční prognózy.",
+      "conclusionProjectedDeficit": "Zůstatek může klesnout na {amount} v {month}. Zkontrolujte výdaje a prioritizujte kritické dluhy.",
+      "conclusionMonthlyDeficit": "Měsíční výdaje převyšují příjmy o {amount}. Snižte pravidelné výdaje nebo navyšte příjmy.",
+      "conclusionStable": "Výhled je stabilní — projekce zůstatku {amount} do {month}. Sledujte pravidelné příjmy a výdaje."
     }
   }
 }

@@ -464,6 +464,11 @@
       "forecastChartLegend": "Прогноз конечного баланса по месяцам.",
       "forecastDeficitWarning": "Прогноз дефицита к {month} — скорректируйте доходы или расходы.",
       "forecastHealthySummary": "Прогноз баланса {amount} к {month}.",
+      "conclusionTitle": "Кратко",
+      "conclusionDescription": "Понятный итог трёхмесячного прогноза.",
+      "conclusionProjectedDeficit": "Баланс может упасть до {amount} в {month}. Пересмотрите расходы и приоритизируйте критические долги.",
+      "conclusionMonthlyDeficit": "Ежемесячные расходы превышают доходы на {amount}. Сократите регулярные траты или увеличьте доход.",
+      "conclusionStable": "Прогноз стабильный — баланс {amount} к {month}. Продолжайте отслеживать регулярные доходы и расходы.",
       "forecastEndBalance": "Баланс через 3 мес.",
       "forecastEndBalanceHint": "прогноз конечного баланса",
       "planningFundsLabel": "Планируемые средства",
@@ -680,7 +685,12 @@
       "retry": "Повторить",
       "refreshingData": "Обновляем прогноз по последним данным…",
       "forecastDeficitWarning": "Прогноз дефицита к {month} — скорректируйте доходы или расходы.",
-      "forecastHealthySummary": "Прогноз баланса {amount} к {month}."
+      "forecastHealthySummary": "Прогноз баланса {amount} к {month}.",
+      "conclusionTitle": "Кратко",
+      "conclusionDescription": "Понятный итог трёхмесячного прогноза.",
+      "conclusionProjectedDeficit": "Баланс может упасть до {amount} в {month}. Пересмотрите расходы и приоритизируйте критические долги.",
+      "conclusionMonthlyDeficit": "Ежемесячные расходы превышают доходы на {amount}. Сократите регулярные траты или увеличьте доход.",
+      "conclusionStable": "Прогноз стабильный — баланс {amount} к {month}. Продолжайте отслеживать регулярные доходы и расходы."
     }
   }
 }

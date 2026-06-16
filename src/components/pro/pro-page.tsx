@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
+import { Minus, TrendingDown, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Card,
@@ -173,11 +174,20 @@ export function StatCard({
         </div>
         <CardTitle
           className={cn(
-            "text-2xl font-bold tabular-nums tracking-tight",
+            "flex items-center gap-2 text-2xl font-bold tabular-nums tracking-tight",
             trend === "positive" && "text-emerald-600 dark:text-emerald-400",
             trend === "negative" && "text-destructive"
           )}
         >
+          {trend === "positive" && (
+            <TrendingUp className="h-5 w-5 shrink-0 opacity-80" aria-hidden />
+          )}
+          {trend === "negative" && (
+            <TrendingDown className="h-5 w-5 shrink-0 opacity-80" aria-hidden />
+          )}
+          {trend === "neutral" && (
+            <Minus className="h-4 w-4 shrink-0 opacity-50" aria-hidden />
+          )}
           {value}
         </CardTitle>
       </CardHeader>

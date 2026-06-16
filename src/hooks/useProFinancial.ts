@@ -981,7 +981,7 @@ export function useCreateFinancialSession(options?: {
     },
     onSuccess: (record) => {
       if (!userId) return;
-      invalidateProProfile(queryClient, userId);
+      invalidateProCatalogSync(queryClient, userId);
       void queryClient.invalidateQueries({
         queryKey: proFinancialKeys.debts(userId, record.sessionId),
       });

@@ -14,6 +14,7 @@ interface ProForecastRecommendationsProps {
   recommendations: ForecastRecommendation[];
   months: ForecastMonth[];
   locale: Locale;
+  namespace?: "pro.dashboard" | "pro.forecast";
   /** Limit items shown (dashboard uses 2, forecast page shows all) */
   limit?: number;
   compact?: boolean;
@@ -24,10 +25,11 @@ export function ProForecastRecommendations({
   recommendations,
   months,
   locale,
+  namespace = "pro.forecast",
   limit,
   compact = false,
 }: ProForecastRecommendationsProps) {
-  const t = useTranslations("pro.forecast");
+  const t = useTranslations(namespace);
   const items = limit ? recommendations.slice(0, limit) : recommendations;
 
   if (items.length === 0) {

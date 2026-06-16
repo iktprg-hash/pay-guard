@@ -19,7 +19,7 @@ interface ProDashboardQuickActionsProps {
 }
 
 const actionStyles =
-  "group flex flex-col gap-2 rounded-xl border bg-card p-4 transition-all hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "group flex flex-col gap-2 rounded-xl border bg-card p-4 shadow-sm transition-all hover:border-primary/40 hover:bg-primary/[0.02] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 /** Quick navigation to core Pro data pages. */
 export function ProDashboardQuickActions({

@@ -464,6 +464,11 @@
       "forecastChartLegend": "Projected ending balance per month.",
       "forecastDeficitWarning": "Projected deficit by {month} — adjust income or expenses.",
       "forecastHealthySummary": "Projected balance {amount} by {month}.",
+      "conclusionTitle": "At a glance",
+      "conclusionDescription": "Plain-language takeaway from your 3-month projection.",
+      "conclusionProjectedDeficit": "Your balance may fall to {amount} in {month}. Review expenses and prioritize critical debts before then.",
+      "conclusionMonthlyDeficit": "Monthly spending exceeds income by {amount}. Trim recurring expenses or add income before taking on new obligations.",
+      "conclusionStable": "Your outlook is stable — projected balance {amount} by {month}. Keep tracking recurring income and expenses.",
       "forecastEndBalance": "3-month balance",
       "forecastEndBalanceHint": "projected ending balance",
       "planningFundsLabel": "Planning funds",
@@ -680,7 +685,12 @@
       "retry": "Try again",
       "refreshingData": "Updating forecast from your latest data…",
       "forecastDeficitWarning": "Projected deficit by {month} — adjust income or expenses.",
-      "forecastHealthySummary": "Projected balance {amount} by {month}."
+      "forecastHealthySummary": "Projected balance {amount} by {month}.",
+      "conclusionTitle": "At a glance",
+      "conclusionDescription": "Plain-language takeaway from your 3-month projection.",
+      "conclusionProjectedDeficit": "Your balance may fall to {amount} in {month}. Review expenses and prioritize critical debts before then.",
+      "conclusionMonthlyDeficit": "Monthly spending exceeds income by {amount}. Trim recurring expenses or add income before taking on new obligations.",
+      "conclusionStable": "Your outlook is stable — projected balance {amount} by {month}. Keep tracking recurring income and expenses."
     }
   }
 }

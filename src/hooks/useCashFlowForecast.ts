@@ -1,10 +1,13 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
+  invalidateProCatalogSync,
   useProFinancialSummary,
   type UseProFinancialSummaryResult,
 } from "@/hooks/useProFinancial";
+import { useAuth } from "@/components/providers/auth-provider";
 import {
   buildCashFlowForecast,
   DEFAULT_FORECAST_MONTHS,
@@ -27,4 +30,15 @@ export function useCashFlowForecast(
   );
 
   return { ...query, forecast };
+}
+
+/** Invalidate profile + catalog so Dashboard and Forecast refresh together. */
+export function useInvalidateCashFlowForecast() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useCallback(() => {
+    if (!user?.id) return;
+    invalidateProCatalogSync(queryClient, user.id);
+  }, [queryClient, user?.id]);
 }
