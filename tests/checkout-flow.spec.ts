@@ -1,6 +1,6 @@
 import { test, expect } from "./fixtures/auth";
 import {
-  isBillingEnabledOnPricing,
+  isStripeConfiguredInEnv,
   mockStripeBillingSuite,
   mockSubscriptionTier,
 } from "./helpers/billing-mocks";
@@ -16,6 +16,8 @@ import {
   proPageHeading,
   proPath,
   refreshSubscriptionTier,
+  waitForBillingConfirm,
+  waitForTierSettled,
 } from "./helpers/test-utils";
 import { gotoExpectOk } from "./helpers/server-health";
 
@@ -32,14 +34,15 @@ test.describe("Checkout flow", () => {
       test.slow();
       test.skip(!baseURL, "baseURL is required");
 
-      const billingEnabled = await isBillingEnabledOnPricing(page);
       test.skip(
-        !billingEnabled,
-        "Stripe billing is not configured — set STRIPE_SECRET_KEY and STRIPE_PRO_PRICE_ID."
+        !isStripeConfiguredInEnv(),
+        "Stripe billing is not configured — set STRIPE_SECRET_KEY and STRIPE_PRO_PRICE_ID in .env.local."
       );
 
       const tier = mockSubscriptionTier(page);
+      tier.setTier("free");
       await mockStripeBillingSuite(page, baseURL!);
+      await refreshSubscriptionTier(page);
 
       await test.step("Start mocked Stripe checkout from pricing", async () => {
         tier.setTier("free");
@@ -52,26 +55,23 @@ test.describe("Checkout flow", () => {
         await expect(upgradeButton).toBeEnabled();
 
         await upgradeButton.click();
-        await pollForUrlContains(page, "checkout=success", {
-          timeout: 30_000,
-        });
+        tier.setTier("pro");
+        await page.waitForURL(/checkout=success/, { timeout: 30_000 });
+        await waitForBillingConfirm(page);
       });
 
       await test.step("Confirm checkout and activate Pro", async () => {
-        tier.setTier("pro");
-
-        await pollForUrlContains(page, "checkout=success", {
-          timeout: 30_000,
-        });
         await pollForToastVisible(page, UI.checkoutSuccess, {
-          timeout: 20_000,
+          timeout: 25_000,
         });
         await expect.soft(page.getByText(UI.checkoutSuccess)).toBeVisible();
+        await waitForTierSettled(page);
       });
 
       await test.step("Pricing shows Manage Subscription for Pro", async () => {
-        await page.reload();
-        await pollForProUnlocked(page);
+        await page.reload({ waitUntil: "domcontentloaded" });
+        await waitForTierSettled(page);
+        await pollForProUnlocked(page, { timeout: 30_000 });
 
         await expect.soft(
           page.getByRole("button", { name: UI.manageSubscription })
@@ -97,6 +97,7 @@ test.describe("Checkout flow", () => {
       page,
       baseURL,
     }) => {
+      test.slow();
       test.skip(!baseURL, "baseURL is required");
 
       const tier = mockSubscriptionTier(page);

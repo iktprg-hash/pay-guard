@@ -6,11 +6,15 @@ export const metadata: Metadata = {
     "Pomáháme občanům ČR rozhodnout, kam poslat omezené peníze, když je závazků hodně.",
 };
 
-/** Root layout — locale-specific layout je v [locale]/layout.tsx */
+/** Root layout — required html/body for Next.js 16 (API routes + pages). */
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return children;
+  return (
+    <html suppressHydrationWarning>
+      <body suppressHydrationWarning>{children}</body>
+    </html>
+  );
 }

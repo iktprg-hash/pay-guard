@@ -116,7 +116,7 @@ export function useCategoryDisplayLabel(
     if (isCustomCategory(category)) {
       return customCategoryLabel(category);
     }
-    return category.replace(/-/g, " ");
+    return (category as string).replace(/-/g, " ");
   };
 }
 

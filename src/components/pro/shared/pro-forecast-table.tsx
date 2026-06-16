@@ -54,7 +54,7 @@ export const ProForecastTable = memo(function ProForecastTable({
                 <div className="flex flex-wrap items-center gap-2">
                   {formatForecastMonth(month.yearMonth, locale)}
                   {isDeficit && (
-                    <Badge variant="destructive" className="text-[10px]">
+                    <Badge variant="warning" className="text-[10px]">
                       {t("deficitBadge")}
                     </Badge>
                   )}

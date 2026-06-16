@@ -9,6 +9,24 @@ export interface TierMockController {
   getTier: () => SubscriptionTierMock;
 }
 
+/** Mirrors server isStripeBillingConfigured — uses .env.local loaded in playwright.config. */
+export function isStripeConfiguredInEnv(): boolean {
+  const key = process.env.STRIPE_SECRET_KEY?.trim() ?? "";
+  const priceId = process.env.STRIPE_PRO_PRICE_ID?.trim() ?? "";
+  if (!key || key.includes("sk_test_xxx") || key.includes("sk_live_xxx")) {
+    return false;
+  }
+  if (
+    !priceId ||
+    priceId.includes("price_xxx") ||
+    priceId.startsWith("prod_") ||
+    !priceId.startsWith("price_")
+  ) {
+    return false;
+  }
+  return true;
+}
+
 const TIER_BODY = (tier: SubscriptionTierMock) => {
   const isPro = tier !== "free";
   return {
@@ -142,16 +160,13 @@ export async function mockStripeBillingFlow(
   return urls;
 }
 
-/** Register success + cancel Stripe mocks (cancel via direct redirect URL in tests). */
+/** Register success + confirm + sync mocks. Cancel flow uses direct redirect URL in tests. */
 export async function mockStripeBillingSuite(
   page: Page,
   baseURL: string,
   sessionId = "cs_test_e2e_mock"
 ): Promise<{ successUrl: string; cancelUrl: string }> {
-  const urls = billingUrls(baseURL, sessionId);
-  await mockStripeBillingFlow(page, baseURL, sessionId);
-  await mockStripeCheckoutCancel(page, baseURL);
-  return urls;
+  return mockStripeBillingFlow(page, baseURL, sessionId);
 }
 
 /** Returns true when pricing page exposes a live Upgrade CTA (Stripe configured). */

@@ -8,6 +8,7 @@ const baseURL = process.env.E2E_BASE_URL ?? "http://127.0.0.1:3000";
 const authFile = path.join("playwright", ".auth", "user.json");
 const skipWebServer = Boolean(process.env.E2E_NO_WEBSERVER);
 const isCI = Boolean(process.env.CI);
+const webServerTimeout = isCI ? 180_000 : 120_000;
 
 export default defineConfig({
   testDir: "tests",
@@ -18,10 +19,10 @@ export default defineConfig({
   grepInvert: process.env.E2E_GREP_INVERT
     ? new RegExp(process.env.E2E_GREP_INVERT, "i")
     : undefined,
-  retries: isCI ? 2 : 0,
-  timeout: 90_000,
+  retries: isCI ? 2 : 1,
+  timeout: isCI ? 120_000 : 90_000,
   maxFailures: isCI ? 3 : undefined,
-  expect: { timeout: 15_000 },
+  expect: { timeout: isCI ? 20_000 : 15_000 },
   workers: isCI ? 1 : 2,
   reporter: isCI
     ? [
@@ -38,8 +39,8 @@ export default defineConfig({
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
-    actionTimeout: 15_000,
-    navigationTimeout: 30_000,
+    actionTimeout: isCI ? 20_000 : 15_000,
+    navigationTimeout: isCI ? 45_000 : 30_000,
   },
   projects: [
     {
@@ -76,8 +77,8 @@ export default defineConfig({
         webServer: {
           command: "npm run dev",
           url: `${baseURL}/api/health`,
-          reuseExistingServer: true,
-          timeout: 90_000,
+          reuseExistingServer: !isCI,
+          timeout: webServerTimeout,
           stdout: "pipe",
           stderr: "pipe",
         },

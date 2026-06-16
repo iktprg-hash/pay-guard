@@ -1,6 +1,7 @@
 import { expect, type APIRequestContext, type Page, type Response } from "@playwright/test";
 
 const DEV_RESTART_HINT = "Run: npm run dev:restart";
+const HYDRATION_POLL = [250, 400, 600, 900] as const;
 
 /** Fail fast when Next.js dev server returns 5xx (often corrupted .next cache). */
 export function assertHttpOk(
@@ -21,10 +22,21 @@ export function assertHttpOk(
 export async function gotoExpectOk(page: Page, url: string): Promise<Response> {
   const response = await page.goto(url, { waitUntil: "domcontentloaded" });
   assertHttpOk(response, `GET ${url}`);
-  await expect(
-    page.getByText(/^internal server error$/i),
-    `GET ${url} rendered 500 page. ${DEV_RESTART_HINT}`
-  ).toHaveCount(0);
+
+  await expect
+    .poll(
+      async () =>
+        !(await page
+          .getByText(/^internal server error$/i)
+          .isVisible()
+          .catch(() => false)),
+      {
+        timeout: 10_000,
+        intervals: [...HYDRATION_POLL],
+      }
+    )
+    .toBe(true);
+
   return response!;
 }
 

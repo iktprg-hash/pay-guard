@@ -9,7 +9,6 @@ import { AuthProvider } from "@/components/providers/auth-provider";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { PwaProviders } from "@/components/pwa/PwaProviders";
 import {
-  IOS_SPLASH_SCREENS,
   PWA_APP_NAME,
   PWA_BACKGROUND_COLOR,
   PWA_DESCRIPTIONS,
@@ -97,42 +96,21 @@ export default async function LocaleLayout({
   const messages = await getMessages();
 
   return (
-    <html
+    <div
       lang={locale}
       dir="ltr"
-      className={`${geistSans.variable} ${geistMono.variable} h-full`}
+      className={`${geistSans.variable} ${geistMono.variable} flex min-h-full flex-col antialiased`}
+      style={{ backgroundColor: PWA_BACKGROUND_COLOR }}
     >
-      <head>
-        <link rel="manifest" href={`/${locale}/manifest.webmanifest`} />
-        <meta name="theme-color" content={PWA_THEME_COLOR} />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="apple-mobile-web-app-title" content={PWA_APP_NAME} />
-        <link rel="apple-touch-icon" href="/icons/icon-180x180.png" />
-        {IOS_SPLASH_SCREENS.map((splash) => (
-          <link
-            key={splash.href}
-            rel="apple-touch-startup-image"
-            href={splash.href}
-            media={splash.media}
-          />
-        ))}
-      </head>
-      <body
-        className="flex min-h-full flex-col antialiased"
-        style={{ backgroundColor: PWA_BACKGROUND_COLOR }}
-      >
-        <NextIntlClientProvider messages={messages}>
-          <AuthProvider>
-            <QueryProvider>
-              <PwaProviders>
-                <AppShell>{children}</AppShell>
-              </PwaProviders>
-            </QueryProvider>
-          </AuthProvider>
-        </NextIntlClientProvider>
-      </body>
-    </html>
+      <NextIntlClientProvider messages={messages}>
+        <AuthProvider>
+          <QueryProvider>
+            <PwaProviders>
+              <AppShell>{children}</AppShell>
+            </PwaProviders>
+          </QueryProvider>
+        </AuthProvider>
+      </NextIntlClientProvider>
+    </div>
   );
 }

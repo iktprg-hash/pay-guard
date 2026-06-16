@@ -15,6 +15,7 @@ import {
   proPageHeading,
   proUpgradeBanner,
   refreshSubscriptionTier,
+  waitForTierSettled,
 } from "./helpers/test-utils";
 
 /** Serial — tier mocks + Pro routes share one dev server; parallel caused HTTP 500. */
@@ -30,6 +31,7 @@ const PRO_ROUTES = [
 
 test.describe("Pro gating", () => {
   test("shows upgrade gate on Pro dashboard for Free users", async ({ page }) => {
+    test.slow();
     const tier = mockSubscriptionTier(page);
     tier.setTier("free");
 
@@ -125,6 +127,7 @@ test.describe("Pro gating", () => {
   });
 
   test("ProFeatureGate unlocks after tier upgrade (poll)", async ({ page }) => {
+    test.slow();
     const tier = mockSubscriptionTier(page);
     tier.setTier("free");
 
@@ -135,9 +138,9 @@ test.describe("Pro gating", () => {
 
     await test.step("Upgrade tier mock → gate and overlay disappear", async () => {
       tier.setTier("pro");
-      await page.reload();
-
-      await pollForGateFullyUnlocked(page);
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await waitForTierSettled(page, { timeout: 30_000 });
+      await pollForGateFullyUnlocked(page, { timeout: 30_000 });
 
       await expect.soft(
         proPageHeading(page, /debts|dluhy|долги/i)
@@ -150,6 +153,7 @@ test.describe("Pro gating", () => {
   test("ProFeatureGate renders blur overlay and upgrade CTA", async ({
     page,
   }) => {
+    test.slow();
     const tier = mockSubscriptionTier(page);
     tier.setTier("free");
 

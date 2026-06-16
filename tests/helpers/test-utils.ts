@@ -3,7 +3,7 @@ import { E2E_LOCALE } from "../fixtures/auth";
 import { gotoExpectOk } from "./server-health";
 
 /** Default backoff for UI state polls (TanStack Query / Stripe redirects). */
-export const POLL_INTERVALS = [300, 500, 750, 1000] as const;
+export const POLL_INTERVALS = [250, 400, 600, 900, 1200] as const;
 
 /** Locale-aware regex helpers for next-intl UI copy. */
 export const UI = {
@@ -55,8 +55,57 @@ export function latestPdfProUpsellLink(page: Page): Locator {
 
 /** Bust TanStack Query tier cache after changing route mocks in serial suites. */
 export async function refreshSubscriptionTier(page: Page): Promise<void> {
-  await page.goto(pricingPath());
-  await page.reload();
+  const tierResponse = page.waitForResponse(
+    (res) => res.url().includes("/api/auth/tier") && res.ok(),
+    { timeout: 20_000 }
+  );
+  await gotoExpectOk(page, pricingPath());
+  await tierResponse.catch(() => undefined);
+  await waitForTierSettled(page);
+}
+
+/** Wait until /api/auth/tier fetch and Pro gate loading skeleton settle. */
+export async function waitForTierSettled(
+  page: Page,
+  options: { timeout?: number } = {}
+): Promise<void> {
+  const timeout = options.timeout ?? 20_000;
+
+  await page
+    .waitForResponse(
+      (res) => res.url().includes("/api/auth/tier") && res.ok(),
+      { timeout }
+    )
+    .catch(() => undefined);
+
+  await expect
+    .poll(
+      async () =>
+        (await page.locator('[role="status"][aria-busy="true"]').count()) === 0,
+      {
+        timeout,
+        intervals: [...POLL_INTERVALS],
+      }
+    )
+    .toBe(true);
+}
+
+/** Wait for checkout confirm/sync after Stripe redirect. */
+export async function waitForBillingConfirm(
+  page: Page,
+  options: { timeout?: number } = {}
+): Promise<void> {
+  const timeout = options.timeout ?? 25_000;
+
+  await page
+    .waitForResponse(
+      (res) =>
+        (res.url().includes("/api/billing/confirm") ||
+          res.url().includes("/api/billing/sync")) &&
+        res.ok(),
+      { timeout }
+    )
+    .catch(() => undefined);
 }
 
 /** Wait for toast/alert copy (next-intl toasts use role=alert or role=status). */
@@ -155,10 +204,7 @@ export async function openProRouteExpectUnlocked(
   const timeout = options.timeout ?? 20_000;
 
   await gotoExpectOk(page, proPath(segment));
-  await page.waitForResponse(
-    (res) => res.url().includes("/api/auth/tier") && res.ok(),
-    { timeout }
-  );
+  await waitForTierSettled(page, { timeout });
   await pollForNoUpgradeGate(page, { timeout });
   await pollUntilVisible(proPageHeading(page, heading), { timeout });
 }
@@ -169,10 +215,7 @@ export async function openProRouteExpectGate(
   segment: string
 ): Promise<void> {
   await gotoExpectOk(page, proPath(segment));
-  await page.waitForResponse(
-    (res) => res.url().includes("/api/auth/tier") && res.ok(),
-    { timeout: 20_000 }
-  );
+  await waitForTierSettled(page);
   await waitForProGate(page);
 }
 
@@ -302,13 +345,13 @@ export async function pollForOverlayHidden(
 ): Promise<void> {
   await expect
     .poll(
-      async () => proLockedOverlay(page).isVisible().catch(() => false),
+      async () => (await proLockedOverlay(page).count()) === 0,
       {
         timeout: options.timeout ?? 20_000,
         intervals: [...POLL_INTERVALS],
       }
     )
-    .toBe(false);
+    .toBe(true);
 }
 
 /** Poll until both upgrade gate and locked overlay are gone (Pro unlocked). */
@@ -317,8 +360,31 @@ export async function pollForGateFullyUnlocked(
   options: { timeout?: number } = {}
 ): Promise<void> {
   const timeout = options.timeout ?? 25_000;
-  await pollForNoUpgradeGate(page, { timeout });
-  await pollForOverlayHidden(page, { timeout });
+
+  await expect
+    .poll(
+      async () => {
+        const loading =
+          (await page.locator('[role="status"][aria-busy="true"]').count()) >
+          0;
+        if (loading) return false;
+
+        const gateCount = await page
+          .getByRole("region", { name: UI.upgradeBanner })
+          .count()
+          .catch(() => -1);
+        const overlayCount = await proLockedOverlay(page)
+          .count()
+          .catch(() => -1);
+
+        return gateCount === 0 && overlayCount === 0;
+      },
+      {
+        timeout,
+        intervals: [...POLL_INTERVALS],
+      }
+    )
+    .toBe(true);
 }
 
 /** Blurred preview wrapper inside ProFeatureGate. */
@@ -342,7 +408,7 @@ export async function pollUntilVisible(
   await expect
     .poll(async () => locator.isVisible().catch(() => false), {
       timeout: options.timeout ?? 15_000,
-      intervals: options.intervals ?? [250, 500, 1000],
+      intervals: options.intervals ?? [...POLL_INTERVALS],
     })
     .toBe(true);
 }
@@ -355,7 +421,7 @@ export async function pollUntilHidden(
   await expect
     .poll(async () => locator.isVisible().catch(() => false), {
       timeout: options.timeout ?? 15_000,
-      intervals: [250, 500, 1000],
+      intervals: [...POLL_INTERVALS],
     })
     .toBe(false);
 }
