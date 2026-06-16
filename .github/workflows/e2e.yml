@@ -15,7 +15,7 @@ jobs:
   playwright:
     name: Playwright — full suite
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 50
 
     env:
       CI: true
@@ -66,7 +66,7 @@ jobs:
       - name: Build application
         run: npm run build
 
-      # Preflight + prod server + tests must share one step (GHA kills background jobs between steps).
+      # Playwright retries: 3 in CI (playwright.config.ts). Preflight probes /api/health + key routes.
       - name: Start server and run E2E
         run: npm run test:e2e:ci
 

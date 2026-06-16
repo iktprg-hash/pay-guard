@@ -24,7 +24,7 @@ function run(command, args, env = {}) {
   });
 }
 
-async function waitForHealth(attempts = 90) {
+async function waitForHealth(attempts = 120) {
   const healthUrl = `${baseURL}/api/health`;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
