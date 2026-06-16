@@ -51,7 +51,7 @@ test.describe("Checkout flow", () => {
         await waitForPricingUpgradeReady(page);
 
         const upgradeButton = page.getByRole("button", {
-          name: /upgrade to pro|objednat pro|оформить pro|přejít na pro|перейти на pro/i,
+          name: UI.startCheckout,
         });
         await expect.soft(upgradeButton).toBeVisible();
         await expect.soft(upgradeButton).toBeEnabled();
@@ -66,7 +66,7 @@ test.describe("Checkout flow", () => {
         await billing.done;
       });
 
-      await test.step("Confirm checkout, show success banner, redirect to dashboard", async () => {
+      await test.step("Confirm checkout and show success screen", async () => {
         await expect
           .poll(
             async () =>
@@ -75,9 +75,9 @@ test.describe("Checkout flow", () => {
           )
           .toBe(true);
 
-        await pollForUrlContains(page, "/pro/dashboard", {
-          timeout: E2E_LONG_TIMEOUT,
-        });
+        await expect.soft(
+          page.getByRole("link", { name: UI.goToSettings })
+        ).toBeVisible();
         await waitForTierSettled(page);
       });
 
@@ -89,7 +89,6 @@ test.describe("Checkout flow", () => {
         await expect.soft(
           page.getByRole("button", { name: UI.manageSubscription })
         ).toBeVisible();
-        await expect.soft(page.getByText(UI.proActive)).toBeVisible();
       });
 
       await test.step("Pro dashboard is accessible without gate", async () => {
@@ -124,7 +123,7 @@ test.describe("Checkout flow", () => {
         });
       });
 
-      await test.step("Shows cancelled banner and keeps Free plan", async () => {
+      await test.step("Shows cancelled screen and keeps Free plan", async () => {
         await expect
           .poll(
             async () =>
@@ -132,7 +131,6 @@ test.describe("Checkout flow", () => {
             { timeout: E2E_LONG_TIMEOUT, intervals: [300, 500, 1000] }
           )
           .toBe(true);
-        await expect.soft(page.getByText(UI.proActive)).toHaveCount(0);
         await pollForManageSubscriptionHidden(page);
       });
 

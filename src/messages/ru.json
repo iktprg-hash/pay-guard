@@ -19,7 +19,7 @@
     "pdfExportFailed": "Не удалось загрузить PDF",
     "syncFailed": "Синхронизация не удалась — показаны локальные данные",
     "cloudHistoryProOnly": "Облачная история — только Pro",
-    "checkoutFailed": "Не удалось начать оплату",
+    "checkoutFailed": "Не удалось начать оплату. Попробуйте снова.",
     "portalFailed": "Не удалось открыть портал подписки",
     "offline": "Вы офлайн",
     "online": "Соединение восстановлено",
@@ -181,51 +181,43 @@
   },
   "pricing": {
     "title": "Тарифы",
-    "free": {
-      "name": "Free",
-      "price": "0 Kč",
-      "cta": "Текущий план",
-      "ctaGuest": "Начать бесплатно",
-      "features": [
-        "Чат с Grok (с согласия)",
-        "Ручной ввод данных",
-        "Приоритизация платежей",
-        "Базовый PDF-экспорт"
-      ]
-    },
-    "pro": {
-      "name": "Pro",
-      "price": "199 Kč / месяц",
-      "cta": "Оформить Pro",
-      "ctaManage": "Управлять подпиской",
-      "activating": "Активируем Pro…",
-      "activated": "Pro активирован! Добро пожаловать.",
-      "cancelled": "Оплата отменена. Вы можете вернуться к этому в любое время.",
-      "retryBtn": "Попробовать снова",
-      "processing": "Платёж обрабатывается, это займёт пару секунд…",
-      "errorContact": "Написать в поддержку",
-      "syncFailed": "Не удалось активировать Pro. Попробуйте снова.",
-      "proActive": "Pro активен",
-      "features": [
-        "Всё из Free",
-        "Pro Dashboard (прогнозы, доходы, расходы)",
-        "История консультаций",
-        "Расширенный PDF",
-        "Синхронизация между устройствами"
-      ]
-    },
-    "loginToUpgrade": "Войти и перейти на Pro",
-    "redirecting": "Перенаправление…",
-    "alreadyPro": "У вас уже активен Pro",
-    "billingNotConfigured": "Оплата Pro пока недоступна.",
-    "billingIssueMissingSecret": "Не задан STRIPE_SECRET_KEY — добавьте в .env.local.",
-    "billingIssuePlaceholderSecret": "Замените placeholder STRIPE_SECRET_KEY на sk_test_ или sk_live_.",
-    "billingIssueInvalidSecret": "STRIPE_SECRET_KEY должен начинаться с sk_test_ или sk_live_.",
-    "billingIssueMissingPrice": "Не задан STRIPE_PRO_PRICE_ID (price_…).",
-    "billingIssuePlaceholderPrice": "Замените placeholder STRIPE_PRO_PRICE_ID на id месячной цены.",
-    "billingIssueProductNotPrice": "STRIPE_PRO_PRICE_ID должен быть Price id (price_…), не Product id (prod_…).",
-    "billingIssueInvalidPrice": "STRIPE_PRO_PRICE_ID должен начинаться с price_.",
-    "billingIssueMissingWebhook": "Нет webhook secret — оплата может пройти, но Pro не активируется без STRIPE_WEBHOOK_SECRET."
+    "subtitle": "Простые и прозрачные цены",
+    "popularBadge": "Популярный",
+
+    "freePlanName": "Бесплатный",
+    "freePlanDescription": "Базовое управление платежами",
+    "freePrice": "Бесплатно",
+    "freeFeatures": [
+      "Управление долгами и платежами",
+      "AI-приоритизация платежей",
+      "1 анализ в месяц",
+      "Экспорт в PDF"
+    ],
+
+    "proPlanName": "Pro",
+    "proPlanDescription": "Для активных пользователей и бизнеса",
+    "proPrice": "249 Kč",
+    "proPricePeriod": "/ месяц",
+    "proFeatures": [
+      "Всё из бесплатного плана",
+      "Неограниченные AI-анализы",
+      "Расширенный AI-ассистент (чат)",
+      "История разговоров",
+      "Приоритетная поддержка"
+    ],
+
+    "startCheckout": "Перейти на Pro",
+    "loginToCheckout": "Войдите для покупки",
+    "alreadyPro": "У вас уже есть активная подписка Pro.",
+
+    "confirmingPayment": "Обрабатываем платёж…",
+    "successTitle": "Добро пожаловать в Pro!",
+    "successDescription": "Ваша подписка активна. Все Pro-функции уже доступны.",
+    "goToSettings": "Перейти в настройки",
+
+    "cancelledTitle": "Платёж отменён",
+    "cancelledDescription": "Платёж не был завершён. Вы можете попробовать снова в любое время.",
+    "tryAgain": "Попробовать снова"
   },
   "billing": {
     "title": "Подписка",

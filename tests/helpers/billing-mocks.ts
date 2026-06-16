@@ -173,9 +173,7 @@ export async function mockStripeBillingSuite(
 export async function isBillingEnabledOnPricing(page: Page): Promise<boolean> {
   await gotoExpectOk(page, pricingPath());
 
-  const upgrade = page.getByRole("button", {
-    name: /upgrade to pro|objednat pro|оформить pro|přejít na pro|перейти на pro/i,
-  });
+  const upgrade = page.getByRole("button", { name: UI.startCheckout });
   const loginToUpgrade = page.getByRole("link", { name: UI.loginToUpgrade });
   const manage = page.getByRole("button", {
     name: /manage subscription|spravovat|управлять/i,

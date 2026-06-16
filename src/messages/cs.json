@@ -19,7 +19,7 @@
     "pdfExportFailed": "PDF se nepodařilo stáhnout",
     "syncFailed": "Synchronizace se nezdařila — zobrazují se lokální data",
     "cloudHistoryProOnly": "Cloudová historie je dostupná jen v tarifu Pro",
-    "checkoutFailed": "Nepodařilo se spustit platbu",
+    "checkoutFailed": "Nepodařilo se zahájit platbu. Zkuste to prosím znovu.",
     "portalFailed": "Nepodařilo se otevřít správu předplatného",
     "offline": "Jste offline",
     "online": "Připojení obnoveno",
@@ -181,51 +181,43 @@
   },
   "pricing": {
     "title": "Ceník",
-    "free": {
-      "name": "Zdarma",
-      "price": "0 Kč",
-      "cta": "Aktuální plán",
-      "ctaGuest": "Začít zdarma",
-      "features": [
-        "Chat s Grok (se souhlasem)",
-        "Ruční zadání dat",
-        "Prioritizace plateb",
-        "Základní PDF export"
-      ]
-    },
-    "pro": {
-      "name": "Pro",
-      "price": "199 Kč / měsíc",
-      "cta": "Objednat Pro",
-      "ctaManage": "Spravovat předplatné",
-      "activating": "Aktivujeme Pro…",
-      "activated": "Pro aktivováno! Vítejte.",
-      "cancelled": "Platba byla zrušena. Můžete se kdykoli vrátit.",
-      "retryBtn": "Zkusit znovu",
-      "processing": "Platba se zpracovává, chvilku to potrvá…",
-      "errorContact": "Napsat podporu",
-      "syncFailed": "Pro se nepodařilo aktivovat. Zkuste to znovu.",
-      "proActive": "Pro je aktivní",
-      "features": [
-        "Vše ze Zdarma",
-        "Pro Dashboard (prognózy, příjmy, výdaje)",
-        "Historie konzultací",
-        "Rozšířený PDF export",
-        "Synchronizace mezi zařízeními"
-      ]
-    },
-    "loginToUpgrade": "Přihlásit se a přejít na Pro",
-    "redirecting": "Přesměrování…",
-    "alreadyPro": "Pro tarif už máte aktivní",
-    "billingNotConfigured": "Platba za Pro zatím není k dispozici.",
-    "billingIssueMissingSecret": "Chybí Stripe secret key — nastavte STRIPE_SECRET_KEY v .env.local.",
-    "billingIssuePlaceholderSecret": "Nahraďte placeholder Stripe secret key klíčem sk_test_ nebo sk_live_.",
-    "billingIssueInvalidSecret": "STRIPE_SECRET_KEY musí začínat sk_test_ nebo sk_live_.",
-    "billingIssueMissingPrice": "Chybí Stripe price — nastavte STRIPE_PRO_PRICE_ID (price_…).",
-    "billingIssuePlaceholderPrice": "Nahraďte placeholder STRIPE_PRO_PRICE_ID id měsíční ceny.",
-    "billingIssueProductNotPrice": "STRIPE_PRO_PRICE_ID musí být Price id (price_…), ne Product id (prod_…).",
-    "billingIssueInvalidPrice": "STRIPE_PRO_PRICE_ID musí začínat price_.",
-    "billingIssueMissingWebhook": "Chybí webhook secret — platba může projít, ale Pro se neaktivuje bez STRIPE_WEBHOOK_SECRET."
+    "subtitle": "Jednoduché a transparentní ceny pro český trh",
+    "popularBadge": "Nejoblíbenější",
+
+    "freePlanName": "Základní",
+    "freePlanDescription": "Pro základní správu plateb",
+    "freePrice": "Zdarma",
+    "freeFeatures": [
+      "Správa dluhů a plateb",
+      "AI prioritizace plateb",
+      "1 analýza měsíčně",
+      "Export do PDF"
+    ],
+
+    "proPlanName": "Pro",
+    "proPlanDescription": "Pro náročné uživatele a firmy",
+    "proPrice": "249 Kč",
+    "proPricePeriod": "/ měsíc",
+    "proFeatures": [
+      "Vše ze základního plánu",
+      "Neomezené AI analýzy",
+      "Pokročilá AI asistence (chat)",
+      "Historie konverzací",
+      "Prioritní podpora"
+    ],
+
+    "startCheckout": "Začít s Pro",
+    "loginToCheckout": "Přihlásit se pro nákup",
+    "alreadyPro": "Již máte aktivní Pro předplatné.",
+
+    "confirmingPayment": "Zpracováváme platbu…",
+    "successTitle": "Vítejte v Pro!",
+    "successDescription": "Vaše předplatné je aktivní. Nyní máte přístup ke všem Pro funkcím.",
+    "goToSettings": "Přejít do nastavení",
+
+    "cancelledTitle": "Platba zrušena",
+    "cancelledDescription": "Platba nebyla dokončena. Kdykoliv to zkuste znovu.",
+    "tryAgain": "Zkusit znovu"
   },
   "billing": {
     "title": "Předplatné",

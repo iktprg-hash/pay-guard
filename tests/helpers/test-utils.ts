@@ -20,13 +20,18 @@ export const UI = {
   proActive: /pro is active|pro je aktivní|pro aktivováno|pro активен/i,
   manageSubscription:
     /manage subscription|spravovat předplatné|управлять подпиской/i,
+  startCheckout:
+    /get pro|začít s pro|перейти на pro|sign in to purchase|přihlásit se pro nákup|войдите для покупки/i,
   checkoutSuccess:
-    /pro activated|pro aktivováno|pro активирован|welcome aboard|vítejte|добро пожаловать/i,
-  checkoutActivating: /activating pro|aktivujeme pro|активируем pro/i,
+    /welcome to pro|vítejte v pro|добро пожаловать в pro/i,
+  checkoutActivating:
+    /processing your payment|zpracováváme platbu|обрабатываем платёж/i,
   checkoutCancelled:
-    /checkout was cancelled|platba byla zrušena|оплата отменена/i,
+    /payment cancelled|platba zrušena|платёж отменён/i,
+  goToSettings:
+    /go to settings|přejít do nastavení|перейти в настройки/i,
   loginToUpgrade:
-    /sign in to upgrade to pro|přihlásit se a přejít na pro|войти и перейти на pro/i,
+    /sign in to purchase|přihlásit se pro nákup|войдите для покупки/i,
   pdfProUpsell: /pdf — pro|pdf.*pro/i,
   recommendationTitle: /recommendation|doporučení|рекомендация/i,
   lockedHint:
@@ -116,9 +121,7 @@ export async function waitForPricingUpgradeReady(
   options: { timeout?: number } = {}
 ): Promise<void> {
   const timeout = options.timeout ?? E2E_POLL_TIMEOUT;
-  const upgrade = page.getByRole("button", {
-    name: /upgrade to pro|objednat pro|оформить pro|přejít na pro|перейти на pro/i,
-  });
+  const upgrade = page.getByRole("button", { name: UI.startCheckout });
 
   await expect
     .poll(

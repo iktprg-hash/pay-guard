@@ -19,7 +19,7 @@
     "pdfExportFailed": "Could not download PDF",
     "syncFailed": "Sync failed — showing local data",
     "cloudHistoryProOnly": "Cloud history is available on Pro only",
-    "checkoutFailed": "Could not start checkout",
+    "checkoutFailed": "Could not start checkout. Please try again.",
     "portalFailed": "Could not open subscription portal",
     "offline": "You are offline",
     "online": "Connection restored",
@@ -181,51 +181,43 @@
   },
   "pricing": {
     "title": "Pricing",
-    "free": {
-      "name": "Free",
-      "price": "0 CZK",
-      "cta": "Current plan",
-      "ctaGuest": "Start for free",
-      "features": [
-        "Chat with Pay Guard (with consent)",
-        "Manual data entry",
-        "Payment prioritization",
-        "Basic PDF export"
-      ]
-    },
-    "pro": {
-      "name": "Pro",
-      "price": "199 Kč / month",
-      "cta": "Upgrade to Pro",
-      "ctaManage": "Manage subscription",
-      "activating": "Activating Pro…",
-      "activated": "Pro activated! Welcome aboard.",
-      "cancelled": "Checkout was cancelled. You can return anytime.",
-      "retryBtn": "Try again",
-      "processing": "Payment is processing — this may take a few seconds…",
-      "errorContact": "Contact support",
-      "syncFailed": "Could not activate Pro. Please try again.",
-      "proActive": "Pro is active",
-      "features": [
-        "Everything in Free",
-        "Pro Dashboard (forecasts, income, expenses)",
-        "Consultation history",
-        "Extended PDF export",
-        "Sync across devices"
-      ]
-    },
-    "loginToUpgrade": "Sign in to upgrade to Pro",
-    "redirecting": "Redirecting…",
-    "alreadyPro": "You already have Pro",
-    "billingNotConfigured": "Pro checkout is not available yet.",
-    "billingIssueMissingSecret": "Stripe secret key is missing — set STRIPE_SECRET_KEY in .env.local.",
-    "billingIssuePlaceholderSecret": "Replace the Stripe secret key placeholder with your sk_test_ or sk_live_ key.",
-    "billingIssueInvalidSecret": "STRIPE_SECRET_KEY must start with sk_test_ or sk_live_.",
-    "billingIssueMissingPrice": "Stripe price is missing — set STRIPE_PRO_PRICE_ID (price_…).",
-    "billingIssuePlaceholderPrice": "Replace STRIPE_PRO_PRICE_ID placeholder with your monthly Price id.",
-    "billingIssueProductNotPrice": "STRIPE_PRO_PRICE_ID must be a Price id (price_…), not a Product id (prod_…).",
-    "billingIssueInvalidPrice": "STRIPE_PRO_PRICE_ID must start with price_.",
-    "billingIssueMissingWebhook": "Webhook secret missing — payment may succeed but Pro won't activate until STRIPE_WEBHOOK_SECRET is set."
+    "subtitle": "Simple, transparent pricing",
+    "popularBadge": "Most popular",
+
+    "freePlanName": "Free",
+    "freePlanDescription": "For basic debt management",
+    "freePrice": "Free",
+    "freeFeatures": [
+      "Debt & payment management",
+      "AI payment prioritisation",
+      "1 analysis per month",
+      "PDF export"
+    ],
+
+    "proPlanName": "Pro",
+    "proPlanDescription": "For power users and businesses",
+    "proPrice": "249 CZK",
+    "proPricePeriod": "/ month",
+    "proFeatures": [
+      "Everything in Free",
+      "Unlimited AI analyses",
+      "Advanced AI assistant (chat)",
+      "Conversation history",
+      "Priority support"
+    ],
+
+    "startCheckout": "Get Pro",
+    "loginToCheckout": "Sign in to purchase",
+    "alreadyPro": "You already have an active Pro subscription.",
+
+    "confirmingPayment": "Processing your payment…",
+    "successTitle": "Welcome to Pro!",
+    "successDescription": "Your subscription is now active. You have access to all Pro features.",
+    "goToSettings": "Go to settings",
+
+    "cancelledTitle": "Payment cancelled",
+    "cancelledDescription": "Your payment was not completed. You can try again at any time.",
+    "tryAgain": "Try again"
   },
   "billing": {
     "title": "Subscription",

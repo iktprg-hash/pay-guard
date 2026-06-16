@@ -1,81 +1,27 @@
-import { getTranslations, setRequestLocale } from "next-intl/server";
-import { Suspense } from "react";
-import { Check } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { getStripeBillingConfigStatus } from "@/lib/billing/config";
-import { PricingActions } from "@/components/pricing/pricing-actions";
-import { FreePlanActions } from "@/components/pricing/free-plan-actions";
-import { CheckoutFlowHandler } from "@/components/pricing/checkout-flow-handler";
+import { setRequestLocale } from "next-intl/server";
+import { isStripeBillingConfigured } from "@/lib/billing/config";
+import { PricingPageClient } from "@/components/billing/pricing-page-client";
+import type { Locale } from "@/i18n/routing";
 
 export default async function PricingPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string }>;
+  searchParams: Promise<{ checkout?: string; session_id?: string }>;
 }) {
   const { locale } = await params;
+  const { checkout, session_id } = await searchParams;
   setRequestLocale(locale);
-  const t = await getTranslations("pricing");
-  const billing = getStripeBillingConfigStatus();
 
-  const freeFeatures = t.raw("free.features") as string[];
-  const proFeatures = t.raw("pro.features") as string[];
+  const billingEnabled = isStripeBillingConfigured();
 
   return (
-    <div className="mx-auto max-w-4xl flex-1 px-4 py-12">
-      <Suspense fallback={null}>
-        <CheckoutFlowHandler />
-      </Suspense>
-      <h1 className="mb-8 text-center text-3xl font-bold">{t("title")}</h1>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              {t("free.name")}
-              <span className="text-2xl font-bold">{t("free.price")}</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-3">
-              {freeFeatures.map((f) => (
-                <li key={f} className="flex items-center gap-2 text-sm">
-                  <Check className="h-4 w-4 text-primary" />
-                  {f}
-                </li>
-              ))}
-            </ul>
-            <FreePlanActions />
-          </CardContent>
-        </Card>
-
-        <Card className="border-primary shadow-md">
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span className="flex items-center gap-2">
-                {t("pro.name")}
-                <Badge>{t("pro.name")}</Badge>
-              </span>
-              <span className="text-2xl font-bold text-primary">{t("pro.price")}</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-3">
-              {proFeatures.map((f) => (
-                <li key={f} className="flex items-center gap-2 text-sm">
-                  <Check className="h-4 w-4 text-primary" />
-                  {f}
-                </li>
-              ))}
-            </ul>
-            <PricingActions
-              checkoutEnabled={billing.checkoutEnabled}
-              checkoutBlocker={billing.checkoutBlocker}
-              webhookConfigured={billing.webhookConfigured}
-            />
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+    <PricingPageClient
+      locale={locale as Locale}
+      billingEnabled={billingEnabled}
+      checkoutResult={checkout as "success" | "cancelled" | undefined}
+      sessionId={session_id}
+    />
   );
 }
