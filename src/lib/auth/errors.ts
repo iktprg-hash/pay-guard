@@ -14,7 +14,23 @@ export type AuthErrorCode =
   | "auth_failed"
   | "not_configured";
 
-const isDev = process.env.NODE_ENV === "development";
+/** Maps Supabase auth error messages to safe, opaque client messages. */
+export function sanitiseAuthError(message: string): string {
+  const m = message.toLowerCase();
+  if (m.includes("already registered") || m.includes("already exists")) {
+    return "Unable to complete registration. Please try signing in instead.";
+  }
+  if (m.includes("rate limit") || m.includes("too many")) {
+    return "Too many attempts. Please wait a moment and try again.";
+  }
+  if (m.includes("invalid") || m.includes("not found") || m.includes("wrong")) {
+    return "Invalid credentials.";
+  }
+  if (m.includes("email") && m.includes("confirm")) {
+    return "Please confirm your email address.";
+  }
+  return "An error occurred. Please try again.";
+}
 
 export function mapSupabaseMessage(message: string): AuthErrorCode {
   const msg = message.toLowerCase();
@@ -63,7 +79,20 @@ export function isOpaqueOtpSendError(message: string): boolean {
   return code === "account_not_found" || code === "auth_failed";
 }
 
-/** Bezpečná auth chyba — v prod jen kód, v dev i raw message */
+/** Safe auth error from a raw Supabase/provider message. */
+export function authProviderErrorResponse(
+  rawMessage: string,
+  status: number,
+  code?: AuthErrorCode
+) {
+  return authErrorResponse(
+    sanitiseAuthError(rawMessage),
+    status,
+    code ?? mapSupabaseMessage(rawMessage)
+  );
+}
+
+/** Bezpečná auth chyba — opaque message + stable code (no raw Supabase text). */
 export function authErrorResponse(
   message: string,
   status: number,
@@ -72,7 +101,7 @@ export function authErrorResponse(
   return NextResponse.json(
     {
       code: code ?? mapSupabaseMessage(message),
-      ...(isDev ? { error: message } : {}),
+      error: message,
     },
     { status }
   );

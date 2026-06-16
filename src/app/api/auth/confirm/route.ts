@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validationError } from "@/lib/api/errors";
-import { authErrorResponse } from "@/lib/auth/errors";
+import { authProviderErrorResponse } from "@/lib/auth/errors";
 import { enforceAuthRateLimit } from "@/lib/auth/rate-limit";
 import { createSessionRouteClient } from "@/lib/auth/supabase-route";
 import { parseJsonBody } from "@/lib/api/parse-request";
@@ -36,14 +36,14 @@ export async function POST(request: NextRequest) {
       token_hash: tokenParsed.data.token_hash,
       type: tokenParsed.data.type,
     });
-    if (error) return authErrorResponse(error.message, 401);
+    if (error) return authProviderErrorResponse(error.message, 401);
     return response;
   }
 
   const { error } = await supabase.auth.exchangeCodeForSession(
     codeParsed.data!.code
   );
-  if (error) return authErrorResponse(error.message, 401);
+  if (error) return authProviderErrorResponse(error.message, 401);
 
   return response;
 }

@@ -114,12 +114,24 @@ export async function checkRateLimit(
     }
   }
 
+  if (process.env.NODE_ENV !== "development") {
+    // In staging/preview without Upstash, rate limiting is per-instance only.
+    // Log a warning so this is visible in Vercel function logs.
+    console.warn(
+      "[rateLimit] Using in-memory rate limiter outside development. " +
+        "Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN for effective rate limiting."
+    );
+  }
+
   return checkRateLimitMemory(key, limit, windowMs);
 }
 
 /** Extrahuje IP z Next.js request headers */
 export function getClientIp(headers: Headers): string {
+  // x-vercel-forwarded-for is set by Vercel's infrastructure and cannot be
+  // overridden by the client. Fall back to x-forwarded-for for local dev.
   return (
+    headers.get("x-vercel-forwarded-for")?.split(",")[0]?.trim() ||
     headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
     headers.get("x-real-ip") ||
     "unknown"

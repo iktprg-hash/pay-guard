@@ -16,6 +16,10 @@ vi.mock("@/lib/auth/supabase-route", () => ({
   }),
 }));
 
+vi.mock("@/lib/supabase/guard", () => ({
+  assertSupabaseConfigured: () => null,
+}));
+
 beforeEach(() => {
   vi.clearAllMocks();
   enforceAuthRateLimit.mockResolvedValue(null);

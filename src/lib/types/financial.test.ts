@@ -48,6 +48,8 @@ describe("financial types", () => {
       monthlyExpenses: undefined,
       incomeStability: undefined,
       debts: pro.debts,
+      recurringIncomes: [],
+      recurringExpenses: [],
     });
   });
 

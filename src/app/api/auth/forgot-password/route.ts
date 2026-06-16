@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { serviceUnavailable, validationError } from "@/lib/api/errors";
-import { authErrorResponse } from "@/lib/auth/errors";
+import { authProviderErrorResponse } from "@/lib/auth/errors";
 import {
   enforceAuthRateLimit,
   isSupabaseEmailRateLimit,
@@ -40,7 +40,11 @@ export async function POST(request: NextRequest) {
   if (error) {
     if (isSupabaseEmailRateLimit(error.message)) {
       console.error("[api/auth/forgot-password]", error.message);
-      return authErrorResponse(error.message, 429, "supabase_email_rate_limited");
+      return authProviderErrorResponse(
+        error.message,
+        429,
+        "supabase_email_rate_limited"
+      );
     }
     console.warn("[api/auth/forgot-password] opaque failure:", error.message);
     return NextResponse.json({ ok: true });

@@ -20,6 +20,13 @@ export function getSupabaseHost(): string {
   } catch {
     /* fall through */
   }
+
+  if (process.env.NODE_ENV === "production") {
+    console.error(
+      "[security] NEXT_PUBLIC_SUPABASE_URL is not set — CSP connect-src falling back to *.supabase.co"
+    );
+  }
+
   return "*.supabase.co";
 }
 
@@ -27,15 +34,20 @@ export interface CspOptions {
   /** false = dev (unsafe-eval for Next/React debugging) */
   production?: boolean;
   supabaseHost?: string;
+  /** Per-request nonce for inline scripts in production CSP */
+  nonce?: string;
 }
 
 /** Sestaví CSP — v prod bez unsafe-eval (Next.js doporučení) */
 export function buildContentSecurityPolicy(options: CspOptions = {}): string {
   const production = options.production ?? isProdBuild;
   const supabaseHost = options.supabaseHost ?? getSupabaseHost();
+  const nonce = options.nonce;
 
   const scriptSrc = production
-    ? "script-src 'self' 'unsafe-inline'"
+    ? nonce
+      ? `script-src 'self' 'nonce-${nonce}'`
+      : `script-src 'self'`
     : "script-src 'self' 'unsafe-inline' 'unsafe-eval'";
 
   return [

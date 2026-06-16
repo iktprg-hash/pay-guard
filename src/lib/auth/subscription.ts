@@ -10,7 +10,7 @@ export interface UserSubscription {
 /** Je aktivní Pro / Pro Max předplatné? */
 export function isActivePro(subscription: UserSubscription): boolean {
   if (!isPaidTier(subscription.tier)) return false;
-  if (!subscription.expiresAt) return true;
+  if (!subscription.expiresAt) return false;
   return new Date(subscription.expiresAt) > new Date();
 }
 

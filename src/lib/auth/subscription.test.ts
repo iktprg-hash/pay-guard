@@ -6,8 +6,8 @@ describe("isActivePro", () => {
     expect(isActivePro({ tier: "free", expiresAt: null })).toBe(false);
   });
 
-  it("returns true for pro without expiry", () => {
-    expect(isActivePro({ tier: "pro", expiresAt: null })).toBe(true);
+  it("returns false for pro without expiry", () => {
+    expect(isActivePro({ tier: "pro", expiresAt: null })).toBe(false);
   });
 
   it("returns false when pro subscription expired", () => {

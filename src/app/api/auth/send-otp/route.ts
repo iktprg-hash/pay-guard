@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { validationError, serviceUnavailable } from "@/lib/api/errors";
-import { authErrorResponse, isOpaqueOtpSendError } from "@/lib/auth/errors";
+import { authProviderErrorResponse, isOpaqueOtpSendError } from "@/lib/auth/errors";
 import { enforceAuthRateLimit } from "@/lib/auth/rate-limit";
 import { parseJsonBody } from "@/lib/api/parse-request";
 import { getSupabasePublicConfig } from "@/lib/supabase/config";
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true });
     }
     console.error("[api/auth/send-otp]", error.message);
-    return authErrorResponse(error.message, 400);
+    return authProviderErrorResponse(error.message, 400);
   }
 
   return NextResponse.json({ ok: true });

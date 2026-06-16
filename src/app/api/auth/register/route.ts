@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validationError } from "@/lib/api/errors";
-import { authErrorResponse } from "@/lib/auth/errors";
+import { authErrorResponse, authProviderErrorResponse } from "@/lib/auth/errors";
 import {
   canUseDevRegisterBypass,
   devRegisterWithPassword,
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     });
 
     if ("error" in result) {
-      return authErrorResponse(result.error, 400);
+      return authProviderErrorResponse(result.error, 400);
     }
 
     return response;
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
   });
 
   if (error) {
-    return authErrorResponse(error.message, 400);
+    return authProviderErrorResponse(error.message, 400);
   }
 
   if (!data.session) {

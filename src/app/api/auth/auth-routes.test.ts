@@ -64,8 +64,10 @@ describe("POST /api/auth/login", () => {
     );
 
     expect(res.status).toBe(401);
-    const body = (await res.json()) as { code?: string };
+    const body = (await res.json()) as { code?: string; error?: string };
     expect(body.code).toBe("invalid_credentials");
+    expect(body.error).toBe("Invalid credentials.");
+    expect(body.error).not.toContain("Invalid login");
   });
 
   it("returns 400 for invalid email", async () => {

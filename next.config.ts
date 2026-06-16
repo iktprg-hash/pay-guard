@@ -3,8 +3,6 @@ import createNextIntlPlugin from "next-intl/plugin";
 import withSerwistInit from "@serwist/next";
 import path from "path";
 import { fileURLToPath } from "url";
-import { SECURITY_HEADERS } from "./src/lib/security/headers";
-
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 const projectRoot = path.dirname(fileURLToPath(import.meta.url));
@@ -51,10 +49,6 @@ const nextConfig: NextConfig = {
           },
           { key: "Service-Worker-Allowed", value: "/" },
         ],
-      },
-      {
-        source: "/(.*)",
-        headers: SECURITY_HEADERS,
       },
     ];
   },

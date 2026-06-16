@@ -9,7 +9,7 @@ export function isActiveProSubscription(
   expiresAt?: string | null
 ): boolean {
   if (!isPaidTier(tier)) return false;
-  if (!expiresAt) return true;
+  if (!expiresAt) return false;
   return new Date(expiresAt) > new Date();
 }
 

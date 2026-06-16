@@ -13,6 +13,7 @@ describe("pro-access", () => {
       isProEnabledForSubscription("pro", "2020-01-01T00:00:00.000Z")
     ).toBe(false);
     expect(isProEnabledForSubscription("free", null)).toBe(false);
+    expect(isProEnabledForSubscription("pro", null)).toBe(false);
   });
 
   it("isProEnabledForProfile mirrors subscription helper", () => {
@@ -20,6 +21,12 @@ describe("pro-access", () => {
       isProEnabledForProfile({
         subscriptionTier: "pro_max",
         subscriptionExpiresAt: null,
+      })
+    ).toBe(false);
+    expect(
+      isProEnabledForProfile({
+        subscriptionTier: "pro_max",
+        subscriptionExpiresAt: "2099-01-01T00:00:00.000Z",
       })
     ).toBe(true);
   });

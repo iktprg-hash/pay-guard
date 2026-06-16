@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Content-Disposition": `attachment; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
         "Content-Length": String(pdfBuffer.length),
         "X-Content-Type-Options": "nosniff",
         "Cache-Control": "no-store",

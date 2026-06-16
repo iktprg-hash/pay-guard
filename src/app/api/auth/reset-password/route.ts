@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validationError } from "@/lib/api/errors";
-import { authErrorResponse } from "@/lib/auth/errors";
+import { authErrorResponse, authProviderErrorResponse } from "@/lib/auth/errors";
 import { enforceAuthRateLimit } from "@/lib/auth/rate-limit";
 import { isStrongPassword } from "@/lib/auth/password";
 import { createSessionRouteClient } from "@/lib/auth/supabase-route";
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
   });
 
   if (error) {
-    return authErrorResponse(error.message, 400);
+    return authProviderErrorResponse(error.message, 400);
   }
 
   return response;

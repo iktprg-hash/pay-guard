@@ -45,6 +45,8 @@ describe("/api/auth/grok-consent", () => {
     const res = await POST(
       new NextRequest("http://127.0.0.1:3000/api/auth/grok-consent", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
       })
     );
 
