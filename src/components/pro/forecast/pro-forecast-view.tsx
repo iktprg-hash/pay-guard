@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useMemo } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import {
@@ -21,94 +21,17 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import type { ForecastMonth } from "@/lib/pro/cash-flow-forecast";
-import { formatForecastMonth } from "@/lib/pro/format-forecast-month";
 import { ProForecastChart } from "@/components/pro/shared/pro-forecast-chart";
 import { ProForecastMonthCards } from "@/components/pro/shared/pro-forecast-month-cards";
 import { ProForecastInsightBanner } from "@/components/pro/shared/pro-forecast-insight-banner";
 import { ProForecastRecommendations } from "@/components/pro/shared/pro-forecast-recommendations";
+import { ProForecastTable } from "@/components/pro/shared/pro-forecast-table";
 import { ProDashboardDebtTable } from "@/components/pro/dashboard/pro-dashboard-debt-table";
 import { buildProEngineCashFlowContext } from "@/lib/pro/pro-engine-cashflow";
 import { toFinancialProfile } from "@/lib/types/financial";
 import { cn, formatMoney } from "@/lib/utils";
 import type { Debt } from "@/lib/types/financial";
 import type { Locale } from "@/i18n/routing";
-
-const ForecastTable = memo(function ForecastTable({
-  months,
-  locale,
-}: {
-  months: ForecastMonth[];
-  locale: Locale;
-}) {
-  const t = useTranslations("pro.forecast");
-
-  return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>{t("colMonth")}</TableHead>
-          <TableHead className="text-right">{t("colIncome")}</TableHead>
-          <TableHead className="text-right">{t("colExpenses")}</TableHead>
-          <TableHead className="text-right">{t("colDebtPayments")}</TableHead>
-          <TableHead className="text-right">{t("colNetChange")}</TableHead>
-          <TableHead className="text-right">{t("colEndBalance")}</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {months.map((month) => (
-          <TableRow
-            key={month.yearMonth}
-            className={cn(
-              month.endingBalance < 0 && "bg-destructive/5 hover:bg-destructive/10"
-            )}
-          >
-            <TableCell className="font-medium">
-              {formatForecastMonth(month.yearMonth, locale)}
-            </TableCell>
-            <TableCell className="text-right tabular-nums text-emerald-600 dark:text-emerald-400">
-              +{formatMoney(month.income, locale)}
-            </TableCell>
-            <TableCell className="text-right tabular-nums text-destructive">
-              −{formatMoney(month.expenses, locale)}
-            </TableCell>
-            <TableCell className="text-right tabular-nums text-destructive">
-              −{formatMoney(month.debtPayments, locale)}
-            </TableCell>
-            <TableCell
-              className={cn(
-                "text-right tabular-nums font-medium",
-                month.netChange >= 0
-                  ? "text-emerald-600 dark:text-emerald-400"
-                  : "text-destructive"
-              )}
-            >
-              {formatMoney(month.netChange, locale)}
-            </TableCell>
-            <TableCell
-              className={cn(
-                "text-right tabular-nums font-semibold",
-                month.endingBalance >= 0
-                  ? "text-emerald-600 dark:text-emerald-400"
-                  : "text-destructive"
-              )}
-            >
-              {formatMoney(month.endingBalance, locale)}
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
-  );
-});
 
 /** 3-month cash flow forecast with chart, table, debts, and recommendations. */
 export function ProForecastView() {
@@ -340,7 +263,7 @@ export function ProForecastView() {
               <CardDescription>{t("tableDescription")}</CardDescription>
             </CardHeader>
             <CardContent className="overflow-x-auto">
-              <ForecastTable months={forecast.months} locale={locale} />
+              <ProForecastTable months={forecast.months} locale={locale} />
             </CardContent>
           </Card>
 

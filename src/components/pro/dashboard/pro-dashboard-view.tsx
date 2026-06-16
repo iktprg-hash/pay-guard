@@ -44,7 +44,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { formatMoney } from "@/lib/utils";
+import { formatMoney, getIntlLocale } from "@/lib/utils";
 import { isPaidTier } from "@/lib/types/financial";
 import type { ProFinancialSummary } from "@/hooks/useProFinancial";
 import type { Locale } from "@/i18n/routing";
@@ -120,6 +120,16 @@ export function ProDashboardView() {
 
   const forecastEndBalance = forecast.months.at(-1)?.endingBalance;
 
+  const lastUpdatedLabel = useMemo(() => {
+    if (!summary.lastUpdated) return null;
+    return new Intl.DateTimeFormat(getIntlLocale(locale), {
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date(summary.lastUpdated));
+  }, [summary.lastUpdated, locale]);
+
   if (isLoading) {
     return <ProPageSkeleton variant="dashboard" label={t("title")} />;
   }
@@ -144,7 +154,11 @@ export function ProDashboardView() {
     <div className="space-y-8">
       <ProPageHeader
         title={t("title")}
-        description={t("subtitle")}
+        description={
+          lastUpdatedLabel && !empty
+            ? `${t("subtitle")} · ${t("lastUpdated", { date: lastUpdatedLabel })}`
+            : t("subtitle")
+        }
         action={
           canExportPdf ? (
             <PdfDownloadButton

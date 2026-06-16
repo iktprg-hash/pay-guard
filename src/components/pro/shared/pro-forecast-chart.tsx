@@ -36,7 +36,7 @@ export const ProForecastChart = memo(function ProForecastChart({
     <div className="space-y-3">
       <div
         className={cn(
-          "flex items-end justify-around gap-2 rounded-xl border bg-muted/20 px-3 pb-3 pt-4",
+          "flex items-end justify-around gap-2 rounded-xl border border-border/60 bg-gradient-to-b from-muted/30 to-muted/10 px-3 pb-3 pt-4 shadow-sm",
           compact ? "h-36" : "h-48 px-4 pb-4 pt-6"
         )}
         role="img"
@@ -52,7 +52,7 @@ export const ProForecastChart = memo(function ProForecastChart({
           return (
             <div
               key={month.yearMonth}
-              className="flex min-w-0 flex-1 flex-col items-center gap-1.5"
+              className="group flex min-w-0 flex-1 flex-col items-center gap-1.5"
             >
               <span
                 className={cn(
@@ -72,7 +72,8 @@ export const ProForecastChart = memo(function ProForecastChart({
               >
                 <div
                   className={cn(
-                    "w-full rounded-t-md transition-all",
+                    "w-full rounded-t-md shadow-sm transition-all duration-200",
+                    "group-hover:scale-[1.02] group-hover:shadow-md",
                     compact ? "max-w-12" : "max-w-16",
                     positive ? "bg-emerald-500/80" : "bg-destructive/80"
                   )}

@@ -124,7 +124,13 @@ export function ForecastSkeleton({ label, className }: SkeletonProps) {
           <StatCardSkeleton key={i} />
         ))}
       </div>
-      <CardBlockSkeleton lines={5} titleWidth="w-48" />
+      <div className="h-14 animate-pulse rounded-xl border border-border/60 bg-muted/30" />
+      <CardBlockSkeleton lines={3} titleWidth="w-56" />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <CardBlockSkeleton lines={6} titleWidth="w-40" />
+        <CardBlockSkeleton lines={6} titleWidth="w-36" />
+      </div>
+      <CardBlockSkeleton lines={4} titleWidth="w-52" />
     </div>
   );
 }
