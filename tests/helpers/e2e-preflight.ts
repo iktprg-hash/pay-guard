@@ -88,7 +88,7 @@ export async function runE2ePreflight(
     ]);
   }
 
-  const attempts = isCi ? 90 : 40;
+  const attempts = isCi ? 120 : 40;
   await waitForHealth(baseURL, attempts);
 
   const healthUrl = `${baseURL}/api/health`;

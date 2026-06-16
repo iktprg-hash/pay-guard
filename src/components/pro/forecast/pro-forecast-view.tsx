@@ -29,7 +29,7 @@ import { ProForecastTable } from "@/components/pro/shared/pro-forecast-table";
 import { ProDashboardDebtTable } from "@/components/pro/dashboard/pro-dashboard-debt-table";
 import { buildProEngineCashFlowContext } from "@/lib/pro/pro-engine-cashflow";
 import { toFinancialProfile } from "@/lib/types/financial";
-import { cn, formatMoney } from "@/lib/utils";
+import { cn, formatMoney, getIntlLocale } from "@/lib/utils";
 import type { Debt } from "@/lib/types/financial";
 import type { Locale } from "@/i18n/routing";
 
@@ -60,7 +60,17 @@ export function ProForecastView() {
     return buildProEngineCashFlowContext(toFinancialProfile(summary.profile));
   }, [summary.profile]);
 
-  if (isLoading && !summary.profile) {
+  const lastUpdatedLabel = useMemo(() => {
+    if (!summary.lastUpdated) return null;
+    return new Intl.DateTimeFormat(getIntlLocale(locale), {
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date(summary.lastUpdated));
+  }, [summary.lastUpdated, locale]);
+
+  if (isLoading) {
     return <ProPageSkeleton variant="forecast" label={t("title")} />;
   }
 
@@ -82,7 +92,14 @@ export function ProForecastView() {
 
   return (
     <div className="space-y-8">
-      <ProPageHeader title={t("title")} description={t("subtitle")} />
+      <ProPageHeader
+        title={t("title")}
+        description={
+          lastUpdatedLabel && forecast.hasData
+            ? `${t("subtitle")} · ${t("lastUpdated", { date: lastUpdatedLabel })}`
+            : t("subtitle")
+        }
+      />
 
       <ProRefreshingIndicator
         visible={isFetching && !isLoading}
@@ -94,9 +111,10 @@ export function ProForecastView() {
           icon={<CalendarRange className="h-6 w-6" />}
           title={t("emptyTitle")}
           description={t("emptyDescription")}
+          steps={[t("emptyStep1"), t("emptyStep2"), t("emptyStep3")]}
           action={
             <div className="flex flex-wrap justify-center gap-2">
-              <Button asChild variant="outline">
+              <Button asChild>
                 <Link href={`/${locale}/pro/debts`}>
                   <Wallet className="mr-2 h-4 w-4" />
                   {t("addDebts")}
@@ -113,6 +131,9 @@ export function ProForecastView() {
                   <TrendingDown className="mr-2 h-4 w-4" />
                   {t("addExpenses")}
                 </Link>
+              </Button>
+              <Button asChild variant="ghost">
+                <Link href={`/${locale}/pro/dashboard`}>{t("viewDashboard")}</Link>
               </Button>
             </div>
           }

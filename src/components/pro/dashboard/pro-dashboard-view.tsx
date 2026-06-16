@@ -16,7 +16,6 @@ import {
 } from "lucide-react";
 import { PdfDownloadButton } from "@/components/pdf/pdf-download-button";
 import { runPriorityEngine } from "@/services/priorityEngine";
-import { useProFinancialSummary } from "@/hooks/useProFinancial";
 import { useCashFlowForecast } from "@/hooks/useCashFlowForecast";
 import {
   buildEngineProfileFromUser,
@@ -63,9 +62,8 @@ function isProfileEmpty(summary: ProFinancialSummary) {
 export function ProDashboardView() {
   const t = useTranslations("pro.dashboard");
   const locale = useLocale() as Locale;
-  const { summary, isLoading, isFetching, isError, error, refetch } =
-    useProFinancialSummary();
-  const { forecast } = useCashFlowForecast();
+  const { summary, forecast, isLoading, isFetching, isError, error, refetch } =
+    useCashFlowForecast();
   const { downloadPdf, isGeneratingForKey, isPro } = useRecommendationPdfDownload();
   const isGeneratingPdf = isGeneratingForKey(PRO_DASHBOARD_PDF_KEY);
 

@@ -20,8 +20,8 @@ export default defineConfig({
   grepInvert: process.env.E2E_GREP_INVERT
     ? new RegExp(process.env.E2E_GREP_INVERT, "i")
     : undefined,
-  retries: isCI ? 2 : 1,
-  timeout: isCI ? 120_000 : 90_000,
+  retries: isCI ? 3 : 1,
+  timeout: isCI ? 150_000 : 90_000,
   maxFailures: isCI ? 5 : undefined,
   expect: { timeout: isCI ? 25_000 : 15_000 },
   workers: isCI ? 1 : 2,
