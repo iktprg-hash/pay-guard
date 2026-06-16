@@ -233,6 +233,24 @@
     "syncSubscription": "Восстановить Pro",
     "syncSuccess": "Pro активирован"
   },
+  "gate": {
+    "upgradeBanner": "Перейдите на Pay Guard Pro",
+    "upgradeCta": "Перейти на Pro",
+    "proOverlay": "Pro",
+    "lockedHint": "Pro-функции доступны только в режиме предпросмотра — оформите подписку для полного доступа.",
+    "loadingPro": "Загрузка Pro…"
+  },
+  "proDashboard": {
+    "heading": "Дашборд Pro",
+    "statAnalyses": "Анализы",
+    "statAnalysesValue": "Неограниченно",
+    "statPayments": "Отслеживаемые платежи",
+    "statPaymentsValue": "—",
+    "statReports": "PDF-отчёты",
+    "statReportsValue": "—",
+    "recentActivityTitle": "Последняя активность",
+    "recentActivityEmpty": "Активности пока нет. Начните с первого анализа платежей."
+  },
   "footer": {
     "disclaimer": "Pay Guard не заменяет финансового консультанта, юриста или арбитражного управляющего. Рекомендации носят ориентировочный характер."
   },

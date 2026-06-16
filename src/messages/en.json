@@ -233,6 +233,24 @@
     "syncSubscription": "Restore Pro status",
     "syncSuccess": "Pro subscription activated"
   },
+  "gate": {
+    "upgradeBanner": "Upgrade to Pay Guard Pro",
+    "upgradeCta": "Upgrade to Pro",
+    "proOverlay": "Pro",
+    "lockedHint": "Pro features are preview-only — upgrade for full access.",
+    "loadingPro": "Loading Pro…"
+  },
+  "proDashboard": {
+    "heading": "Pro Dashboard",
+    "statAnalyses": "Analyses",
+    "statAnalysesValue": "Unlimited",
+    "statPayments": "Tracked payments",
+    "statPaymentsValue": "—",
+    "statReports": "PDF reports",
+    "statReportsValue": "—",
+    "recentActivityTitle": "Recent activity",
+    "recentActivityEmpty": "No activity yet. Start with your first payment analysis."
+  },
   "footer": {
     "disclaimer": "Pay Guard does not replace a financial or legal advisor. Recommendations are indicative."
   },

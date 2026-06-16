@@ -233,6 +233,24 @@
     "syncSubscription": "Obnovit stav Pro",
     "syncSuccess": "Pro tarif byl aktivován"
   },
+  "gate": {
+    "upgradeBanner": "Upgradujte na Pay Guard Pro",
+    "upgradeCta": "Přejít na Pro",
+    "proOverlay": "Pro",
+    "lockedHint": "Pro funkce jsou pouze náhled — upgradujte pro plný přístup.",
+    "loadingPro": "Načítám Pro…"
+  },
+  "proDashboard": {
+    "heading": "Přehled Pro",
+    "statAnalyses": "Analýzy",
+    "statAnalysesValue": "Neomezené",
+    "statPayments": "Sledované platby",
+    "statPaymentsValue": "—",
+    "statReports": "PDF reporty",
+    "statReportsValue": "—",
+    "recentActivityTitle": "Nedávná aktivita",
+    "recentActivityEmpty": "Zatím žádná aktivita. Začněte první analýzou plateb."
+  },
   "footer": {
     "disclaimer": "Pay Guard nenahrazuje finančního poradce, právníka ani insolvenčního správce. Doporučení slouží pouze k orientaci."
   },
