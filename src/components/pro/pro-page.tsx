@@ -104,6 +104,41 @@ const ACCENT_STRIPE: Record<NonNullable<StatCardProps["accent"]>, string> = {
   neutral: "border-t-border",
 };
 
+const ACCENT_BG: Record<NonNullable<StatCardProps["accent"]>, string> = {
+  emerald: "bg-gradient-to-br from-emerald-500/5 via-card to-card",
+  blue: "bg-gradient-to-br from-blue-500/5 via-card to-card",
+  amber: "bg-gradient-to-br from-amber-500/5 via-card to-card",
+  destructive: "bg-gradient-to-br from-destructive/5 via-card to-card",
+  violet: "bg-gradient-to-br from-violet-500/5 via-card to-card",
+  neutral: "bg-card",
+};
+
+interface ProSectionHeadingProps {
+  id?: string;
+  title: string;
+  description?: string;
+  className?: string;
+}
+
+/** Visible section title for Pro dashboard / forecast blocks. */
+export function ProSectionHeading({
+  id,
+  title,
+  description,
+  className,
+}: ProSectionHeadingProps) {
+  return (
+    <div className={cn("mb-4 space-y-0.5", className)}>
+      <h2 id={id} className="text-sm font-semibold tracking-tight text-foreground">
+        {title}
+      </h2>
+      {description && (
+        <p className="text-xs text-muted-foreground">{description}</p>
+      )}
+    </div>
+  );
+}
+
 /** Metric card for Pro dashboard. */
 export function StatCard({
   label,
@@ -118,7 +153,8 @@ export function StatCard({
     <Card
       className={cn(
         "overflow-hidden border-t-2 transition-shadow hover:shadow-md",
-        ACCENT_STRIPE[accent]
+        ACCENT_STRIPE[accent],
+        ACCENT_BG[accent]
       )}
     >
       <CardHeader className="pb-2">

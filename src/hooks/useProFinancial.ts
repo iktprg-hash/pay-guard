@@ -324,7 +324,7 @@ function createOptimisticListMutationHandlers<T extends { id: string }>(
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey });
       if (options.userId) {
-        invalidateProProfile(queryClient, options.userId);
+        invalidateProCatalogSync(queryClient, options.userId);
       }
     },
   };

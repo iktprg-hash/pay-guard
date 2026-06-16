@@ -6,6 +6,7 @@ import { ArrowRight } from "lucide-react";
 import { ProForecastChart } from "@/components/pro/shared/pro-forecast-chart";
 import { ProForecastMonthCards } from "@/components/pro/shared/pro-forecast-month-cards";
 import { ProForecastInsightBanner } from "@/components/pro/shared/pro-forecast-insight-banner";
+import { ProForecastRecommendations } from "@/components/pro/shared/pro-forecast-recommendations";
 import type { CashFlowForecastResult } from "@/lib/pro/cash-flow-forecast";
 import { Button } from "@/components/ui/button";
 import {
@@ -58,6 +59,21 @@ export function ProDashboardForecastSummary({
         />
 
         <ProForecastMonthCards months={forecast.months} locale={locale} />
+
+        {forecast.recommendations.length > 0 && (
+          <div className="space-y-2 border-t pt-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              {t("forecastRecsTitle")}
+            </p>
+            <ProForecastRecommendations
+              recommendations={forecast.recommendations}
+              months={forecast.months}
+              locale={locale}
+              limit={2}
+              compact
+            />
+          </div>
+        )}
       </CardContent>
     </Card>
   );

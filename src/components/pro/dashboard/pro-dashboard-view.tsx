@@ -25,7 +25,7 @@ import {
 import { toFinancialProfile } from "@/lib/types/financial";
 import { useRecommendationPdfDownload, PRO_DASHBOARD_PDF_KEY } from "@/hooks/use-recommendation-pdf";
 import { ProPageSkeleton } from "@/components/pro/pro-skeletons";
-import { ProEmptyState, ProPageHeader, StatCard } from "@/components/pro/pro-page";
+import { ProEmptyState, ProPageHeader, ProSectionHeading, StatCard } from "@/components/pro/pro-page";
 import { ProDashboardQuickActions } from "@/components/pro/dashboard/pro-dashboard-quick-actions";
 import { ProDashboardHealthBanner } from "@/components/pro/dashboard/pro-dashboard-health-banner";
 import { ProDashboardForecastSummary } from "@/components/pro/dashboard/pro-dashboard-forecast-summary";
@@ -246,9 +246,11 @@ export function ProDashboardView() {
           />
 
           <section aria-labelledby="pro-metrics-heading">
-            <h2 id="pro-metrics-heading" className="sr-only">
-              {t("metricsHeading")}
-            </h2>
+            <ProSectionHeading
+              id="pro-metrics-heading"
+              title={t("metricsHeading")}
+              description={t("metricsDescription")}
+            />
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
               <StatCard
                 label={t("availableFunds")}
@@ -307,7 +309,14 @@ export function ProDashboardView() {
             </div>
           </section>
 
-          <section className="grid gap-4 xl:grid-cols-5">
+          <section aria-labelledby="pro-outlook-heading">
+            <ProSectionHeading
+              id="pro-outlook-heading"
+              title={t("outlookHeading")}
+              description={t("outlookDescription")}
+              className="mb-4"
+            />
+            <div className="grid gap-4 xl:grid-cols-5">
             <div className="xl:col-span-3">
               {forecast.hasData && forecast.months.length > 0 ? (
                 <ProDashboardForecastSummary forecast={forecast} />
@@ -324,6 +333,7 @@ export function ProDashboardView() {
               ) : (
                 <ProDashboardEngineEmpty summary={summary} locale={locale} />
               )}
+            </div>
             </div>
           </section>
 

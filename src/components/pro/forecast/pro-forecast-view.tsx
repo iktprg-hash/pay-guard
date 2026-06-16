@@ -4,9 +4,7 @@ import { memo, useMemo } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import {
-  AlertTriangle,
   CalendarRange,
-  Lightbulb,
   TrendingDown,
   TrendingUp,
   Wallet,
@@ -31,11 +29,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { ForecastMonth, ForecastRecommendation } from "@/lib/pro/cash-flow-forecast";
+import type { ForecastMonth } from "@/lib/pro/cash-flow-forecast";
 import { formatForecastMonth } from "@/lib/pro/format-forecast-month";
 import { ProForecastChart } from "@/components/pro/shared/pro-forecast-chart";
 import { ProForecastMonthCards } from "@/components/pro/shared/pro-forecast-month-cards";
 import { ProForecastInsightBanner } from "@/components/pro/shared/pro-forecast-insight-banner";
+import { ProForecastRecommendations } from "@/components/pro/shared/pro-forecast-recommendations";
 import { ProDashboardDebtTable } from "@/components/pro/dashboard/pro-dashboard-debt-table";
 import { buildProEngineCashFlowContext } from "@/lib/pro/pro-engine-cashflow";
 import { toFinancialProfile } from "@/lib/types/financial";
@@ -66,7 +65,12 @@ const ForecastTable = memo(function ForecastTable({
       </TableHeader>
       <TableBody>
         {months.map((month) => (
-          <TableRow key={month.yearMonth}>
+          <TableRow
+            key={month.yearMonth}
+            className={cn(
+              month.endingBalance < 0 && "bg-destructive/5 hover:bg-destructive/10"
+            )}
+          >
             <TableCell className="font-medium">
               {formatForecastMonth(month.yearMonth, locale)}
             </TableCell>
@@ -105,79 +109,6 @@ const ForecastTable = memo(function ForecastTable({
     </Table>
   );
 });
-
-function RecommendationList({
-  recommendations,
-  months,
-  locale,
-}: {
-  recommendations: ForecastRecommendation[];
-  months: ForecastMonth[];
-  locale: Locale;
-}) {
-  const t = useTranslations("pro.forecast");
-
-  if (recommendations.length === 0) {
-    return (
-      <p className="text-sm text-muted-foreground">{t("noRecommendations")}</p>
-    );
-  }
-
-  return (
-    <ul className="space-y-3">
-      {recommendations.map((rec, i) => {
-        const isDanger =
-          rec.kind === "projected_deficit" || rec.kind === "critical_debts";
-
-        let text: string;
-        switch (rec.kind) {
-          case "monthly_deficit":
-            text = t("recMonthlyDeficit", {
-              amount: formatMoney(rec.amount ?? 0, locale),
-            });
-            break;
-          case "projected_deficit": {
-            const month = months[rec.monthIndex ?? 0];
-            text = t("recProjectedDeficit", {
-              month: month
-                ? formatForecastMonth(month.yearMonth, locale)
-                : "",
-              amount: formatMoney(rec.amount ?? 0, locale),
-            });
-            break;
-          }
-          case "critical_debts":
-            text = t("recCriticalDebts", { count: rec.count ?? 0 });
-            break;
-          case "urgent_debts":
-            text = t("recUrgentDebts", { count: rec.count ?? 0 });
-            break;
-          default:
-            text = "";
-        }
-
-        return (
-          <li
-            key={`${rec.kind}-${i}`}
-            className={cn(
-              "flex gap-3 rounded-lg border p-3 text-sm",
-              isDanger
-                ? "border-destructive/30 bg-destructive/5"
-                : "border-amber-500/30 bg-amber-500/5"
-            )}
-          >
-            {isDanger ? (
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
-            ) : (
-              <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
-            )}
-            <span>{text}</span>
-          </li>
-        );
-      })}
-    </ul>
-  );
-}
 
 /** 3-month cash flow forecast with chart, table, debts, and recommendations. */
 export function ProForecastView() {
@@ -327,7 +258,7 @@ export function ProForecastView() {
               <CardDescription>{t("recommendationsDescription")}</CardDescription>
             </CardHeader>
             <CardContent>
-              <RecommendationList
+              <ProForecastRecommendations
                 recommendations={forecast.recommendations}
                 months={forecast.months}
                 locale={locale}
