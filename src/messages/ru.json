@@ -203,8 +203,18 @@
     "redirecting": "Перенаправление…",
     "proActive": "Pro активен",
     "alreadyPro": "У вас уже активен Pro",
-    "checkoutSuccess": "Спасибо! Pro активируется через минуту.",
-    "checkoutCancelled": "Оплата отменена"
+    "checkoutSuccess": "Спасибо! Pro уже активен.",
+    "checkoutCancelled": "Оплата отменена",
+    "checkoutActivating": "Подтверждаем оплату…",
+    "billingNotConfigured": "Оплата Pro пока недоступна.",
+    "billingIssueMissingSecret": "Не задан STRIPE_SECRET_KEY — добавьте в .env.local.",
+    "billingIssuePlaceholderSecret": "Замените placeholder STRIPE_SECRET_KEY на sk_test_ или sk_live_.",
+    "billingIssueInvalidSecret": "STRIPE_SECRET_KEY должен начинаться с sk_test_ или sk_live_.",
+    "billingIssueMissingPrice": "Не задан STRIPE_PRO_PRICE_ID (price_…).",
+    "billingIssuePlaceholderPrice": "Замените placeholder STRIPE_PRO_PRICE_ID на id месячной цены.",
+    "billingIssueProductNotPrice": "STRIPE_PRO_PRICE_ID должен быть Price id (price_…), не Product id (prod_…).",
+    "billingIssueInvalidPrice": "STRIPE_PRO_PRICE_ID должен начинаться с price_.",
+    "billingIssueMissingWebhook": "Нет webhook secret — оплата может пройти, но Pro не активируется без STRIPE_WEBHOOK_SECRET."
   },
   "billing": {
     "title": "Подписка",

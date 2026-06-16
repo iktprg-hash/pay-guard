@@ -5,9 +5,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { toast } from "@/components/ui/toast-provider";
-import { invalidateSubscriptionTier } from "@/hooks/use-subscription-tier";
+import {
+  applyCheckoutSubscriptionUpdate,
+  subscriptionTierKeys,
+} from "@/hooks/use-pro-access";
+import { proFinancialKeys } from "@/hooks/useProFinancial";
 
-/** After Stripe Checkout: confirm/sync Pro and show toast. */
+/** After Stripe Checkout: confirm/sync Pro, unlock gates, and show toast. */
 export function CheckoutResultToast() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -39,6 +43,8 @@ export function CheckoutResultToast() {
     if (result !== "success") return;
 
     void (async () => {
+      toast(t("checkoutActivating"), "default");
+
       try {
         const endpoint = sessionId
           ? "/api/billing/confirm"
@@ -55,7 +61,29 @@ export function CheckoutResultToast() {
         });
 
         if (res.ok) {
-          invalidateSubscriptionTier(queryClient);
+          const data = (await res.json()) as {
+            tier?: "pro" | "pro_max" | "free";
+            expiresAt?: string | null;
+          };
+          const tier =
+            data.tier === "pro_max"
+              ? "pro_max"
+              : data.tier === "pro"
+                ? "pro"
+                : "pro";
+
+          applyCheckoutSubscriptionUpdate(
+            queryClient,
+            tier,
+            data.expiresAt ?? null
+          );
+          void queryClient.invalidateQueries({
+            queryKey: proFinancialKeys.all,
+          });
+          await queryClient.refetchQueries({
+            queryKey: subscriptionTierKeys.all,
+          });
+
           toast(t("checkoutSuccess"), "success");
           router.refresh();
         } else {

@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { Check } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { isStripeBillingConfigured } from "@/lib/billing/config";
+import { getStripeBillingConfigStatus } from "@/lib/billing/config";
 import { PricingActions } from "@/components/pricing/pricing-actions";
 import { FreePlanBadge } from "@/components/pricing/free-plan-badge";
 import { CheckoutResultToast } from "@/components/pricing/checkout-result-toast";
@@ -16,7 +16,7 @@ export default async function PricingPage({
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations("pricing");
-  const billingEnabled = isStripeBillingConfigured();
+  const billing = getStripeBillingConfigStatus();
 
   const freeFeatures = t.raw("freeFeatures") as string[];
   const proFeatures = t.raw("proFeatures") as string[];
@@ -68,7 +68,11 @@ export default async function PricingPage({
                 </li>
               ))}
             </ul>
-            <PricingActions billingEnabled={billingEnabled} />
+            <PricingActions
+              checkoutEnabled={billing.checkoutEnabled}
+              checkoutBlocker={billing.checkoutBlocker}
+              webhookConfigured={billing.webhookConfigured}
+            />
           </CardContent>
         </Card>
       </div>

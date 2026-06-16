@@ -203,8 +203,18 @@
     "redirecting": "Redirecting…",
     "proActive": "Pro is active",
     "alreadyPro": "You already have Pro",
-    "checkoutSuccess": "Thank you! Pro will activate shortly.",
-    "checkoutCancelled": "Checkout was cancelled"
+    "checkoutSuccess": "Thank you! Pro is now active.",
+    "checkoutCancelled": "Checkout was cancelled",
+    "checkoutActivating": "Confirming your payment…",
+    "billingNotConfigured": "Pro checkout is not available yet.",
+    "billingIssueMissingSecret": "Stripe secret key is missing — set STRIPE_SECRET_KEY in .env.local.",
+    "billingIssuePlaceholderSecret": "Replace the Stripe secret key placeholder with your sk_test_ or sk_live_ key.",
+    "billingIssueInvalidSecret": "STRIPE_SECRET_KEY must start with sk_test_ or sk_live_.",
+    "billingIssueMissingPrice": "Stripe price is missing — set STRIPE_PRO_PRICE_ID (price_…).",
+    "billingIssuePlaceholderPrice": "Replace STRIPE_PRO_PRICE_ID placeholder with your monthly Price id.",
+    "billingIssueProductNotPrice": "STRIPE_PRO_PRICE_ID must be a Price id (price_…), not a Product id (prod_…).",
+    "billingIssueInvalidPrice": "STRIPE_PRO_PRICE_ID must start with price_.",
+    "billingIssueMissingWebhook": "Webhook secret missing — payment may succeed but Pro won't activate until STRIPE_WEBHOOK_SECRET is set."
   },
   "billing": {
     "title": "Subscription",

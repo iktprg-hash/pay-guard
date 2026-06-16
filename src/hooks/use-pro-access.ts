@@ -40,6 +40,28 @@ export function invalidateSubscriptionTier(queryClient: QueryClient): void {
   void queryClient.invalidateQueries({ queryKey: subscriptionTierKeys.all });
 }
 
+/** Optimistic Pro tier — unlocks ProFeatureGate before refetch completes. */
+export function setOptimisticSubscriptionTier(
+  queryClient: QueryClient,
+  tier: SubscriptionTier = "pro",
+  expiresAt: string | null = null
+): void {
+  queryClient.setQueryData<SubscriptionTierData>(subscriptionTierKeys.all, {
+    tier,
+    expiresAt,
+  });
+}
+
+/** After successful checkout confirm — instant UI unlock + background refetch. */
+export function applyCheckoutSubscriptionUpdate(
+  queryClient: QueryClient,
+  tier: SubscriptionTier = "pro",
+  expiresAt: string | null = null
+): void {
+  setOptimisticSubscriptionTier(queryClient, tier, expiresAt);
+  invalidateSubscriptionTier(queryClient);
+}
+
 /** Single source of truth for Pro subscription status (Stripe-backed). */
 export interface ProAccessState {
   tier: SubscriptionTier;

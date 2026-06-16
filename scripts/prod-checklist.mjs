@@ -66,6 +66,7 @@ const requiredMigs = [
   "006_protect_subscription_tier.sql",
   "007_grok_consent.sql",
   "008_stripe_billing.sql",
+  "009_stripe_webhook_events.sql",
 ];
 
 if (!existsSync(migDir)) {
@@ -216,13 +217,80 @@ console.log("\n── Stripe (Pro billing, Czech market) ──");
 const stripeKey = env("STRIPE_SECRET_KEY");
 const stripePrice = env("STRIPE_PRO_PRICE_ID");
 const stripeWebhook = env("STRIPE_WEBHOOK_SECRET");
-if (isPlaceholder(stripeKey) || isPlaceholder(stripePrice) || isPlaceholder(stripeWebhook)) {
-  warn("Stripe not fully configured — Pro checkout disabled (STRIPE_SECRET_KEY, STRIPE_PRO_PRICE_ID, STRIPE_WEBHOOK_SECRET)");
-} else {
-  pass("Stripe env vars set");
-  console.log("   Webhook URL: https://<your-domain>/api/webhooks/stripe");
-  console.log("   Create CZK monthly Price in Stripe Dashboard → STRIPE_PRO_PRICE_ID");
+const stripeWebhookTest = env("STRIPE_WEBHOOK_SECRET_TEST");
+const stripeWebhookLive = env("STRIPE_WEBHOOK_SECRET_LIVE");
+const stripePub = env("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY");
+
+function stripeSecretOk(k) {
+  return (
+    (k.startsWith("sk_test_") || k.startsWith("sk_live_")) &&
+    !k.includes("sk_test_xxx") &&
+    !k.includes("sk_live_xxx")
+  );
 }
+
+function stripePriceOk(p) {
+  return p.startsWith("price_") && !p.includes("price_xxx");
+}
+
+function stripeWebhookOk(...values) {
+  return values.some(
+    (w) => w.startsWith("whsec_") && !w.includes("whsec_xxx")
+  );
+}
+
+let stripeCheckoutReady = true;
+
+if (!stripeSecretOk(stripeKey)) {
+  stripeCheckoutReady = false;
+  fail(
+    "STRIPE_SECRET_KEY missing or invalid — set sk_test_… (local) or sk_live_… (production)"
+  );
+} else {
+  pass(
+    `STRIPE_SECRET_KEY (${stripeKey.startsWith("sk_test_") ? "test" : "live"})`
+  );
+}
+
+if (stripePrice.startsWith("prod_")) {
+  stripeCheckoutReady = false;
+  fail(
+    "STRIPE_PRO_PRICE_ID is a Product id (prod_…) — use Price id (price_…) from Stripe → Product → Pricing"
+  );
+} else if (!stripePriceOk(stripePrice)) {
+  stripeCheckoutReady = false;
+  fail("STRIPE_PRO_PRICE_ID missing or invalid — must be price_… (CZK monthly)");
+} else {
+  pass("STRIPE_PRO_PRICE_ID format");
+}
+
+const webhookReady = stripeWebhookOk(
+  stripeWebhook,
+  stripeWebhookTest,
+  stripeWebhookLive
+);
+if (!webhookReady) {
+  warn(
+    "STRIPE_WEBHOOK_SECRET missing — Checkout works but Pro won't activate after payment until webhook is configured"
+  );
+} else {
+  pass("Stripe webhook secret set");
+}
+
+if (stripePub && !stripePub.includes("pk_test_xxx")) {
+  pass("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY set");
+} else {
+  warn("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY missing (optional for redirect Checkout)");
+}
+
+if (stripeCheckoutReady) {
+  pass("Stripe Checkout ready (secret + price)");
+} else {
+  fail("Stripe Checkout not ready — fix secret/price before enabling Pro monetization");
+}
+
+console.log("   Webhook URL: https://<your-domain>/api/billing/webhook");
+console.log("   Verify locally: npm run stage2:check");
 
 // ── Summary ──
 console.log("\n── Summary ──");

@@ -9,13 +9,31 @@ import { useProAccess } from "@/hooks/use-pro-access";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/toast-provider";
+import type { StripeBillingConfigIssue } from "@/lib/billing/config";
 import type { Locale } from "@/i18n/routing";
 
+const ISSUE_I18N_KEY: Record<StripeBillingConfigIssue, string> = {
+  missing_secret_key: "billingIssueMissingSecret",
+  placeholder_secret_key: "billingIssuePlaceholderSecret",
+  invalid_secret_key: "billingIssueInvalidSecret",
+  missing_price_id: "billingIssueMissingPrice",
+  placeholder_price_id: "billingIssuePlaceholderPrice",
+  product_id_not_price: "billingIssueProductNotPrice",
+  invalid_price_id: "billingIssueInvalidPrice",
+  missing_webhook_secret: "billingIssueMissingWebhook",
+};
+
 interface PricingActionsProps {
-  billingEnabled: boolean;
+  checkoutEnabled: boolean;
+  checkoutBlocker: StripeBillingConfigIssue | null;
+  webhookConfigured: boolean;
 }
 
-export function PricingActions({ billingEnabled }: PricingActionsProps) {
+export function PricingActions({
+  checkoutEnabled,
+  checkoutBlocker,
+  webhookConfigured,
+}: PricingActionsProps) {
   const t = useTranslations("pricing");
   const tBilling = useTranslations("billing");
   const tToast = useTranslations("toast");
@@ -28,7 +46,7 @@ export function PricingActions({ billingEnabled }: PricingActionsProps) {
   const loading = authLoading || tierLoading;
 
   const startCheckout = async () => {
-    if (!user) return;
+    if (!user || !checkoutEnabled) return;
     setCheckoutLoading(true);
     try {
       const res = await fetch("/api/billing/checkout", {
@@ -55,8 +73,13 @@ export function PricingActions({ billingEnabled }: PricingActionsProps) {
         return;
       }
 
+      if (res.status === 503 && data.code === "billing_not_configured") {
+        toast(data.detail ?? t("billingNotConfigured"), "error");
+        return;
+      }
+
       if (!res.ok || !data.url) {
-        toast(data.detail ?? tToast("checkoutFailed"), "error");
+        toast(data.detail ?? data.error ?? tToast("checkoutFailed"), "error");
         return;
       }
 
@@ -77,9 +100,9 @@ export function PricingActions({ billingEnabled }: PricingActionsProps) {
         credentials: "include",
         body: JSON.stringify({ locale }),
       });
-      const data = (await res.json()) as { url?: string };
+      const data = (await res.json()) as { url?: string; detail?: string };
       if (!res.ok || !data.url) {
-        toast(tToast("portalFailed"), "error");
+        toast(data.detail ?? tToast("portalFailed"), "error");
         return;
       }
       window.location.href = data.url;
@@ -105,7 +128,7 @@ export function PricingActions({ billingEnabled }: PricingActionsProps) {
         <Badge className="w-full justify-center py-2 text-sm">
           {t("proActive")}
         </Badge>
-        {billingEnabled && (
+        {checkoutEnabled && (
           <Button
             variant="outline"
             className="w-full gap-2"
@@ -125,11 +148,17 @@ export function PricingActions({ billingEnabled }: PricingActionsProps) {
     );
   }
 
-  if (!billingEnabled) {
+  if (!checkoutEnabled) {
+    const issueKey = checkoutBlocker
+      ? ISSUE_I18N_KEY[checkoutBlocker]
+      : "billingNotConfigured";
     return (
-      <Button className="mt-6 w-full" disabled>
-        {t("upgrade")} — {t("comingSoon")}
-      </Button>
+      <div className="mt-6 space-y-2">
+        <Button className="w-full" disabled>
+          {t("upgrade")}
+        </Button>
+        <p className="text-center text-xs text-muted-foreground">{t(issueKey)}</p>
+      </div>
     );
   }
 
@@ -144,20 +173,27 @@ export function PricingActions({ billingEnabled }: PricingActionsProps) {
   }
 
   return (
-    <Button
-      className="mt-6 w-full"
-      disabled={checkoutLoading}
-      aria-busy={checkoutLoading}
-      onClick={() => void startCheckout()}
-    >
-      {checkoutLoading ? (
-        <>
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
-          {t("redirecting")}
-        </>
-      ) : (
-        t("upgrade")
+    <div className="mt-6 space-y-2">
+      {!webhookConfigured && (
+        <p className="text-center text-xs text-amber-600 dark:text-amber-400">
+          {t("billingIssueMissingWebhook")}
+        </p>
       )}
-    </Button>
+      <Button
+        className="w-full"
+        disabled={checkoutLoading}
+        aria-busy={checkoutLoading}
+        onClick={() => void startCheckout()}
+      >
+        {checkoutLoading ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+            {t("redirecting")}
+          </>
+        ) : (
+          t("upgrade")
+        )}
+      </Button>
+    </div>
   );
 }

@@ -203,8 +203,18 @@
     "redirecting": "Přesměrování…",
     "proActive": "Pro je aktivní",
     "alreadyPro": "Pro tarif už máte aktivní",
-    "checkoutSuccess": "Děkujeme! Pro tarif bude aktivní během chvilky.",
-    "checkoutCancelled": "Platba byla zrušena"
+    "checkoutSuccess": "Děkujeme! Pro tarif je nyní aktivní.",
+    "checkoutCancelled": "Platba byla zrušena",
+    "checkoutActivating": "Potvrzujeme platbu…",
+    "billingNotConfigured": "Platba za Pro zatím není k dispozici.",
+    "billingIssueMissingSecret": "Chybí Stripe secret key — nastavte STRIPE_SECRET_KEY v .env.local.",
+    "billingIssuePlaceholderSecret": "Nahraďte placeholder Stripe secret key klíčem sk_test_ nebo sk_live_.",
+    "billingIssueInvalidSecret": "STRIPE_SECRET_KEY musí začínat sk_test_ nebo sk_live_.",
+    "billingIssueMissingPrice": "Chybí Stripe price — nastavte STRIPE_PRO_PRICE_ID (price_…).",
+    "billingIssuePlaceholderPrice": "Nahraďte placeholder STRIPE_PRO_PRICE_ID id měsíční ceny.",
+    "billingIssueProductNotPrice": "STRIPE_PRO_PRICE_ID musí být Price id (price_…), ne Product id (prod_…).",
+    "billingIssueInvalidPrice": "STRIPE_PRO_PRICE_ID musí začínat price_.",
+    "billingIssueMissingWebhook": "Chybí webhook secret — platba může projít, ale Pro se neaktivuje bez STRIPE_WEBHOOK_SECRET."
   },
   "billing": {
     "title": "Předplatné",

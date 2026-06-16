@@ -4,7 +4,10 @@ import {
   createCheckoutSession,
   StripeServiceError,
 } from "@/lib/stripe";
-import { getStripeProPriceIdIssue } from "@/lib/billing/config";
+import {
+  describeStripeBillingIssue,
+  getStripeBillingConfigStatus,
+} from "@/lib/billing/config";
 import { getUserBillingRecord } from "@/lib/billing/profile-billing";
 import { resolveSiteOrigin } from "@/lib/site/url";
 import {
@@ -18,12 +21,16 @@ import { billingLocaleBodySchema } from "@/lib/validation/schemas";
 
 /** Create Stripe Checkout Session for Pay Guard Pro (CZK, Czech market). */
 export async function POST(request: NextRequest) {
-  const priceIssue = getStripeProPriceIdIssue();
-  if (priceIssue === "product_id_not_price") {
+  const billing = getStripeBillingConfigStatus();
+  if (!billing.checkoutEnabled) {
+    const detail = billing.checkoutBlocker
+      ? describeStripeBillingIssue(billing.checkoutBlocker)
+      : "Billing is not configured";
     return NextResponse.json(
       {
-        error: "STRIPE_PRO_PRICE_ID must be a Price id (price_…), not Product id (prod_…)",
-        code: "invalid_price_id",
+        error: "Billing is not configured",
+        code: "billing_not_configured",
+        detail,
       },
       { status: 503 }
     );

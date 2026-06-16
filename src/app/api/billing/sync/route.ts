@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/auth/session";
 import { isStripeBillingConfigured } from "@/lib/billing/config";
 import { syncActiveSubscriptionByEmail } from "@/lib/billing/sync-checkout";
+import { revalidateSubscriptionPages } from "@/lib/billing/revalidate-subscription";
+import { getSubscriptionStatus } from "@/lib/stripe";
 import {
   rateLimitError,
   serviceUnavailable,
@@ -45,7 +47,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({ pro: true });
+    const status = await getSubscriptionStatus(auth.user.id);
+    revalidateSubscriptionPages();
+    return NextResponse.json({
+      pro: true,
+      tier: status.tier,
+      expiresAt: status.expiresAt,
+    });
   } catch (error) {
     console.error("[api/billing/sync]", error);
     return NextResponse.json({ error: "Sync failed" }, { status: 500 });

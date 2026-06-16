@@ -4,6 +4,8 @@ export {
   useProAccess as useSubscriptionTier,
   subscriptionTierKeys,
   invalidateSubscriptionTier,
+  setOptimisticSubscriptionTier,
+  applyCheckoutSubscriptionUpdate,
   useInvalidateSubscriptionTier,
   type ProAccessState,
   type ProAccessState as SubscriptionTierState,
