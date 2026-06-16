@@ -64,7 +64,10 @@ export function ProDashboardQuickActions({
 
   return (
     <section aria-labelledby="pro-quick-actions-heading" className={className}>
-      <h2 id="pro-quick-actions-heading" className="sr-only">
+      <h2
+        id="pro-quick-actions-heading"
+        className="mb-3 text-sm font-semibold tracking-tight text-foreground"
+      >
         {t("quickActionsTitle")}
       </h2>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">

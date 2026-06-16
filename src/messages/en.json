@@ -652,7 +652,9 @@
       "errorTitle": "Could not load forecast",
       "errorGeneric": "Something went wrong while loading data.",
       "retry": "Try again",
-      "refreshingData": "Updating forecast from your latest data…"
+      "refreshingData": "Updating forecast from your latest data…",
+      "forecastDeficitWarning": "Projected deficit by {month} — adjust income or expenses.",
+      "forecastHealthySummary": "Projected balance {amount} by {month}."
     }
   }
 }

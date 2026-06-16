@@ -34,6 +34,8 @@ import {
 import type { ForecastMonth, ForecastRecommendation } from "@/lib/pro/cash-flow-forecast";
 import { formatForecastMonth } from "@/lib/pro/format-forecast-month";
 import { ProForecastChart } from "@/components/pro/shared/pro-forecast-chart";
+import { ProForecastMonthCards } from "@/components/pro/shared/pro-forecast-month-cards";
+import { ProForecastInsightBanner } from "@/components/pro/shared/pro-forecast-insight-banner";
 import { ProDashboardDebtTable } from "@/components/pro/dashboard/pro-dashboard-debt-table";
 import { buildProEngineCashFlowContext } from "@/lib/pro/pro-engine-cashflow";
 import { toFinancialProfile } from "@/lib/types/financial";
@@ -268,12 +270,15 @@ export function ProForecastView() {
               label={t("startingBalance")}
               value={formatMoney(summary.availableFunds, locale)}
               icon={Wallet}
+              accent="emerald"
+              iconClassName="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
             />
             <StatCard
               label={t("monthlyNet")}
               value={formatMoney(forecast.netMonthlyChange, locale)}
               hint={t("perMonth")}
               trend={forecast.netMonthlyChange >= 0 ? "positive" : "negative"}
+              accent="blue"
               icon={TrendingUp}
               iconClassName={
                 forecast.netMonthlyChange >= 0
@@ -288,6 +293,7 @@ export function ProForecastView() {
               trend={
                 (firstMonth?.endingBalance ?? 0) >= 0 ? "positive" : "negative"
               }
+              accent="violet"
               icon={CalendarRange}
             />
             <StatCard
@@ -296,6 +302,9 @@ export function ProForecastView() {
               hint={t("threeMonthHint")}
               trend={
                 (lastMonth?.endingBalance ?? 0) >= 0 ? "positive" : "negative"
+              }
+              accent={
+                (lastMonth?.endingBalance ?? 0) >= 0 ? "emerald" : "destructive"
               }
               icon={CalendarRange}
               iconClassName={
@@ -306,18 +315,43 @@ export function ProForecastView() {
             />
           </div>
 
+          <ProForecastInsightBanner
+            months={forecast.months}
+            locale={locale}
+            namespace="pro.forecast"
+          />
+
+          <Card className="border-primary/20">
+            <CardHeader>
+              <CardTitle className="text-base">{t("recommendationsTitle")}</CardTitle>
+              <CardDescription>{t("recommendationsDescription")}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <RecommendationList
+                recommendations={forecast.recommendations}
+                months={forecast.months}
+                locale={locale}
+              />
+            </CardContent>
+          </Card>
+
           <div className="grid gap-6 lg:grid-cols-2">
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">{t("chartTitle")}</CardTitle>
                 <CardDescription>{t("chartDescription")}</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
                 <ProForecastChart
                   months={forecast.months}
                   chartScaleMax={forecast.chartScaleMax}
                   locale={locale}
                   legend={t("chartLegend")}
+                />
+                <ProForecastMonthCards
+                  months={forecast.months}
+                  locale={locale}
+                  perMonthLabel={t("perMonth")}
                 />
               </CardContent>
             </Card>
@@ -376,20 +410,6 @@ export function ProForecastView() {
             </CardHeader>
             <CardContent className="overflow-x-auto">
               <ForecastTable months={forecast.months} locale={locale} />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">{t("recommendationsTitle")}</CardTitle>
-              <CardDescription>{t("recommendationsDescription")}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <RecommendationList
-                recommendations={forecast.recommendations}
-                months={forecast.months}
-                locale={locale}
-              />
             </CardContent>
           </Card>
 

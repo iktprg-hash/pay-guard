@@ -208,6 +208,20 @@ function invalidateProProfile(queryClient: QueryClient, userId: string) {
   });
 }
 
+/** Invalidate profile + catalog lists so Dashboard and Forecast stay in sync. */
+function invalidateProCatalogSync(queryClient: QueryClient, userId: string) {
+  invalidateProProfile(queryClient, userId);
+  void queryClient.invalidateQueries({
+    queryKey: proFinancialKeys.debts(userId),
+  });
+  void queryClient.invalidateQueries({
+    queryKey: proFinancialKeys.incomes(userId),
+  });
+  void queryClient.invalidateQueries({
+    queryKey: proFinancialKeys.expenses(userId),
+  });
+}
+
 function patchProfileDebts(
   queryClient: QueryClient,
   userId: string,
@@ -309,6 +323,9 @@ function createOptimisticListMutationHandlers<T extends { id: string }>(
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey });
+      if (options.userId) {
+        invalidateProProfile(queryClient, options.userId);
+      }
     },
   };
 }
@@ -563,7 +580,9 @@ export function useDebts(options: UseDebtsOptions = {}): UseDebtsResult {
       optimistic.onError(error, variables, context, "proSaveFailed"),
     onSuccess: (data) => {
       optimistic.onSuccess(data);
-      if (syncCatalogProfile && userId) invalidateProProfile(queryClient, userId);
+      if (syncCatalogProfile && userId) {
+        invalidateProCatalogSync(queryClient, userId);
+      }
     },
     onSettled: optimistic.onSettled,
   });
@@ -576,7 +595,9 @@ export function useDebts(options: UseDebtsOptions = {}): UseDebtsResult {
       optimistic.onError(error, variables, context, "proDeleteFailed"),
     onSuccess: (data) => {
       optimistic.onSuccess(data);
-      if (syncCatalogProfile && userId) invalidateProProfile(queryClient, userId);
+      if (syncCatalogProfile && userId) {
+        invalidateProCatalogSync(queryClient, userId);
+      }
     },
     onSettled: optimistic.onSettled,
   });
@@ -672,7 +693,7 @@ export function useRecurringIncomes(
       optimistic.onError(error, variables, context, "proSaveFailed"),
     onSuccess: (data) => {
       optimistic.onSuccess(data);
-      if (userId) invalidateProProfile(queryClient, userId);
+      if (userId) invalidateProCatalogSync(queryClient, userId);
     },
     onSettled: optimistic.onSettled,
   });
@@ -685,7 +706,7 @@ export function useRecurringIncomes(
       optimistic.onError(error, variables, context, "proDeleteFailed"),
     onSuccess: (data) => {
       optimistic.onSuccess(data);
-      if (userId) invalidateProProfile(queryClient, userId);
+      if (userId) invalidateProCatalogSync(queryClient, userId);
     },
     onSettled: optimistic.onSettled,
   });
@@ -783,7 +804,7 @@ export function useRecurringExpenses(
       optimistic.onError(error, variables, context, "proSaveFailed"),
     onSuccess: (data) => {
       optimistic.onSuccess(data);
-      if (userId) invalidateProProfile(queryClient, userId);
+      if (userId) invalidateProCatalogSync(queryClient, userId);
     },
     onSettled: optimistic.onSettled,
   });
@@ -796,7 +817,7 @@ export function useRecurringExpenses(
       optimistic.onError(error, variables, context, "proDeleteFailed"),
     onSuccess: (data) => {
       optimistic.onSuccess(data);
-      if (userId) invalidateProProfile(queryClient, userId);
+      if (userId) invalidateProCatalogSync(queryClient, userId);
     },
     onSettled: optimistic.onSettled,
   });

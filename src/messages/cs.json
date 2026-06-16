@@ -652,7 +652,9 @@
       "errorTitle": "Prognózu se nepodařilo načíst",
       "errorGeneric": "Při načítání dat došlo k chybě.",
       "retry": "Zkusit znovu",
-      "refreshingData": "Aktualizuji prognózu z nejnovějších dat…"
+      "refreshingData": "Aktualizuji prognózu z nejnovějších dat…",
+      "forecastDeficitWarning": "Projekce deficitu do {month} — upravte příjmy nebo výdaje.",
+      "forecastHealthySummary": "Projekce zůstatku {amount} do {month}."
     }
   }
 }
