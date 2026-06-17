@@ -64,7 +64,13 @@ export async function syncCheckoutSessionForUser(
   sessionId: string
 ): Promise<BillingSyncResult> {
   const stripe = getStripeClient();
-  const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+  let session: Stripe.Checkout.Session;
+  try {
+    session = await stripe.checkout.sessions.retrieve(sessionId);
+  } catch {
+    return { ok: false, code: "session_incomplete" };
+  }
 
   if (!sessionBelongsToUser(session, userId)) {
     return { ok: false, code: "session_mismatch" };

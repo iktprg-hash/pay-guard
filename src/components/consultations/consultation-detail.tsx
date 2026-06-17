@@ -19,6 +19,7 @@ import {
   loadStoredSession,
   type StoredMessage,
 } from "@/lib/chat/storage";
+import { generateSessionToken } from "@/lib/security/token";
 import type { UserSessionBundle } from "@/lib/chat/persistence";
 import type { FinancialProfile, PrioritizationResult } from "@/lib/types/financial";
 import { cn } from "@/lib/utils";
@@ -118,7 +119,7 @@ export function ConsultationDetail({
 
         await importServerSession({
           sessionId: session.sessionId,
-          sessionToken: "",
+          sessionToken: generateSessionToken(),
           locale: session.locale,
           messages: session.messages,
           profile: session.profile,

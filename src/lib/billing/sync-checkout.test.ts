@@ -1,7 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type Stripe from "stripe";
 import { extractSupabaseUserId } from "@/lib/billing/subscription-sync";
-import { describeBillingSyncClientError } from "@/lib/billing/sync-checkout";
+import {
+  describeBillingSyncClientError,
+  syncCheckoutSessionForUser,
+} from "@/lib/billing/sync-checkout";
+
+vi.mock("@/lib/billing/stripe-client", () => ({
+  getStripeClient: vi.fn(),
+}));
 
 describe("billing sync helpers", () => {
   it("maps sync error codes to user-safe messages without internal details", () => {
@@ -27,5 +34,23 @@ describe("billing sync helpers", () => {
       extractSupabaseUserId(session.metadata) === userId;
 
     expect(owns).toBe(true);
+  });
+
+  it("returns session_incomplete when Stripe cannot retrieve checkout session", async () => {
+    const { getStripeClient } = await import("@/lib/billing/stripe-client");
+    vi.mocked(getStripeClient).mockReturnValue({
+      checkout: {
+        sessions: {
+          retrieve: vi.fn().mockRejectedValue(new Error("No such checkout.session")),
+        },
+      },
+    } as unknown as Stripe);
+
+    const result = await syncCheckoutSessionForUser(
+      "user-123",
+      "cs_test_nonexistent"
+    );
+
+    expect(result).toEqual({ ok: false, code: "session_incomplete" });
   });
 });
