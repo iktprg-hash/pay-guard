@@ -35,10 +35,9 @@ jobs:
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ci-placeholder
       STRIPE_WEBHOOK_SECRET: ci-placeholder
 
-      # ── Upstash — не задан → fail-closed в prod, но:
-      # free-user тесты возвращают 403 до rate limit → Upstash не вызывается
-      # UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
-      # UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+      # ── Upstash — required by assertUpstashOnStartup() in production
+      UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
+      UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
 
     steps:
       - name: Checkout
