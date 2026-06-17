@@ -40,6 +40,17 @@ export async function checkProRateLimit(
   ip: string
 ): Promise<RateLimitResult> {
   const limit = PRO_RATE_LIMITS[action];
+
+  // Absolute ceiling per userId (3× per-action limit, IP-independent)
+  const userKey = `pro:${action}:${userId}`;
+  const userResult = await checkRateLimit(
+    userKey,
+    limit * 3,
+    PRO_RATE_LIMIT_WINDOW_MS
+  );
+  if (!userResult.allowed) return userResult;
+
+  // Per userId+IP limit (shared-IP fairness)
   return checkRateLimit(
     proRateLimitKey(action, userId, ip),
     limit,

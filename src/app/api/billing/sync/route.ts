@@ -26,6 +26,13 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const userLimit = await checkRateLimit(
+    `billing-sync:${auth.user.id}`,
+    30,
+    60_000
+  );
+  if (!userLimit.allowed) return rateLimitError(userLimit.resetAt);
+
   const ip = getClientIp(request.headers);
   const limit = await checkRateLimit(
     `billing-sync:${auth.user.id}:${ip}`,

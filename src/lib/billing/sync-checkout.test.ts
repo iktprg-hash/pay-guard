@@ -4,10 +4,15 @@ import { extractSupabaseUserId } from "@/lib/billing/subscription-sync";
 import {
   describeBillingSyncClientError,
   syncCheckoutSessionForUser,
+  syncActiveSubscriptionByEmail,
 } from "@/lib/billing/sync-checkout";
 
 vi.mock("@/lib/billing/stripe-client", () => ({
   getStripeClient: vi.fn(),
+}));
+
+vi.mock("@/lib/billing/profile-billing", () => ({
+  applyStripeSubscriptionToUser: vi.fn(),
 }));
 
 describe("billing sync helpers", () => {
@@ -52,5 +57,34 @@ describe("billing sync helpers", () => {
     );
 
     expect(result).toEqual({ ok: false, code: "session_incomplete" });
+  });
+
+  it("rejects email sync when subscription metadata belongs to another user", async () => {
+    const { getStripeClient } = await import("@/lib/billing/stripe-client");
+    vi.mocked(getStripeClient).mockReturnValue({
+      customers: {
+        list: vi.fn().mockResolvedValue({
+          data: [{ id: "cus_123" }],
+        }),
+      },
+      subscriptions: {
+        list: vi.fn().mockResolvedValue({
+          data: [
+            {
+              id: "sub_123",
+              status: "active",
+              metadata: { supabase_user_id: "other-user" },
+            },
+          ],
+        }),
+      },
+    } as unknown as Stripe);
+
+    const result = await syncActiveSubscriptionByEmail(
+      "user-123",
+      "victim@example.com"
+    );
+
+    expect(result).toEqual({ ok: false, code: "session_mismatch" });
   });
 });

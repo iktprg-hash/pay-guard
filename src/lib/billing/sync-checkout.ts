@@ -39,6 +39,21 @@ function sessionBelongsToUser(
   );
 }
 
+function subscriptionBelongsToUser(
+  subscription: Stripe.Subscription,
+  userId: string
+): boolean {
+  const metaUserId =
+    subscription.metadata?.supabase_user_id ??
+    subscription.metadata?.client_reference_id;
+
+  if (metaUserId && metaUserId !== userId) {
+    return false;
+  }
+
+  return true;
+}
+
 async function applySubscriptionId(
   userId: string,
   subscriptionId: string
@@ -116,6 +131,10 @@ export async function syncActiveSubscriptionByEmail(
     );
 
     if (active) {
+      if (!subscriptionBelongsToUser(active, userId)) {
+        return { ok: false, code: "session_mismatch" };
+      }
+
       const applied = await applyStripeSubscriptionToUser(userId, active);
       if (!applied) {
         console.error(

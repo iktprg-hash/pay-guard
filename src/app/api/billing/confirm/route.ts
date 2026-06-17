@@ -22,6 +22,13 @@ export async function POST(request: NextRequest) {
   const auth = await requireApiUser();
   if ("error" in auth) return auth.error;
 
+  const userLimit = await checkRateLimit(
+    `billing-confirm:${auth.user.id}`,
+    60,
+    60_000
+  );
+  if (!userLimit.allowed) return rateLimitError(userLimit.resetAt);
+
   const ip = getClientIp(request.headers);
   const limit = await checkRateLimit(
     `billing-confirm:${auth.user.id}:${ip}`,
