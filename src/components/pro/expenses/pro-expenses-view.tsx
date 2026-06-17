@@ -141,8 +141,11 @@ export function ProExpensesView() {
   };
 
   const handleDelete = async (expenseId: string) => {
-    await deleteExpenseAsync(expenseId);
-    setPendingDeleteId(null);
+    try {
+      await deleteExpenseAsync(expenseId);
+    } finally {
+      setPendingDeleteId(null);
+    }
   };
 
   if (isLoading && expenses.length === 0) {

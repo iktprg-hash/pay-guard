@@ -132,8 +132,11 @@ export function ProIncomesView() {
   };
 
   const handleDelete = async (incomeId: string) => {
-    await deleteIncomeAsync(incomeId);
-    setPendingDeleteId(null);
+    try {
+      await deleteIncomeAsync(incomeId);
+    } finally {
+      setPendingDeleteId(null);
+    }
   };
 
   if (isLoading && incomes.length === 0) {

@@ -38,7 +38,6 @@ export function ProCriticalAlert() {
   return (
     <div
       role="alert"
-      aria-live="polite"
       className="flex items-center gap-3 border-b border-destructive/20 bg-destructive/5 px-4 py-2.5 text-sm text-destructive dark:text-red-300"
     >
       <AlertOctagon className="h-4 w-4 shrink-0" aria-hidden />

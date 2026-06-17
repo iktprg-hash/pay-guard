@@ -315,6 +315,7 @@ async function syncCatalogDebts(
     const { error: deleteError } = await supabase
       .from("debts")
       .delete()
+      .eq("user_id", userId)
       .in("id", orphanIds);
     if (deleteError) return fromSupabaseError(deleteError, "Failed to prune debts");
   }

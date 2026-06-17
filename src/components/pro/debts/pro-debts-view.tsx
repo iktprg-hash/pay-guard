@@ -82,8 +82,11 @@ export function ProDebtsView() {
   };
 
   const handleDelete = async (debtId: string) => {
-    await deleteDebtAsync(debtId);
-    setPendingDeleteId(null);
+    try {
+      await deleteDebtAsync(debtId);
+    } finally {
+      setPendingDeleteId(null);
+    }
   };
 
   if (isLoading && debts.length === 0) {

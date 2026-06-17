@@ -289,7 +289,7 @@ if (stripeCheckoutReady) {
   fail("Stripe Checkout not ready — fix secret/price before enabling Pro monetization");
 }
 
-console.log("   Webhook URL: https://<your-domain>/api/billing/webhook");
+console.log("   Webhook URL: https://<your-domain>/api/webhooks/stripe");
 console.log("   Verify locally: npm run stage2:check");
 
 // ── Summary ──
