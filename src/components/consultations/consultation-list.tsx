@@ -112,6 +112,14 @@ export function ConsultationList({ locale, isPro }: ConsultationListProps) {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    const handleOnline = () => void load();
+    window.addEventListener("online", handleOnline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+    };
+  }, [load]);
+
   if (loading) {
     return (
       <div className="flex items-center gap-2" role="status">

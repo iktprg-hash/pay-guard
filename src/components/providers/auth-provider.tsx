@@ -115,6 +115,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, [locale]);
 
+  useEffect(() => {
+    if (!user) return;
+
+    const handleOnline = () => {
+      const copy = getToastCopy(locale);
+      toast(copy.online, "default");
+      void syncUserSessionsOnLogin(locale).catch((err: unknown) => {
+        console.warn("[auth] reconnect sync failed", err);
+      });
+    };
+
+    window.addEventListener("online", handleOnline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+    };
+  }, [user, locale]);
+
   const signOut = useCallback(async () => {
     try {
       await fetch("/api/auth/logout", {
