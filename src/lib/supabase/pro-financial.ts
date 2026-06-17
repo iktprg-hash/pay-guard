@@ -601,6 +601,7 @@ export async function saveRecurringIncomes(
     const { error: deleteError } = await supabase
       .from("recurring_incomes")
       .delete()
+      .eq("user_id", userId)
       .in("id", orphanIds);
     if (deleteError) {
       return fromSupabaseError(deleteError, "Failed to prune recurring incomes");
@@ -676,6 +677,7 @@ export async function saveRecurringExpenses(
     const { error: deleteError } = await supabase
       .from("recurring_expenses")
       .delete()
+      .eq("user_id", userId)
       .in("id", orphanIds);
     if (deleteError) {
       return fromSupabaseError(deleteError, "Failed to prune recurring expenses");
