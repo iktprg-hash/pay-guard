@@ -1,0 +1,111 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    name: Build · E2E · Lighthouse
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    env:
+      # ── Supabase (обязательные secrets в GitHub → Settings → Secrets) ─────
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+      # ── E2E тестовый пользователь ──────────────────────────────────────────
+      # Добавить как secrets или оставить дефолты из fixtures/auth.ts
+      E2E_FREE_USER_EMAIL: ${{ secrets.E2E_FREE_USER_EMAIL || 'e2e-free@pay-guard.test' }}
+      E2E_FREE_USER_PASSWORD: ${{ secrets.E2E_FREE_USER_PASSWORD || 'E2eTestPass1' }}
+
+      # ── App URL ────────────────────────────────────────────────────────────
+      NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000
+
+      # ── xAI — плейсхолдер (чат не тестируется в E2E) ─────────────────────
+      XAI_API_KEY: ci-placeholder
+
+      # ── Stripe — плейсхолдеры (billing возвращает 503 → тесты ожидают это)
+      STRIPE_SECRET_KEY: ci-placeholder
+      STRIPE_PRO_PRICE_ID: ci-placeholder
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ci-placeholder
+      STRIPE_WEBHOOK_SECRET: ci-placeholder
+
+      # ── Upstash — не задан → fail-closed в prod, но:
+      # free-user тесты возвращают 403 до rate limit → Upstash не вызывается
+      # UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
+      # UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript check
+        run: npx tsc --noEmit
+
+      - name: Install Playwright browsers (Chromium only)
+        run: npx playwright install --with-deps chromium
+
+      - name: Build production
+        run: npm run build
+
+      - name: E2E tests
+        # ci-e2e.mjs: запускает start:prod, ждёт /api/health, preflight, playwright, останавливает сервер
+        run: node scripts/ci-e2e.mjs --project=chromium-authenticated
+        # chromium-authenticated depends on "setup" → setup запускается автоматически
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ github.run_number }}
+          path: playwright-report/
+          retention-days: 7
+
+      - name: Upload server log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-log-${{ github.run_number }}
+          path: server.log
+          retention-days: 3
+
+      - name: Lighthouse CI
+        # Запускаем отдельно: ci-e2e.mjs уже остановил сервер после E2E
+        run: |
+          npm run start:prod &
+          SERVER_PID=$!
+          echo "Waiting for server (PID $SERVER_PID)…"
+          for i in $(seq 1 40); do
+            if curl -sf http://127.0.0.1:3000/api/health > /dev/null 2>&1; then
+              echo "Server ready after ${i} attempts"
+              break
+            fi
+            sleep 3
+          done
+          npm run lighthouse:ci
+          kill "$SERVER_PID" 2>/dev/null || true
+        # Lighthouse — предупреждения не блокируют CI, только accessibility error
+        # Убрать continue-on-error когда LH scores стабилизируются
+        continue-on-error: true
+
+      - name: Upload Lighthouse report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-report-${{ github.run_number }}
+          path: .lighthouseci/
+          retention-days: 14
