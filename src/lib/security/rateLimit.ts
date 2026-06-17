@@ -146,3 +146,9 @@ export {
   PRO_RATE_LIMIT_WINDOW_MS,
   type ProRateLimitAction,
 } from "@/lib/security/pro-rate-limit";
+
+/** Authenticated chat/prioritize rate limits — see {@link checkAuthenticatedRateLimit}. */
+export {
+  AUTHENTICATED_RATE_LIMITS,
+  checkAuthenticatedRateLimit,
+} from "@/lib/security/authenticated-rate-limit";

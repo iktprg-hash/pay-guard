@@ -1,98 +1,23 @@
 import type Stripe from "stripe";
 import {
-  applyStripeSubscriptionToUser,
-  findUserIdByStripeCustomer,
-} from "@/lib/billing/profile-billing";
-import { revalidateSubscriptionPages } from "@/lib/billing/revalidate-subscription";
-import { extractSupabaseUserId } from "@/lib/billing/subscription-sync";
-import {
   isStripeEventProcessed,
   markStripeEventType,
   releaseStripeEventLock,
 } from "@/lib/billing/webhook-idempotency";
+import { revalidateSubscriptionPages } from "@/lib/billing/revalidate-subscription";
+import {
+  BILLING_WEBHOOK_EVENTS,
+  handleCheckoutCompleted,
+  handleInvoicePaymentFailed,
+  handleInvoicePaymentSucceeded,
+  handleSubscriptionEvent,
+  logStripeWebhookEvent,
+  type StripeWebhookHandlerOutcome,
+} from "@/lib/billing/stripe-webhook";
 import { getStripeClient } from "@/lib/billing/stripe-client";
 import { createServiceClient } from "@/lib/supabase/service";
 
 export const STRIPE_WEBHOOK_MAX_BODY_BYTES = 1_000_000;
-
-export const SUBSCRIPTION_WEBHOOK_EVENTS = new Set<string>([
-  "checkout.session.completed",
-  "customer.subscription.created",
-  "customer.subscription.updated",
-  "customer.subscription.deleted",
-]);
-
-interface HandlerOutcome {
-  userId: string | null;
-  profileUpdated: boolean;
-}
-
-async function resolveUserIdForSubscription(
-  subscription: Stripe.Subscription
-): Promise<string | null> {
-  const fromMeta = extractSupabaseUserId(subscription.metadata);
-  if (fromMeta) return fromMeta;
-
-  const customerId =
-    typeof subscription.customer === "string"
-      ? subscription.customer
-      : subscription.customer?.id;
-
-  if (!customerId) return null;
-  return findUserIdByStripeCustomer(customerId);
-}
-
-async function handleCheckoutCompleted(
-  session: Stripe.Checkout.Session
-): Promise<HandlerOutcome> {
-  const userId =
-    extractSupabaseUserId(session.metadata) ??
-    session.client_reference_id ??
-    null;
-
-  const subscriptionId =
-    typeof session.subscription === "string"
-      ? session.subscription
-      : session.subscription?.id;
-
-  if (!userId || !subscriptionId) {
-    console.warn("[stripe/webhook] checkout.session.completed missing ids", {
-      sessionId: session.id,
-      userId,
-      subscriptionId,
-    });
-    return { userId, profileUpdated: false };
-  }
-
-  const stripe = getStripeClient();
-  const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-  const applied = await applyStripeSubscriptionToUser(userId, subscription);
-  if (!applied) {
-    throw new Error("Failed to update profile subscription");
-  }
-
-  return { userId, profileUpdated: true };
-}
-
-async function handleSubscriptionEvent(
-  subscription: Stripe.Subscription
-): Promise<HandlerOutcome> {
-  const userId = await resolveUserIdForSubscription(subscription);
-  if (!userId) {
-    console.warn("[stripe/webhook] subscription event without user mapping", {
-      subscriptionId: subscription.id,
-      status: subscription.status,
-    });
-    return { userId: null, profileUpdated: false };
-  }
-
-  const applied = await applyStripeSubscriptionToUser(userId, subscription);
-  if (!applied) {
-    throw new Error("Failed to update profile subscription");
-  }
-
-  return { userId, profileUpdated: true };
-}
 
 export type StripeWebhookHandleResult =
   | {
@@ -106,20 +31,38 @@ export type StripeWebhookHandleResult =
     }
   | { ok: false; status: number; error: string };
 
+async function dispatchStripeEvent(
+  event: Stripe.Event
+): Promise<StripeWebhookHandlerOutcome> {
+  switch (event.type) {
+    case "checkout.session.completed":
+      return handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session);
+    case "customer.subscription.created":
+    case "customer.subscription.updated":
+    case "customer.subscription.deleted":
+      return handleSubscriptionEvent(event.data.object as Stripe.Subscription);
+    case "invoice.payment_succeeded":
+      return handleInvoicePaymentSucceeded(event.data.object as Stripe.Invoice);
+    case "invoice.payment_failed":
+      return handleInvoicePaymentFailed(event.data.object as Stripe.Invoice);
+    default:
+      return { userId: null, profileUpdated: false };
+  }
+}
+
 /** Process a verified Stripe webhook event (idempotent). */
 export async function handleStripeWebhookEvent(
   event: Stripe.Event
 ): Promise<StripeWebhookHandleResult> {
-  if (
-    process.env.NODE_ENV === "production" &&
-    !createServiceClient()
-  ) {
+  if (process.env.NODE_ENV === "production" && !createServiceClient()) {
     return {
       ok: false,
       status: 503,
       error: "Webhook idempotency unavailable",
     };
   }
+
+  logStripeWebhookEvent("received", event);
 
   if (await isStripeEventProcessed(event.id)) {
     return {
@@ -130,29 +73,17 @@ export async function handleStripeWebhookEvent(
     };
   }
 
-  let outcome: HandlerOutcome = { userId: null, profileUpdated: false };
+  let outcome: StripeWebhookHandlerOutcome = {
+    userId: null,
+    profileUpdated: false,
+  };
 
   try {
-    switch (event.type) {
-      case "checkout.session.completed":
-        outcome = await handleCheckoutCompleted(
-          event.data.object as Stripe.Checkout.Session
-        );
-        break;
-      case "customer.subscription.created":
-      case "customer.subscription.updated":
-      case "customer.subscription.deleted":
-        outcome = await handleSubscriptionEvent(
-          event.data.object as Stripe.Subscription
-        );
-        break;
-      default:
-        break;
-    }
+    outcome = await dispatchStripeEvent(event);
 
     await markStripeEventType(event.id, event.type);
 
-    if (SUBSCRIPTION_WEBHOOK_EVENTS.has(event.type)) {
+    if (BILLING_WEBHOOK_EVENTS.has(event.type)) {
       revalidateSubscriptionPages();
     }
 
@@ -164,9 +95,7 @@ export async function handleStripeWebhookEvent(
       profileUpdated: outcome.profileUpdated,
     };
   } catch (error) {
-    console.error("[stripe/webhook] handler error", {
-      eventId: event.id,
-      eventType: event.type,
+    logStripeWebhookEvent("error", event, {
       userId: outcome.userId,
       error,
     });

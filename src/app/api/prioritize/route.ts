@@ -3,7 +3,11 @@ import { runPriorityEngine } from "@/services/priorityEngine";
 import { requireApiUser } from "@/lib/auth/session";
 import { rateLimitError, validationError } from "@/lib/api/errors";
 import { parseJsonBody } from "@/lib/api/parse-request";
-import { checkRateLimit, getClientIp } from "@/lib/security/rateLimit";
+import {
+  AUTHENTICATED_RATE_LIMITS,
+  checkAuthenticatedRateLimit,
+  getClientIp,
+} from "@/lib/security/rateLimit";
 import { hasMinimumRecommendationData } from "@/lib/grok/recommendation-readiness";
 import {
   normalizeProfile,
@@ -15,8 +19,15 @@ export async function POST(request: NextRequest) {
   if ("error" in auth) return auth.error;
 
   const ip = getClientIp(request.headers);
-  const limit = await checkRateLimit(`prioritize:${auth.user.id}:${ip}`, 60, 60_000);
-  if (!limit.allowed) return rateLimitError(limit.resetAt);
+  const { limit, windowMs } = AUTHENTICATED_RATE_LIMITS.prioritize;
+  const rateLimit = await checkAuthenticatedRateLimit(
+    "prioritize",
+    auth.user.id,
+    ip,
+    limit,
+    windowMs
+  );
+  if (!rateLimit.allowed) return rateLimitError(rateLimit.resetAt);
 
   const parsed = await parseJsonBody(request, prioritizeRequestSchema);
   if (!parsed.ok) return validationError(parsed.error);

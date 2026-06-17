@@ -11,7 +11,11 @@ import {
   validationError,
 } from "@/lib/api/errors";
 import { parseJsonBody } from "@/lib/api/parse-request";
-import { checkRateLimit, getClientIp } from "@/lib/security/rateLimit";
+import {
+  AUTHENTICATED_RATE_LIMITS,
+  checkAuthenticatedRateLimit,
+  getClientIp,
+} from "@/lib/security/rateLimit";
 import {
   chatRequestSchema,
   normalizeProfile,
@@ -24,8 +28,15 @@ export async function POST(request: NextRequest) {
   if ("error" in auth) return auth.error;
 
   const ip = getClientIp(request.headers);
-  const limit = await checkRateLimit(`chat:${auth.user.id}:${ip}`, 20, 60_000);
-  if (!limit.allowed) return rateLimitError(limit.resetAt);
+  const { limit, windowMs } = AUTHENTICATED_RATE_LIMITS.chat;
+  const rateLimit = await checkAuthenticatedRateLimit(
+    "chat",
+    auth.user.id,
+    ip,
+    limit,
+    windowMs
+  );
+  if (!rateLimit.allowed) return rateLimitError(rateLimit.resetAt);
 
   try {
     const parsed = await parseJsonBody(request, chatRequestSchema);
