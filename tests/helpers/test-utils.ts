@@ -1,4 +1,4 @@
-import { expect, type Locator, type Page } from "@playwright/test";
+import { expect, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 import { E2E_LOCALE } from "../fixtures/auth";
 import { gotoExpectOk } from "./server-health";
 import {
@@ -492,6 +492,32 @@ export async function expectProGateWithBlur(page: Page): Promise<void> {
   await expect.soft(proLockedOverlay(page)).toBeVisible();
   await expect.soft(proBlurredPreview(page).first()).toBeVisible();
   await expect.soft(page.getByText(UI.lockedHint)).toBeVisible();
+}
+
+/** Poll until an authenticated free user gets Pro gate 403 (not transient 401). */
+export async function pollExpectProGate403(
+  request: () => Promise<{ status(): number }>,
+  options: { timeout?: number } = {}
+): Promise<void> {
+  await expect
+    .poll(async () => (await request()).status(), {
+      timeout: options.timeout ?? E2E_POLL_TIMEOUT,
+      intervals: [...POLL_INTERVALS],
+    })
+    .toBe(403);
+}
+
+/** Wait until /api/auth/tier accepts the worker session (no re-login — see auth fixture). */
+export async function ensureAuthenticatedApiSession(
+  request: APIRequestContext,
+  options: { timeout?: number } = {}
+): Promise<void> {
+  await expect
+    .poll(async () => request.get("/api/auth/tier").then((res) => res.status()), {
+      timeout: options.timeout ?? E2E_TIER_TIMEOUT,
+      intervals: [...POLL_INTERVALS],
+    })
+    .toBe(200);
 }
 
 /** Poll until a locator becomes visible (subscription/UI state changes). */

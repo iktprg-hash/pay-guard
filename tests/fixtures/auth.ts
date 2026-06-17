@@ -305,10 +305,22 @@ async function loginViaApiWithRetry(
   let lastRes = await loginViaApi(request, baseURL, credentials);
 
   for (let attempt = 2; attempt <= attempts; attempt += 1) {
-    if (lastRes.ok() || lastRes.status() !== 429) {
-      return lastRes;
-    }
-    await sleep(Math.min(1000 * attempt, 5000));
+    if (lastRes.ok()) return lastRes;
+
+    const retryable = await (async () => {
+      if (lastRes.status() === 429) return true;
+      if (lastRes.status() !== 401) return false;
+      try {
+        const body = (await lastRes.json()) as { code?: string };
+        return body.code === "rate_limited";
+      } catch {
+        return false;
+      }
+    })();
+
+    if (!retryable) return lastRes;
+
+    await sleep(Math.min(1500 * attempt, 8000));
     lastRes = await loginViaApi(request, baseURL, credentials);
   }
 
@@ -579,6 +591,102 @@ export async function saveProStorageState(
   }
 }
 
+/** Re-login when storageState cookies are stale; persist refreshed cookies for page tests. */
+export async function refreshAuthenticatedApiSession(
+  request: APIRequestContext,
+  baseURL: string,
+  credentials: TestCredentials = getTestUserCredentials(),
+  storagePath?: string
+): Promise<void> {
+  const tierOk = async () => {
+    const res = await request.get("/api/auth/tier");
+    return res.ok();
+  };
+
+  if (await tierOk()) return;
+
+  const loginRes = await loginViaApiWithRetry(request, baseURL, credentials);
+  if (!loginRes.ok()) {
+    throw new Error(
+      `E2E API re-login failed (${loginRes.status()}): ${await loginRes.text()}`
+    );
+  }
+
+  if (!(await tierOk())) {
+    throw new Error("E2E tier still unauthenticated after API re-login");
+  }
+
+  if (storagePath) {
+    await persistRequestStorageState(request, storagePath);
+  }
+}
+
+async function persistRequestStorageState(
+  request: APIRequestContext,
+  storagePath: string
+): Promise<void> {
+  ensureAuthDir();
+  const tmpPath = `${storagePath}.${process.pid}.${Date.now()}.tmp`;
+  await request.storageState({ path: tmpPath });
+  fs.renameSync(tmpPath, storagePath);
+}
+
+/** One login refresh per storage file across parallel tests (avoids auth rate limits). */
+const storageRefreshLocks = new Map<string, Promise<void>>();
+
+async function ensureStorageStateFresh(
+  baseURL: string,
+  storagePath: string,
+  credentials: TestCredentials = getTestUserCredentials()
+): Promise<void> {
+  if (await tryReuseStorageState(baseURL, storagePath)) return;
+
+  let refresh = storageRefreshLocks.get(storagePath);
+  if (!refresh) {
+    refresh = (async () => {
+      const context = await playwrightRequest.newContext({
+        baseURL,
+        storageState: storagePath,
+      });
+      try {
+        await refreshAuthenticatedApiSession(
+          context,
+          baseURL,
+          credentials,
+          storagePath
+        );
+      } finally {
+        await context.dispose();
+      }
+    })();
+    storageRefreshLocks.set(storagePath, refresh);
+  }
+
+  try {
+    await refresh;
+  } finally {
+    if (storageRefreshLocks.get(storagePath) === refresh) {
+      storageRefreshLocks.delete(storagePath);
+    }
+  }
+
+  if (!(await tryReuseStorageState(baseURL, storagePath))) {
+    throw new Error(
+      `E2E storage state still invalid after refresh: ${storagePath}`
+    );
+  }
+}
+
+/** Copy refreshed API session cookies into the page browser context. */
+export async function syncPageCookiesFromRequest(
+  page: Page,
+  request: APIRequestContext
+): Promise<void> {
+  const { cookies } = await request.storageState();
+  if (cookies.length === 0) return;
+  await page.context().addCookies(cookies);
+}
+
 /** UI login with email/password (next-intl login form). */
 export async function loginWithPassword(
   page: Page,
@@ -618,15 +726,33 @@ export async function registerWithPassword(
  * Authenticated Playwright test — request fixture loads project storageState cookies.
  * Import this `test` in checkout/pro-gating/pro-features specs instead of @playwright/test.
  */
-export const test = base.extend({
+export const test = base.extend<{
+  guestRequest: APIRequestContext;
+}>({
   request: async ({ playwright, baseURL }, use, testInfo) => {
     const storagePath = resolveProjectStoragePath(
       testInfo.project.use.storageState as string | undefined
     );
 
+    if (storagePath && baseURL) {
+      await ensureStorageStateFresh(baseURL, storagePath);
+    }
+
     const context = await playwright.request.newContext({
       baseURL,
       ...(storagePath ? { storageState: storagePath } : {}),
+    });
+
+    try {
+      await use(context);
+    } finally {
+      await context.dispose();
+    }
+  },
+  guestRequest: async ({ playwright, baseURL }, use) => {
+    const context = await playwright.request.newContext({
+      baseURL,
+      storageState: { cookies: [], origins: [] },
     });
 
     try {

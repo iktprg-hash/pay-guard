@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "SERWIST_SUPPRESS_TURBOPACK_WARNING=1 next dev --hostname 127.0.0.1 --port 3000",
+    "dev:e2e": "E2E_DISABLE_AUTH_RATE_LIMIT=1 AUTH_SKIP_RATE_LIMIT=1 SERWIST_SUPPRESS_TURBOPACK_WARNING=1 next dev --hostname 127.0.0.1 --port 3000",
     "dev:clean": "rm -rf .next && next dev --hostname 127.0.0.1 --port 3000",
     "dev:restart": "node scripts/restart-dev.mjs",
     "build": "SERWIST_SUPPRESS_TURBOPACK_WARNING=1 next build",
