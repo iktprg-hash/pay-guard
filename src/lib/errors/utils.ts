@@ -12,7 +12,7 @@ import {
   isAppErrorCode,
   type AppErrorCode,
 } from "@/lib/errors/codes";
-import { getLocalizedErrorMessage } from "@/lib/errors/messages";
+import { getUserErrorMessage, getUserErrorMessageFromError } from "@/lib/errors/user-messages";
 
 export interface ApiErrorBody {
   error: string;
@@ -30,11 +30,10 @@ export function getUserFriendlyMessage(
   error: AppError | AppErrorCode,
   locale: Locale = "cs"
 ): string {
-  const appError = typeof error === "string" ? createAppError(error) : error;
-  return (
-    appError.userMessage ??
-    getLocalizedErrorMessage(appError.code, locale)
-  );
+  if (typeof error === "string") {
+    return getUserErrorMessage(error, locale);
+  }
+  return getUserErrorMessageFromError(error, locale);
 }
 
 function rateLimitResetAt(details: unknown): number | undefined {
@@ -155,7 +154,7 @@ export async function appErrorFromResponse(
   return createAppError(code, {
     message: body?.error ?? definition.message,
     userMessage:
-      body?.userMessage ?? getLocalizedErrorMessage(code, locale),
+      body?.userMessage ?? getUserErrorMessage(code, locale),
     statusCode: response.status || definition.statusCode,
     details: body?.details,
   });

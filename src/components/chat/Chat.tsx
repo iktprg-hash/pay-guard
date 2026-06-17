@@ -26,6 +26,10 @@ import { ChatSkeleton } from "@/components/ui/page-loader";
 import type { ChatMessage, PrioritizationResult } from "@/lib/types/financial";
 import type { Locale } from "@/i18n/routing";
 import { getIntlLocale } from "@/lib/utils";
+import {
+  appErrorFromResponse,
+  getUserErrorMessageFromError,
+} from "@/lib/errors";
 
 function generateId() {
   return crypto.randomUUID();
@@ -183,10 +187,8 @@ export function Chat() {
         });
 
         if (!res.ok) {
-          if (res.status === 401) throw new Error("AUTH");
-          if (res.status === 429) throw new Error("RATE_LIMIT");
-          if (res.status === 502) throw new Error("SERVICE_UNAVAILABLE");
-          throw new Error("CHAT_FAILED");
+          const appError = await appErrorFromResponse(res, locale);
+          throw appError;
         }
 
         const data = await res.json();
@@ -241,17 +243,7 @@ export function Chat() {
           });
         }
       } catch (err) {
-        const code = err instanceof Error ? err.message : "";
-        const content =
-          code === "OFFLINE"
-            ? t("offlineError")
-            : code === "AUTH"
-              ? t("authError")
-              : code === "RATE_LIMIT"
-                ? t("rateLimitError")
-                : code === "SERVICE_UNAVAILABLE"
-                  ? t("serviceUnavailableError")
-                  : t("error");
+        const content = getUserErrorMessageFromError(err, locale);
         setMessages((prev) => [
           ...prev,
           {

@@ -8,6 +8,14 @@ export {
 } from "@/lib/errors/codes";
 export { getLocalizedErrorMessage } from "@/lib/errors/messages";
 export {
+  errorMessages,
+  getUserErrorMessage,
+  getUserErrorMessageFromError,
+  resolveUserErrorCode,
+  type ClientErrorCode,
+  type UserErrorCode,
+} from "@/lib/errors/user-messages";
+export {
   appErrorFromBillingSyncCode,
   appErrorFromStripeService,
 } from "@/lib/errors/billing";

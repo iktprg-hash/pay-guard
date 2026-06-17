@@ -1,100 +1,16 @@
 import type { Locale } from "@/i18n/routing";
 import type { AppErrorCode } from "@/lib/errors/codes";
+import {
+  getUserErrorMessage,
+  type UserErrorCode,
+} from "@/lib/errors/user-messages";
 
-/** Localized user-facing messages keyed by error code. */
-const ERROR_MESSAGES: Record<Locale, Record<AppErrorCode, string>> = {
-  en: {
-    UNAUTHORIZED: "Please sign in to continue.",
-    FORBIDDEN: "You do not have permission to perform this action.",
-    PRO_REQUIRED: "This feature requires a Pro subscription.",
-    RATE_LIMITED: "Too many requests — please try again in a moment.",
-    VALIDATION_ERROR: "Some fields are invalid. Please check your input.",
-    BAD_REQUEST: "The request could not be processed.",
-    NOT_FOUND: "The requested resource was not found.",
-    CONFLICT: "This action conflicts with the current state.",
-    UNPROCESSABLE_ENTITY: "The request could not be processed.",
-    CHAT_CONSENT_REQUIRED: "Please accept AI data processing consent to use chat.",
-    CHAT_PROCESSING_FAILED: "Something went wrong with chat. Please try again.",
-    CHAT_SERVICE_UNAVAILABLE: "AI chat is temporarily unavailable.",
-    CHAT_UPSTREAM_ERROR: "AI service returned an error. Please try again.",
-    PRIORITIZATION_INSUFFICIENT_DATA:
-      "Not enough data for a recommendation — add available funds and at least one debt.",
-    PRIORITIZATION_FAILED: "Could not calculate prioritization. Please try again.",
-    PDF_GENERATION_FAILED: "Could not generate PDF. Please try again.",
-    STRIPE_ERROR: "Payment processing failed. Please try again.",
-    BILLING_NOT_CONFIGURED: "Billing is not available right now.",
-    BILLING_ALREADY_PRO: "You already have an active Pro subscription.",
-    BILLING_EMAIL_REQUIRED: "An email address is required for billing.",
-    BILLING_NO_CUSTOMER: "No billing account found. Complete a purchase first.",
-    BILLING_CHECKOUT_FAILED: "Checkout failed. Please try again.",
-    BILLING_SYNC_FAILED: "Could not sync subscription. Please try again.",
-    BILLING_CONFIRM_FAILED: "Could not confirm payment. Please try again.",
-    SERVICE_UNAVAILABLE: "Service is temporarily unavailable.",
-    INTERNAL_ERROR: "Something went wrong. Please try again.",
-  },
-  cs: {
-    UNAUTHORIZED: "Pro pokračování se prosím přihlaste.",
-    FORBIDDEN: "Nemáte oprávnění provést tuto akci.",
-    PRO_REQUIRED: "Tato funkce vyžaduje předplatné Pro.",
-    RATE_LIMITED: "Příliš mnoho požadavků — zkuste to za chvíli.",
-    VALIDATION_ERROR: "Některá pole nejsou platná. Zkontrolujte zadání.",
-    BAD_REQUEST: "Požadavek nelze zpracovat.",
-    NOT_FOUND: "Požadovaný zdroj nebyl nalezen.",
-    CONFLICT: "Akce je v konfliktu s aktuálním stavem.",
-    UNPROCESSABLE_ENTITY: "Požadavek nelze zpracovat.",
-    CHAT_CONSENT_REQUIRED: "Pro chat je potřeba souhlas se zpracováním dat AI.",
-    CHAT_PROCESSING_FAILED: "Něco se pokazilo v chatu. Zkuste to znovu.",
-    CHAT_SERVICE_UNAVAILABLE: "AI chat je dočasně nedostupný.",
-    CHAT_UPSTREAM_ERROR: "Služba AI vrátila chybu. Zkuste to znovu.",
-    PRIORITIZATION_INSUFFICIENT_DATA:
-      "Nedostatek dat pro doporučení — doplňte volné prostředky a alespoň jeden dluh.",
-    PRIORITIZATION_FAILED: "Prioritizaci se nepodařilo spočítat. Zkuste to znovu.",
-    PDF_GENERATION_FAILED: "PDF se nepodařilo vygenerovat. Zkuste to znovu.",
-    STRIPE_ERROR: "Platbu se nepodařilo zpracovat. Zkuste to znovu.",
-    BILLING_NOT_CONFIGURED: "Fakturace momentálně není k dispozici.",
-    BILLING_ALREADY_PRO: "Již máte aktivní předplatné Pro.",
-    BILLING_EMAIL_REQUIRED: "Pro fakturaci je vyžadován e-mail.",
-    BILLING_NO_CUSTOMER: "Fakturační účet nenalezen. Nejdříve dokončete nákup.",
-    BILLING_CHECKOUT_FAILED: "Platba se nepodařila. Zkuste to znovu.",
-    BILLING_SYNC_FAILED: "Synchronizaci předplatného se nepodařilo. Zkuste to znovu.",
-    BILLING_CONFIRM_FAILED: "Platbu se nepodařilo potvrdit. Zkuste to znovu.",
-    SERVICE_UNAVAILABLE: "Služba je dočasně nedostupná.",
-    INTERNAL_ERROR: "Něco se pokazilo. Zkuste to znovu.",
-  },
-  ru: {
-    UNAUTHORIZED: "Войдите в аккаунт, чтобы продолжить.",
-    FORBIDDEN: "У вас нет прав для этого действия.",
-    PRO_REQUIRED: "Для этой функции нужна подписка Pro.",
-    RATE_LIMITED: "Слишком много запросов — попробуйте через минуту.",
-    VALIDATION_ERROR: "Некоторые поля заполнены неверно. Проверьте ввод.",
-    BAD_REQUEST: "Запрос не может быть обработан.",
-    NOT_FOUND: "Запрашиваемый ресурс не найден.",
-    CONFLICT: "Действие конфликтует с текущим состоянием.",
-    UNPROCESSABLE_ENTITY: "Запрос не может быть обработан.",
-    CHAT_CONSENT_REQUIRED: "Для чата нужно согласие на обработку данных AI.",
-    CHAT_PROCESSING_FAILED: "Ошибка чата. Попробуйте снова.",
-    CHAT_SERVICE_UNAVAILABLE: "AI-чат временно недоступен.",
-    CHAT_UPSTREAM_ERROR: "Сервис AI вернул ошибку. Попробуйте снова.",
-    PRIORITIZATION_INSUFFICIENT_DATA:
-      "Недостаточно данных — укажите свободные средства и хотя бы один долг.",
-    PRIORITIZATION_FAILED: "Не удалось рассчитать приоритеты. Попробуйте снова.",
-    PDF_GENERATION_FAILED: "Не удалось создать PDF. Попробуйте снова.",
-    STRIPE_ERROR: "Ошибка обработки платежа. Попробуйте снова.",
-    BILLING_NOT_CONFIGURED: "Оплата сейчас недоступна.",
-    BILLING_ALREADY_PRO: "У вас уже есть активная подписка Pro.",
-    BILLING_EMAIL_REQUIRED: "Для оплаты нужен email.",
-    BILLING_NO_CUSTOMER: "Платёжный аккаунт не найден. Сначала оформите покупку.",
-    BILLING_CHECKOUT_FAILED: "Ошибка оплаты. Попробуйте снова.",
-    BILLING_SYNC_FAILED: "Не удалось синхронизировать подписку. Попробуйте снова.",
-    BILLING_CONFIRM_FAILED: "Не удалось подтвердить оплату. Попробуйте снова.",
-    SERVICE_UNAVAILABLE: "Сервис временно недоступен.",
-    INTERNAL_ERROR: "Что-то пошло не так. Попробуйте снова.",
-  },
-};
-
+/** @deprecated Prefer {@link getUserErrorMessage} from `@/lib/errors/user-messages`. */
 export function getLocalizedErrorMessage(
   code: AppErrorCode,
   locale: Locale
 ): string {
-  return ERROR_MESSAGES[locale][code] ?? ERROR_MESSAGES.en[code];
+  return getUserErrorMessage(code, locale);
 }
+
+export type { UserErrorCode };

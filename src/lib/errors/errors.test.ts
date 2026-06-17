@@ -44,7 +44,7 @@ describe("toApiResponse", () => {
       userMessage: string;
     };
     expect(body.code).toBe("PRO_REQUIRED");
-    expect(body.userMessage).toContain("Pro subscription");
+    expect(body.userMessage).toContain("Pay Guard Pro");
   });
 
   it("maps ZodError to validation response", async () => {
@@ -76,7 +76,7 @@ describe("toApiResponse", () => {
 describe("getUserFriendlyMessage", () => {
   it("returns localized message by locale", () => {
     const error = createAppError("RATE_LIMITED");
-    expect(getUserFriendlyMessage(error, "cs")).toContain("Příliš mnoho");
+    expect(getUserFriendlyMessage(error, "cs")).toContain("příliš mnoho");
     expect(getUserFriendlyMessage(error, "ru")).toContain("Слишком много");
   });
 
