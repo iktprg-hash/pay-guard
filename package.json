@@ -42,7 +42,9 @@
     "fix:subscription-expires": "node scripts/fix-null-subscription-expires.mjs",
     "prod:checklist": "node scripts/prod-checklist.mjs",
     "prod:checklist:strict": "node scripts/prod-checklist.mjs --strict",
-    "domain:setup": "node scripts/domain-setup.mjs"
+    "domain:setup": "node scripts/domain-setup.mjs",
+    "lighthouse:ci": "lhci autorun --config=.lighthouserc.cjs",
+    "lighthouse:ci:server": "npm run build && npm run start:prod & sleep 5 && npm run lighthouse:ci"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.17",
@@ -77,6 +79,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@lhci/cli": "^0.15.1",
     "@playwright/test": "^1.60.0",
     "@swc/helpers": "^0.5.23",
     "@tailwindcss/postcss": "^4",
