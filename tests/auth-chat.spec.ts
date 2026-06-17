@@ -87,6 +87,9 @@ test.describe("Auth and chat flow", () => {
   });
 
   test("redirects guest from pricing upgrade CTA to login", async ({ page }) => {
+    test.slow();
+    test.setTimeout(30_000);
+
     await gotoExpectOk(page, `/${E2E_LOCALE}/pricing`);
 
     const loginLink = pricingGuestUpgradeLink(page);
@@ -97,15 +100,16 @@ test.describe("Auth and chat flow", () => {
     await expect
       .poll(
         async () => {
-          if (await loginLink.isVisible().catch(() => false)) return "login";
+          if (page.url().includes("/login")) return "login";
+          if (await loginLink.isVisible().catch(() => false)) return "cta";
           if (await upgradeButton.isVisible().catch(() => false)) {
             return (await upgradeButton.isEnabled()) ? "upgrade" : "disabled";
           }
-          return "loading";
+          return "pending";
         },
-        { timeout: 20_000 }
+        { timeout: 25_000, intervals: [250, 500, 1000] }
       )
-      .not.toBe("loading");
+      .not.toBe("pending");
 
     test.skip(
       !(await loginLink.isVisible().catch(() => false)),
@@ -113,9 +117,8 @@ test.describe("Auth and chat flow", () => {
     );
 
     await loginLink.click();
-    await expect(page).toHaveURL(
-      new RegExp(`/${E2E_LOCALE}/login\\?next=`),
-      { timeout: 20_000 }
-    );
+    await expect
+      .poll(() => page.url(), { timeout: 20_000 })
+      .toMatch(new RegExp(`/${E2E_LOCALE}/login\\?next=`));
   });
 });

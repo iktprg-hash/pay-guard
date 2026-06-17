@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../fixtures/auth";
 
 /**
  * Pro E2E — тесты для авторизованного Pro-пользователя.

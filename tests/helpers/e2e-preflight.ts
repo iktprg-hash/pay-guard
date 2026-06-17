@@ -135,6 +135,15 @@ export async function runE2ePreflight(
     ]);
   }
 
+  const tierUrl = `${baseURL}/api/auth/tier`;
+  const tierRes = await fetchProbe(tierUrl);
+  if (tierRes.status !== 401) {
+    fail([
+      `E2E preflight: ${tierUrl} should return 401 without session, got HTTP ${tierRes.status}.`,
+      `Fix: ${DEV_CACHE_FIX_HINT}`,
+    ]);
+  }
+
   const otpUrl = `${baseURL}/api/auth/send-otp`;
   if (!isSupabaseConfigured()) {
     if (process.env.CI) {

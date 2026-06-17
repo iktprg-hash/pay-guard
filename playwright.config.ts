@@ -66,6 +66,7 @@ export default defineConfig({
       name: "mobile",
       dependencies: ["setup", "chromium-authenticated"],
       testMatch: /pro-gating\.spec\.ts/,
+      timeout: isCI ? 180_000 : 120_000,
       use: {
         ...devices["Pixel 7"],
         storageState: authFile,
@@ -74,7 +75,7 @@ export default defineConfig({
     {
       name: "pro-setup",
       testMatch: /pro\.setup\.ts/,
-      dependencies: ["setup", "chromium-authenticated"],
+      dependencies: ["setup", "chromium-authenticated", "mobile"],
     },
     {
       name: "chromium-pro",

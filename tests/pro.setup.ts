@@ -1,8 +1,8 @@
 import { test as setup } from "@playwright/test";
 import {
   E2E_LOCALE,
+  elevateTestUserToPro,
   getTestUserCredentials,
-  saveProStorageState,
 } from "./fixtures/auth";
 
 setup.describe.configure({ mode: "serial" });
@@ -33,7 +33,7 @@ setup("elevate test user to Pro tier", async ({ request, baseURL }) => {
   }
 
   const credentials = getTestUserCredentials();
-  await saveProStorageState(request, baseURL, credentials);
+  await elevateTestUserToPro(request, baseURL, credentials);
 
   setup.info().annotations.push({
     type: "e2e-pro-user",

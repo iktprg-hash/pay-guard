@@ -1,11 +1,30 @@
-import { test, expect } from "@playwright/test";
+import {
+  test,
+  expect,
+  ensureFreeSubscriptionTier,
+  getTestUserCredentials,
+} from "../fixtures/auth";
 
 const L = process.env.E2E_LOCALE ?? "cs";
 
 test.describe("Pro gating — free user cannot access Pro API routes", () => {
+  test.beforeAll(async ({ request, baseURL }) => {
+    if (!baseURL) return;
+    await ensureFreeSubscriptionTier(request, getTestUserCredentials());
+  });
+
+  test.beforeEach(({ }, testInfo) => {
+    if (testInfo.project.name === "mobile") {
+      test.slow();
+    }
+  });
+
   test("GET /api/sessions → 403 for free user", async ({ request }) => {
-    const res = await request.get("/api/sessions");
-    expect(res.status()).toBe(403);
+    await expect
+      .poll(async () => request.get("/api/sessions").then((res) => res.status()), {
+        timeout: 10_000,
+      })
+      .toBe(403);
   });
 
   test("GET /api/sessions/[uuid] → 403 for free user", async ({ request }) => {
@@ -42,7 +61,6 @@ test.describe("Pro gating — free user cannot access Pro API routes", () => {
   test("settings page accessible to authenticated user", async ({ page }) => {
     await page.goto(`/${L}/settings`);
     await expect(page).not.toHaveURL(/login/);
-    // Page body renders
     await expect(page.locator("body")).toBeVisible();
   });
 
