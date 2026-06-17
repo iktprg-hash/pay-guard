@@ -4,6 +4,7 @@ import { AppError } from "./app-error";
 import type { ErrorCode } from "./codes";
 import { getUserErrorMessage } from "./user-messages";
 import type { Locale } from "@/i18n/routing";
+import { captureErrorToSentry, shouldReportErrorToSentry } from "./sentry";
 
 /** Standard JSON body for API error responses. */
 export interface ApiErrorBody {
@@ -19,6 +20,8 @@ export interface CreateAppErrorOptions {
 
 export interface ApiErrorOptions {
   locale?: Locale;
+  /** Attached to Sentry scope when the error is reportable. */
+  userId?: string;
 }
 
 export interface RespondWithErrorOptions extends CreateAppErrorOptions {
@@ -70,6 +73,30 @@ function normalizeToAppError(error: unknown): AppError {
   return createAppError("INTERNAL_ERROR", { details: error });
 }
 
+/** Report unexpected server failures to Sentry (best-effort, non-blocking). */
+function reportToSentryIfNeeded(
+  error: unknown,
+  appError: AppError,
+  options?: ApiErrorOptions
+): void {
+  if (!shouldReportErrorToSentry(appError.code)) return;
+
+  const cause =
+    error instanceof Error
+      ? error
+      : appError.details instanceof Error
+        ? appError.details
+        : appError;
+
+  captureErrorToSentry(cause, {
+    errorCode: appError.code,
+    locale: options?.locale,
+    userId: options?.userId,
+    statusCode: appError.statusCode,
+    details: appError.details,
+  });
+}
+
 /** Serialize any error to `{ error, message }` JSON with the correct HTTP status. */
 export function toApiResponse(
   error: unknown,
@@ -81,6 +108,8 @@ export function toApiResponse(
   if (!(error instanceof AppError) && !(error instanceof ZodError)) {
     console.error("Unhandled error:", error);
   }
+
+  reportToSentryIfNeeded(error, appError, options);
 
   return NextResponse.json(
     {
@@ -127,10 +156,13 @@ export function respondWithError(
   return toApiResponse(createAppError(code, errorOptions), { locale });
 }
 
-/** Zod validation failure → 400 `VALIDATION_ERROR`. */
-export function respondWithValidationError(
-  error: ZodError,
-  options?: ApiErrorOptions
-): NextResponse<ApiErrorBody> {
-  return toApiResponse(createAppError("VALIDATION_ERROR", { details: error.issues }), options);
+export function respondWithValidationError(error: ZodError) {
+  return NextResponse.json(
+    {
+      error: "VALIDATION_ERROR",
+      message: "Введённые данные некорректны",
+      details: error.flatten(),
+    },
+    { status: 400 }
+  );
 }

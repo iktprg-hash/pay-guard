@@ -33,6 +33,25 @@ export const financialProfileSchema = z.object({
   debts: z.array(debtSchema).max(50),
 });
 
+export const prioritizeRequestSchema = z.object({
+  profile: financialProfileSchema,
+  locale: z.enum(LOCALES).default("cs"),
+});
+
+export function normalizeProfile(
+  profile: z.infer<typeof financialProfileSchema>
+) {
+  return {
+    ...profile,
+    debts: profile.debts.map((d, i) => ({
+      ...d,
+      id:
+        d.id ??
+        `debt-${i}-${d.creditor.slice(0, 12).replace(/\s/g, "-").toLowerCase()}`,
+    })),
+  };
+}
+
 export const chatMessageSchema = z.object({
   role: z.enum(["user", "assistant", "system"]),
   content: z.string().min(1).max(10_000),
@@ -47,11 +66,6 @@ export const chatRequestSchema = z.object({
   locale: z.enum(LOCALES).default("cs"),
   sessionId: sessionIdSchema.optional(),
   sessionToken: sessionTokenSchema.optional(),
-});
-
-export const prioritizeRequestSchema = z.object({
-  profile: financialProfileSchema,
-  locale: z.enum(LOCALES).default("cs"),
 });
 
 const paymentRecommendationSchema = z.object({
@@ -216,18 +230,3 @@ export const grokProfileUpdateSchema = z.object({
 });
 
 export type GrokProfileUpdate = z.infer<typeof grokProfileUpdateSchema>;
-
-/** Normalizuje profil — doplní id u dluhů */
-export function normalizeProfile(
-  profile: z.infer<typeof financialProfileSchema>
-) {
-  return {
-    ...profile,
-    debts: profile.debts.map((d, i) => ({
-      ...d,
-      id:
-        d.id ??
-        `debt-${i}-${d.creditor.slice(0, 12).replace(/\s/g, "-").toLowerCase()}`,
-    })),
-  };
-}

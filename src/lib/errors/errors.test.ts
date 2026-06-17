@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { ZodError, z } from "zod";
 import { AppError } from "@/lib/errors/app-error";
 import {
@@ -35,6 +35,27 @@ describe("toApiResponse", () => {
     const body = (await res.json()) as { error: string; message: string };
     expect(body.error).toBe("PRO_REQUIRED");
     expect(body.message).toContain("Pro users");
+  });
+
+  it("reports serious errors to Sentry when configured", async () => {
+    const sentry = await import("@/lib/errors/sentry");
+    const spy = vi.spyOn(sentry, "captureErrorToSentry");
+
+    toApiResponse(createAppError("PDF_GENERATION_FAILED"), {
+      locale: "cs",
+      userId: "user-1",
+    });
+
+    expect(spy).toHaveBeenCalledWith(
+      expect.any(AppError),
+      expect.objectContaining({
+        errorCode: "PDF_GENERATION_FAILED",
+        locale: "cs",
+        userId: "user-1",
+      })
+    );
+
+    spy.mockRestore();
   });
 
   it("maps ZodError to validation response", async () => {

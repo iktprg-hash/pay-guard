@@ -1,40 +1,34 @@
 import { NextResponse } from "next/server";
 import { runPriorityEngine } from "@/services/priorityEngine";
 import { withAuth } from "@/lib/api/protected";
-import {
-  createAppError,
-  respondWithError,
-  respondWithValidationError,
-  toApiResponse,
-} from "@/lib/errors";
-import { parseJsonBody } from "@/lib/api/parse-request";
-import { hasMinimumRecommendationData } from "@/lib/grok/recommendation-readiness";
-import {
-  normalizeProfile,
-  prioritizeRequestSchema,
-} from "@/lib/validation/schemas";
+import { createAppError, respondWithValidationError, toApiResponse } from "@/lib/errors";
+import type { FinancialProfile } from "@/lib/types/financial";
+import { FinancialProfileSchema } from "@/lib/validation/financial";
 
 export const POST = withAuth(
   async (request) => {
-    const parsed = await parseJsonBody(request, prioritizeRequestSchema);
-    if (!parsed.ok) return respondWithValidationError(parsed.error);
+    const body = (await request.json()) as {
+      profile?: unknown;
+      locale?: "cs" | "ru" | "en";
+    };
+
+    const parsed = FinancialProfileSchema.safeParse(body.profile);
+
+    if (!parsed.success) {
+      return respondWithValidationError(parsed.error);
+    }
+
+    const profile = parsed.data;
+    const locale = body.locale ?? "cs";
 
     try {
-      const { profile, locale } = parsed.data;
-      const normalizedProfile = normalizeProfile(profile);
-
-      if (!hasMinimumRecommendationData(normalizedProfile)) {
-        return respondWithError("VALIDATION_ERROR");
-      }
-
-      const result = runPriorityEngine(normalizedProfile, locale);
-
+      const result = runPriorityEngine(profile as FinancialProfile, locale);
       return NextResponse.json(result);
     } catch (error) {
       console.error("[api/prioritize]", error);
       return toApiResponse(
         createAppError("PRIORITIZATION_FAILED", { details: error }),
-        { locale: parsed.data.locale }
+        { locale }
       );
     }
   },

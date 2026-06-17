@@ -1,15 +1,57 @@
 import { AppError } from "@/lib/errors/app-error";
 import type { ErrorCode } from "@/lib/errors/codes";
 import { isErrorCode } from "@/lib/errors/codes";
+import { createAppError } from "@/lib/errors/utils";
 import type { Locale } from "@/i18n/routing";
 
 export type ApiFetchOptions = RequestInit & {
   locale?: Locale;
+  /** Abort the request after N milliseconds (maps to NETWORK_ERROR on timeout). */
+  timeoutMs?: number;
 };
+
+/** Detect offline, DNS, CORS, and other fetch-level network failures. */
+export function isNetworkError(error: unknown): boolean {
+  if (error instanceof AppError && error.code === "NETWORK_ERROR") {
+    return true;
+  }
+
+  if (error instanceof TypeError) {
+    return true;
+  }
+
+  if (error instanceof DOMException && error.name === "AbortError") {
+    return true;
+  }
+
+  if (error instanceof Error) {
+    const msg = error.message.toLowerCase();
+    return (
+      msg.includes("fetch failed") ||
+      msg.includes("failed to fetch") ||
+      msg.includes("networkerror") ||
+      msg.includes("network request failed") ||
+      msg.includes("load failed") ||
+      msg.includes("offline") ||
+      msg.includes("aborted") ||
+      error.message === "OFFLINE"
+    );
+  }
+
+  return false;
+}
+
+function createNetworkError(cause: unknown): AppError {
+  return createAppError("NETWORK_ERROR", {
+    message: "Network request failed",
+    statusCode: 0,
+    details: cause,
+  });
+}
 
 function assertOnline(): void {
   if (typeof navigator !== "undefined" && !navigator.onLine) {
-    throw new AppError("NETWORK_ERROR", "OFFLINE", 0);
+    throw createNetworkError(new Error("OFFLINE"));
   }
 }
 
@@ -29,30 +71,63 @@ function statusToErrorCode(status: number): ErrorCode {
   if (status === 403) return "FORBIDDEN";
   if (status === 429) return "RATE_LIMITED";
   if (status === 400) return "VALIDATION_ERROR";
-  return "INTERNAL_ERROR";
+  if (status >= 500) return "INTERNAL_ERROR";
+  return "UNKNOWN_ERROR";
+}
+
+function mergeAbortSignal(
+  init: RequestInit,
+  timeoutMs?: number
+): { signal: AbortSignal | undefined; cleanup: () => void } {
+  if (!timeoutMs) {
+    return { signal: init.signal ?? undefined, cleanup: () => {} };
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  if (init.signal) {
+    if (init.signal.aborted) controller.abort();
+    else init.signal.addEventListener("abort", () => controller.abort(), { once: true });
+  }
+
+  return {
+    signal: controller.signal,
+    cleanup: () => clearTimeout(timeoutId),
+  };
 }
 
 /**
  * fetch wrapper for Pay Guard API routes.
- * Throws {@link AppError} when the response is not OK.
+ * Throws {@link AppError} on HTTP errors and network failures.
  */
 export async function apiFetchResponse(
   url: string,
   init: ApiFetchOptions = {}
 ): Promise<Response> {
-  const { locale: _locale, credentials = "include", ...requestInit } = init;
+  const { locale: _locale, timeoutMs, credentials = "include", ...requestInit } = init;
   void _locale;
 
   assertOnline();
 
-  const res = await fetch(url, { credentials, ...requestInit });
+  const { signal, cleanup } = mergeAbortSignal(requestInit, timeoutMs);
 
-  if (!res.ok) {
-    const code = (await readErrorCode(res)) ?? statusToErrorCode(res.status);
-    throw new AppError(code, `Request failed with status ${res.status}`, res.status);
+  try {
+    const res = await fetch(url, { ...requestInit, credentials, signal });
+
+    if (!res.ok) {
+      const code = (await readErrorCode(res)) ?? statusToErrorCode(res.status);
+      throw new AppError(code, `Request failed with status ${res.status}`, res.status);
+    }
+
+    return res;
+  } catch (err) {
+    if (err instanceof AppError) throw err;
+    if (isNetworkError(err)) throw createNetworkError(err);
+    throw err;
+  } finally {
+    cleanup();
   }
-
-  return res;
 }
 
 /** JSON helper built on {@link apiFetchResponse}. */

@@ -1,6 +1,10 @@
 import { describe, expect, it, vi, afterEach, beforeEach } from "vitest";
 import { AppError } from "@/lib/errors/app-error";
-import { apiFetch, apiFetchResponse } from "@/lib/api/client-fetch";
+import {
+  apiFetch,
+  apiFetchResponse,
+  isNetworkError,
+} from "@/lib/api/client-fetch";
 
 function stubOnlineFetch(response: Response) {
   vi.stubGlobal("navigator", { onLine: true });
@@ -55,6 +59,35 @@ describe("apiFetchResponse", () => {
     await expect(apiFetchResponse("/api/test")).rejects.toMatchObject({
       code: "NETWORK_ERROR",
     });
+  });
+
+  it("maps 500 responses to INTERNAL_ERROR", async () => {
+    stubOnlineFetch(new Response("server error", { status: 500 }));
+
+    await expect(apiFetchResponse("/api/test")).rejects.toMatchObject({
+      code: "INTERNAL_ERROR",
+      statusCode: 500,
+    });
+  });
+
+  it("wraps fetch TypeError as NETWORK_ERROR", async () => {
+    vi.stubGlobal("navigator", { onLine: true });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new TypeError("Failed to fetch"))
+    );
+
+    await expect(apiFetchResponse("/api/test")).rejects.toMatchObject({
+      code: "NETWORK_ERROR",
+    });
+  });
+});
+
+describe("isNetworkError", () => {
+  it("detects TypeError and offline markers", () => {
+    expect(isNetworkError(new TypeError("Failed to fetch"))).toBe(true);
+    expect(isNetworkError(new Error("OFFLINE"))).toBe(true);
+    expect(isNetworkError(new AppError("PRO_REQUIRED", "pro", 403))).toBe(false);
   });
 });
 

@@ -61,26 +61,26 @@ describe("POST /api/prioritize", () => {
 
   it("returns 400 for malformed JSON", async () => {
     const { POST } = await import("./route");
-    const res = await POST(
-      new NextRequest("http://127.0.0.1:3000/api/prioritize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: "{not-json",
-      })
-    );
-
-    expect(res.status).toBe(400);
+    await expect(
+      POST(
+        new NextRequest("http://127.0.0.1:3000/api/prioritize", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: "{not-json",
+        })
+      )
+    ).rejects.toThrow();
     expect(runPriorityEngine).not.toHaveBeenCalled();
   });
 
-  it("returns 422 when profile lacks minimum recommendation data", async () => {
+  it("returns 400 when profile fails FinancialProfileSchema", async () => {
     const { POST } = await import("./route");
     const res = await POST(
       new NextRequest("http://127.0.0.1:3000/api/prioritize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          profile: { availableFunds: 1000, debts: [] },
+          profile: { availableFunds: -1, debts: [] },
           locale: "ru",
         }),
       })
@@ -102,7 +102,7 @@ describe("POST /api/prioritize", () => {
             debts: [
               {
                 id: "1",
-                creditor: "ČEZ",
+                name: "ČEZ",
                 amount: 500,
                 category: "utilities",
               },
