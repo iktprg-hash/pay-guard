@@ -1,59 +1,43 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { runPriorityEngine } from "@/services/priorityEngine";
-import { requireApiUser } from "@/lib/auth/session";
-import { rateLimitError, validationError } from "@/lib/api/errors";
+import { withAuth } from "@/lib/api/protected";
+import { validationError } from "@/lib/api/errors";
 import { parseJsonBody } from "@/lib/api/parse-request";
-import {
-  AUTHENTICATED_RATE_LIMITS,
-  checkAuthenticatedRateLimit,
-  getClientIp,
-} from "@/lib/security/rateLimit";
 import { hasMinimumRecommendationData } from "@/lib/grok/recommendation-readiness";
 import {
   normalizeProfile,
   prioritizeRequestSchema,
 } from "@/lib/validation/schemas";
 
-export async function POST(request: NextRequest) {
-  const auth = await requireApiUser();
-  if ("error" in auth) return auth.error;
+export const POST = withAuth(
+  async (request) => {
+    const parsed = await parseJsonBody(request, prioritizeRequestSchema);
+    if (!parsed.ok) return validationError(parsed.error);
 
-  const ip = getClientIp(request.headers);
-  const { limit, windowMs } = AUTHENTICATED_RATE_LIMITS.prioritize;
-  const rateLimit = await checkAuthenticatedRateLimit(
-    "prioritize",
-    auth.user.id,
-    ip,
-    limit,
-    windowMs
-  );
-  if (!rateLimit.allowed) return rateLimitError(rateLimit.resetAt);
+    try {
+      const { profile, locale } = parsed.data;
+      const normalizedProfile = normalizeProfile(profile);
 
-  const parsed = await parseJsonBody(request, prioritizeRequestSchema);
-  if (!parsed.ok) return validationError(parsed.error);
+      if (!hasMinimumRecommendationData(normalizedProfile)) {
+        return NextResponse.json(
+          {
+            error:
+              "Insufficient data for prioritization — need availableFunds > 0 and at least one debt with creditor and amount.",
+          },
+          { status: 422 }
+        );
+      }
 
-  try {
-    const { profile, locale } = parsed.data;
-    const normalizedProfile = normalizeProfile(profile);
+      const result = runPriorityEngine(normalizedProfile, locale);
 
-    if (!hasMinimumRecommendationData(normalizedProfile)) {
+      return NextResponse.json(result);
+    } catch (error) {
+      console.error("[api/prioritize]", error);
       return NextResponse.json(
-        {
-          error:
-            "Insufficient data for prioritization — need availableFunds > 0 and at least one debt with creditor and amount.",
-        },
-        { status: 422 }
+        { error: "Prioritization failed" },
+        { status: 500 }
       );
     }
-
-    const result = runPriorityEngine(normalizedProfile, locale);
-
-    return NextResponse.json(result);
-  } catch (error) {
-    console.error("[api/prioritize]", error);
-    return NextResponse.json(
-      { error: "Prioritization failed" },
-      { status: 500 }
-    );
-  }
-}
+  },
+  { rateLimit: "prioritize" }
+);

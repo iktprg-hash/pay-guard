@@ -31,16 +31,27 @@ function stripeCustomerId(
   return customer.id;
 }
 
+/** Subscription id from invoice — supports current Stripe API (`parent`) and legacy payloads. */
+function invoiceSubscriptionId(invoice: Stripe.Invoice): string | null {
+  const fromParent = invoice.parent?.subscription_details?.subscription;
+  if (fromParent) {
+    return typeof fromParent === "string" ? fromParent : fromParent.id;
+  }
+
+  const legacy = (invoice as Stripe.Invoice & {
+    subscription?: string | Stripe.Subscription | null;
+  }).subscription;
+  if (!legacy) return null;
+  return typeof legacy === "string" ? legacy : legacy.id;
+}
+
 export async function resolveUserIdFromInvoice(
   invoice: Stripe.Invoice
 ): Promise<string | null> {
   const fromMeta = extractSupabaseUserId(invoice.metadata);
   if (fromMeta) return fromMeta;
 
-  const subscriptionId =
-    typeof invoice.subscription === "string"
-      ? invoice.subscription
-      : invoice.subscription?.id;
+  const subscriptionId = invoiceSubscriptionId(invoice);
 
   if (subscriptionId) {
     try {
@@ -133,10 +144,7 @@ export async function handleSubscriptionEvent(
 export async function handleInvoicePaymentSucceeded(
   invoice: Stripe.Invoice
 ): Promise<StripeWebhookHandlerOutcome> {
-  const subscriptionId =
-    typeof invoice.subscription === "string"
-      ? invoice.subscription
-      : invoice.subscription?.id;
+  const subscriptionId = invoiceSubscriptionId(invoice);
 
   if (!subscriptionId) {
     console.info("[stripe/webhook] invoice.payment_succeeded without subscription", {

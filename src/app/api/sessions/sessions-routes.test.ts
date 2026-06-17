@@ -5,7 +5,7 @@ const requireProApiUser = vi.fn();
 const listUserSessions = vi.fn();
 const createUserSession = vi.fn();
 const loadUserSessionBundle = vi.fn();
-const checkRateLimit = vi.fn();
+const checkProRateLimit = vi.fn();
 
 vi.mock("@/lib/auth/require-pro", () => ({
   requireProApiUser: () => requireProApiUser(),
@@ -21,8 +21,15 @@ vi.mock("@/lib/supabase/server", () => ({
   createClient: vi.fn().mockResolvedValue({}),
 }));
 
+vi.mock("@/lib/security/pro-rate-limit", () => ({
+  checkProRateLimit: (...args: unknown[]) => checkProRateLimit(...args),
+  PRO_RATE_LIMITS: {
+    "sessions-read": 30,
+    "sessions-write": 30,
+  },
+}));
+
 vi.mock("@/lib/security/rateLimit", () => ({
-  checkRateLimit: (...args: unknown[]) => checkRateLimit(...args),
   getClientIp: () => "127.0.0.1",
 }));
 
@@ -31,7 +38,7 @@ const sessionA = "550e8400-e29b-41d4-a716-446655440000";
 
 beforeEach(() => {
   vi.clearAllMocks();
-  checkRateLimit.mockResolvedValue({
+  checkProRateLimit.mockResolvedValue({
     allowed: true,
     remaining: 10,
     resetAt: Date.now() + 60_000,

@@ -13,11 +13,17 @@ vi.mock("@/lib/auth/grok-consent", () => ({
   getUserGrokConsent: (...args: unknown[]) => getUserGrokConsent(...args),
 }));
 
-vi.mock("@/lib/security/rateLimit", () => ({
-  AUTHENTICATED_RATE_LIMITS: { chat: { limit: 20, windowMs: 60_000 } },
+vi.mock("@/lib/security/authenticated-rate-limit", () => ({
+  AUTHENTICATED_RATE_LIMITS: {
+    chat: { limit: 20, windowMs: 60_000 },
+    prioritize: { limit: 60, windowMs: 60_000 },
+  },
   checkAuthenticatedRateLimit: vi
     .fn()
     .mockResolvedValue({ allowed: true, remaining: 1, resetAt: 0 }),
+}));
+
+vi.mock("@/lib/security/rateLimit", () => ({
   getClientIp: vi.fn().mockReturnValue("127.0.0.1"),
 }));
 

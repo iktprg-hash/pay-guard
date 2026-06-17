@@ -1,21 +1,15 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { chatWithGrok, GrokUnavailableError, GrokRequestError } from "@/lib/grok/client";
 import { mergeProfileUpdate } from "@/lib/grok/prompts";
 import { assessRecommendationReadiness, hasMinimumRecommendationData } from "@/lib/grok/recommendation-readiness";
-import { requireApiUser } from "@/lib/auth/session";
+import { withAuth } from "@/lib/api/protected";
 import { getUserGrokConsent } from "@/lib/auth/grok-consent";
 import {
-  rateLimitError,
   serviceUnavailable,
   unauthorizedError,
   validationError,
 } from "@/lib/api/errors";
 import { parseJsonBody } from "@/lib/api/parse-request";
-import {
-  AUTHENTICATED_RATE_LIMITS,
-  checkAuthenticatedRateLimit,
-  getClientIp,
-} from "@/lib/security/rateLimit";
 import {
   chatRequestSchema,
   normalizeProfile,
@@ -23,93 +17,83 @@ import {
 import { enrichProfileFromMessage } from "@/lib/financial/currency-convert";
 import { runPriorityEngine } from "@/services/priorityEngine";
 
-export async function POST(request: NextRequest) {
-  const auth = await requireApiUser();
-  if ("error" in auth) return auth.error;
+export const POST = withAuth(
+  async (request, { user }) => {
+    try {
+      const parsed = await parseJsonBody(request, chatRequestSchema);
+      if (!parsed.ok) return validationError(parsed.error);
 
-  const ip = getClientIp(request.headers);
-  const { limit, windowMs } = AUTHENTICATED_RATE_LIMITS.chat;
-  const rateLimit = await checkAuthenticatedRateLimit(
-    "chat",
-    auth.user.id,
-    ip,
-    limit,
-    windowMs
-  );
-  if (!rateLimit.allowed) return rateLimitError(rateLimit.resetAt);
+      const { messages, profile, locale } = parsed.data;
 
-  try {
-    const parsed = await parseJsonBody(request, chatRequestSchema);
-    if (!parsed.ok) return validationError(parsed.error);
+      const hasConsent = await getUserGrokConsent(user.id);
+      if (!hasConsent) {
+        return unauthorizedError("Grok data processing consent required");
+      }
 
-    const { messages, profile, locale } = parsed.data;
+      const normalizedProfile = normalizeProfile(profile);
+      const lastUserMessage =
+        [...messages].reverse().find((m) => m.role === "user")?.content ?? "";
 
-    const hasConsent = await getUserGrokConsent(auth.user.id);
-    if (!hasConsent) {
-      return unauthorizedError("Grok data processing consent required");
+      const preReadiness = assessRecommendationReadiness(normalizedProfile, {
+        lastUserMessage,
+      });
+
+      const engineResult = hasMinimumRecommendationData(normalizedProfile)
+        ? runPriorityEngine(normalizedProfile, locale)
+        : null;
+
+      const result = await chatWithGrok(messages, normalizedProfile, locale, {
+        lastUserMessage,
+        engineResult,
+      });
+
+      const mergedProfile = enrichProfileFromMessage(
+        result.profileUpdate
+          ? mergeProfileUpdate(normalizedProfile, result.profileUpdate)
+          : normalizedProfile,
+        lastUserMessage
+      );
+
+      const postReadiness = assessRecommendationReadiness(mergedProfile, {
+        lastUserMessage,
+      });
+
+      let recommendation = result.recommendation ?? engineResult;
+      if (!recommendation && hasMinimumRecommendationData(mergedProfile)) {
+        recommendation = runPriorityEngine(mergedProfile, locale);
+      }
+
+      const readyForRecommendation =
+        postReadiness.canRecommend || hasMinimumRecommendationData(mergedProfile);
+      const shouldAttachRecommendation =
+        (postReadiness.shouldAutoDeliver ||
+          hasMinimumRecommendationData(mergedProfile)) &&
+        recommendation !== null;
+
+      return NextResponse.json({
+        message: result.message,
+        profileUpdate: result.profileUpdate
+          ? { ...result.profileUpdate, readyForRecommendation }
+          : readyForRecommendation
+            ? { readyForRecommendation: true, analysisMode: postReadiness.mode }
+            : null,
+        stage: result.stage,
+        profile: mergedProfile,
+        readyForRecommendation,
+        analysisMode: postReadiness.mode,
+        recommendation: shouldAttachRecommendation ? recommendation : null,
+      });
+    } catch (error) {
+      if (error instanceof GrokUnavailableError) {
+        return serviceUnavailable("Chat service is not configured");
+      }
+      if (error instanceof GrokRequestError) {
+        console.error("[api/chat] grok status:", error.status);
+        return NextResponse.json({ error: "Chat request failed" }, { status: 502 });
+      }
+      console.error("[api/chat]", error);
+      return NextResponse.json({ error: "Chat request failed" }, { status: 500 });
     }
-
-    const normalizedProfile = normalizeProfile(profile);
-    const lastUserMessage =
-      [...messages].reverse().find((m) => m.role === "user")?.content ?? "";
-
-    const preReadiness = assessRecommendationReadiness(normalizedProfile, {
-      lastUserMessage,
-    });
-
-    const engineResult = hasMinimumRecommendationData(normalizedProfile)
-      ? runPriorityEngine(normalizedProfile, locale)
-      : null;
-
-    const result = await chatWithGrok(messages, normalizedProfile, locale, {
-      lastUserMessage,
-      engineResult,
-    });
-
-    const mergedProfile = enrichProfileFromMessage(
-      result.profileUpdate
-        ? mergeProfileUpdate(normalizedProfile, result.profileUpdate)
-        : normalizedProfile,
-      lastUserMessage
-    );
-
-    const postReadiness = assessRecommendationReadiness(mergedProfile, {
-      lastUserMessage,
-    });
-
-    let recommendation = result.recommendation ?? engineResult;
-    if (!recommendation && hasMinimumRecommendationData(mergedProfile)) {
-      recommendation = runPriorityEngine(mergedProfile, locale);
-    }
-
-    const readyForRecommendation =
-      postReadiness.canRecommend || hasMinimumRecommendationData(mergedProfile);
-    const shouldAttachRecommendation =
-      (postReadiness.shouldAutoDeliver || hasMinimumRecommendationData(mergedProfile)) &&
-      recommendation !== null;
-
-    return NextResponse.json({
-      message: result.message,
-      profileUpdate: result.profileUpdate
-        ? { ...result.profileUpdate, readyForRecommendation }
-        : readyForRecommendation
-          ? { readyForRecommendation: true, analysisMode: postReadiness.mode }
-          : null,
-      stage: result.stage,
-      profile: mergedProfile,
-      readyForRecommendation,
-      analysisMode: postReadiness.mode,
-      recommendation: shouldAttachRecommendation ? recommendation : null,
-    });
-  } catch (error) {
-    if (error instanceof GrokUnavailableError) {
-      return serviceUnavailable("Chat service is not configured");
-    }
-    if (error instanceof GrokRequestError) {
-      console.error("[api/chat] grok status:", error.status);
-      return NextResponse.json({ error: "Chat request failed" }, { status: 502 });
-    }
-    console.error("[api/chat]", error);
-    return NextResponse.json({ error: "Chat request failed" }, { status: 500 });
-  }
-}
+  },
+  { rateLimit: "chat" }
+);

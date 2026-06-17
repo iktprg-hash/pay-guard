@@ -39,19 +39,66 @@ function sessionBelongsToUser(
   );
 }
 
+/**
+ * Resolve owner user id from Stripe metadata (checkout / webhook convention).
+ * Deny-by-default: empty or missing metadata must not grant access.
+ */
+function ownerUserIdFromStripeMetadata(
+  metadata: Stripe.Metadata | null | undefined
+): string | null {
+  const raw =
+    metadata?.supabase_user_id ?? metadata?.client_reference_id ?? null;
+  if (typeof raw !== "string") return null;
+  const trimmed = raw.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+/**
+ * Strict subscription ownership for email-based sync recovery.
+ * Email match alone is never sufficient — metadata must tie the subscription
+ * (or its customer) to the Supabase user id.
+ */
 function subscriptionBelongsToUser(
   subscription: Stripe.Subscription,
-  userId: string
+  userId: string,
+  customer?: Stripe.Customer | Stripe.DeletedCustomer | null
 ): boolean {
-  const metaUserId =
-    subscription.metadata?.supabase_user_id ??
-    subscription.metadata?.client_reference_id;
+  const subscriptionOwner = ownerUserIdFromStripeMetadata(subscription.metadata);
 
-  if (metaUserId && metaUserId !== userId) {
-    return false;
+  const customerRecord =
+    customer && "deleted" in customer && customer.deleted
+      ? null
+      : (customer as Stripe.Customer | null | undefined);
+
+  const customerOwner = customerRecord
+    ? ownerUserIdFromStripeMetadata(customerRecord.metadata)
+    : null;
+
+  const ownerId = subscriptionOwner ?? customerOwner;
+  if (!ownerId) return false;
+
+  return ownerId === userId;
+}
+
+async function resolveSubscriptionCustomer(
+  stripe: Stripe,
+  subscription: Stripe.Subscription
+): Promise<Stripe.Customer | null> {
+  const raw = subscription.customer;
+  if (!raw) return null;
+
+  if (typeof raw === "object") {
+    if ("deleted" in raw && raw.deleted) return null;
+    return raw;
   }
 
-  return true;
+  try {
+    const customer = await stripe.customers.retrieve(raw);
+    if ("deleted" in customer && customer.deleted) return null;
+    return customer;
+  } catch {
+    return null;
+  }
 }
 
 async function applySubscriptionId(
@@ -60,6 +107,12 @@ async function applySubscriptionId(
 ): Promise<BillingSyncResult> {
   const stripe = getStripeClient();
   const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+  const customer = await resolveSubscriptionCustomer(stripe, subscription);
+
+  if (!subscriptionBelongsToUser(subscription, userId, customer)) {
+    return { ok: false, code: "session_mismatch" };
+  }
+
   const applied = await applyStripeSubscriptionToUser(userId, subscription);
   if (!applied) {
     console.error(
@@ -131,7 +184,7 @@ export async function syncActiveSubscriptionByEmail(
     );
 
     if (active) {
-      if (!subscriptionBelongsToUser(active, userId)) {
+      if (!subscriptionBelongsToUser(active, userId, customer)) {
         return { ok: false, code: "session_mismatch" };
       }
 

@@ -1,33 +1,24 @@
-import { NextRequest, NextResponse } from "next/server";
-import { requireApiUser } from "@/lib/auth/session";
+import { NextResponse } from "next/server";
+import { withAuth } from "@/lib/api/protected";
 import { getSubscriptionStatus } from "@/lib/stripe";
-import { rateLimitError, validationError } from "@/lib/api/errors";
+import { validationError } from "@/lib/api/errors";
 import { parseQueryParams } from "@/lib/api/parse-request";
-import { checkRateLimit, getClientIp } from "@/lib/security/rateLimit";
 import { emptyQuerySchema } from "@/lib/validation/schemas";
 
 /** Current Stripe subscription status for authenticated client polling. */
-export async function GET(request: NextRequest) {
-  const auth = await requireApiUser();
-  if ("error" in auth) return auth.error;
+export const GET = withAuth(
+  async (_request, { user }) => {
+    const query = parseQueryParams(_request, emptyQuerySchema);
+    if (!query.ok) return validationError(query.error);
 
-  const query = parseQueryParams(request, emptyQuerySchema);
-  if (!query.ok) return validationError(query.error);
+    const status = await getSubscriptionStatus(user.id);
 
-  const ip = getClientIp(request.headers);
-  const limit = await checkRateLimit(
-    `billing-status:${auth.user.id}:${ip}`,
-    30,
-    60_000
-  );
-  if (!limit.allowed) return rateLimitError(limit.resetAt);
-
-  const status = await getSubscriptionStatus(auth.user.id);
-
-  return NextResponse.json({
-    tier: status.tier,
-    isActive: status.isActive,
-    expiresAt: status.expiresAt,
-    testMode: status.testMode,
-  });
-}
+    return NextResponse.json({
+      tier: status.tier,
+      isActive: status.isActive,
+      expiresAt: status.expiresAt,
+      testMode: status.testMode,
+    });
+  },
+  { rateLimit: { scope: "billing-status", limit: 30 } }
+);

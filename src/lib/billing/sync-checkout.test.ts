@@ -64,7 +64,7 @@ describe("billing sync helpers", () => {
     vi.mocked(getStripeClient).mockReturnValue({
       customers: {
         list: vi.fn().mockResolvedValue({
-          data: [{ id: "cus_123" }],
+          data: [{ id: "cus_123", metadata: {} }],
         }),
       },
       subscriptions: {
@@ -84,6 +84,114 @@ describe("billing sync helpers", () => {
       "user-123",
       "victim@example.com"
     );
+
+    expect(result).toEqual({ ok: false, code: "session_mismatch" });
+  });
+
+  it("rejects email sync when subscription and customer metadata are missing", async () => {
+    const { getStripeClient } = await import("@/lib/billing/stripe-client");
+    vi.mocked(getStripeClient).mockReturnValue({
+      customers: {
+        list: vi.fn().mockResolvedValue({
+          data: [{ id: "cus_123", metadata: {} }],
+        }),
+      },
+      subscriptions: {
+        list: vi.fn().mockResolvedValue({
+          data: [
+            {
+              id: "sub_123",
+              status: "active",
+              metadata: {},
+            },
+          ],
+        }),
+      },
+    } as unknown as Stripe);
+
+    const result = await syncActiveSubscriptionByEmail(
+      "user-123",
+      "victim@example.com"
+    );
+
+    expect(result).toEqual({ ok: false, code: "session_mismatch" });
+  });
+
+  it("allows email sync when customer metadata matches the authenticated user", async () => {
+    const { getStripeClient } = await import("@/lib/billing/stripe-client");
+    const { applyStripeSubscriptionToUser } = await import(
+      "@/lib/billing/profile-billing"
+    );
+
+    const activeSub = {
+      id: "sub_123",
+      status: "active",
+      metadata: {},
+    };
+
+    vi.mocked(getStripeClient).mockReturnValue({
+      customers: {
+        list: vi.fn().mockResolvedValue({
+          data: [
+            {
+              id: "cus_123",
+              metadata: { supabase_user_id: "user-123" },
+            },
+          ],
+        }),
+      },
+      subscriptions: {
+        list: vi.fn().mockResolvedValue({
+          data: [activeSub],
+        }),
+      },
+    } as unknown as Stripe);
+
+    vi.mocked(applyStripeSubscriptionToUser).mockResolvedValue(true);
+
+    const result = await syncActiveSubscriptionByEmail(
+      "user-123",
+      "owner@example.com"
+    );
+
+    expect(result).toEqual({ ok: true });
+    expect(applyStripeSubscriptionToUser).toHaveBeenCalledWith(
+      "user-123",
+      activeSub
+    );
+  });
+
+  it("rejects checkout confirm when retrieved subscription lacks ownership metadata", async () => {
+    const { getStripeClient } = await import("@/lib/billing/stripe-client");
+
+    vi.mocked(getStripeClient).mockReturnValue({
+      checkout: {
+        sessions: {
+          retrieve: vi.fn().mockResolvedValue({
+            client_reference_id: "user-123",
+            metadata: {},
+            status: "complete",
+            subscription: "sub_123",
+          }),
+        },
+      },
+      subscriptions: {
+        retrieve: vi.fn().mockResolvedValue({
+          id: "sub_123",
+          status: "active",
+          metadata: {},
+          customer: "cus_123",
+        }),
+      },
+      customers: {
+        retrieve: vi.fn().mockResolvedValue({
+          id: "cus_123",
+          metadata: {},
+        }),
+      },
+    } as unknown as Stripe);
+
+    const result = await syncCheckoutSessionForUser("user-123", "cs_test_ok");
 
     expect(result).toEqual({ ok: false, code: "session_mismatch" });
   });
