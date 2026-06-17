@@ -1,9 +1,13 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+import { PWA_THEME_COLOR } from "@/lib/pwa/config";
 import "../globals.css";
 
 export const metadata: Metadata = {
   title: "Pay Guard — Offline",
-  themeColor: "#6366f1",
+};
+
+export const viewport: Viewport = {
+  themeColor: PWA_THEME_COLOR,
 };
 
 /** Standalone shell for Serwist offline fallback (outside [locale] layout). */
