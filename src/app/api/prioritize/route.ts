@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { runPriorityEngine } from "@/services/priorityEngine";
 import { withAuth } from "@/lib/api/protected";
-import { validationError } from "@/lib/api/errors";
 import {
   createAppError,
   respondWithError,
+  respondWithValidationError,
   toApiResponse,
 } from "@/lib/errors";
 import { parseJsonBody } from "@/lib/api/parse-request";
@@ -17,7 +17,7 @@ import {
 export const POST = withAuth(
   async (request) => {
     const parsed = await parseJsonBody(request, prioritizeRequestSchema);
-    if (!parsed.ok) return validationError(parsed.error);
+    if (!parsed.ok) return respondWithValidationError(parsed.error);
 
     try {
       const { profile, locale } = parsed.data;

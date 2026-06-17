@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { validationError } from "@/lib/api/errors";
+import { respondWithValidationError } from "@/lib/errors";
 import { authProviderErrorResponse } from "@/lib/auth/errors";
 import {
   withPublicAuthRateLimit,
@@ -18,7 +18,7 @@ const handleConfirm = withPublicAuthRateLimit("confirm", async (request) => {
   const tokenParsed = authConfirmTokenSchema.safeParse(body);
 
   if (!codeParsed.success && !tokenParsed.success) {
-    return validationError(
+    return respondWithValidationError(
       codeParsed.success ? tokenParsed.error! : codeParsed.error
     );
   }

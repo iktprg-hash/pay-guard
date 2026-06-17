@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { rateLimitError } from "@/lib/api/errors";
+import { respondWithError } from "@/lib/errors";
 import { checkRateLimit, getClientIp } from "@/lib/security/rateLimit";
 
 type RateLimitRule = { limit: number; windowMs: number };
@@ -68,12 +68,20 @@ export async function enforceAuthRateLimit(
 
   if (!options?.skipIp) {
     const ipBlocked = await checkKeys(ipKeys, ipRule);
-    if (ipBlocked) return rateLimitError(ipBlocked.resetAt);
+    if (ipBlocked) {
+      return respondWithError("RATE_LIMITED", {
+        details: { resetAt: ipBlocked.resetAt },
+      });
+    }
   }
 
   if (email && emailRule) {
     const emailBlocked = await checkKeys(emailKeys, emailRule);
-    if (emailBlocked) return rateLimitError(emailBlocked.resetAt);
+    if (emailBlocked) {
+      return respondWithError("RATE_LIMITED", {
+        details: { resetAt: emailBlocked.resetAt },
+      });
+    }
   }
 
   return null;

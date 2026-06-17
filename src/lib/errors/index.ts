@@ -14,9 +14,11 @@ export {
 export type { ApiErrorBody } from "@/lib/errors/utils";
 export {
   appErrorFromResponse,
+  formatZodValidationDetails,
   getUserFriendlyMessage,
   isAppError,
   normalizeToAppError,
   respondWithError,
+  respondWithValidationError,
   toApiResponse,
 } from "@/lib/errors/utils";

@@ -4,11 +4,11 @@ import { isStripeBillingConfigured } from "@/lib/billing/config";
 import { revalidateSubscriptionPages } from "@/lib/billing/revalidate-subscription";
 import { syncCheckoutSessionForUser } from "@/lib/billing/sync-checkout";
 import { getSubscriptionStatus } from "@/lib/stripe";
-import { validationError } from "@/lib/api/errors";
 import {
   appErrorFromBillingSyncCode,
   createAppError,
   respondWithError,
+  respondWithValidationError,
   toApiResponse,
 } from "@/lib/errors";
 import { parseJsonBody } from "@/lib/api/parse-request";
@@ -18,7 +18,7 @@ const handleConfirm = withAuth(
   async (request, { user }) => {
     try {
       const parsed = await parseJsonBody(request, billingConfirmSchema);
-      if (!parsed.ok) return validationError(parsed.error);
+      if (!parsed.ok) return respondWithValidationError(parsed.error);
 
       const result = await syncCheckoutSessionForUser(
         user.id,

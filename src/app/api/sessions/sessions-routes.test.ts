@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { NextRequest, NextResponse } from "next/server";
+import { respondWithError } from "@/lib/errors";
 
 const requireProApiUser = vi.fn();
 const listUserSessions = vi.fn();
@@ -61,10 +62,7 @@ describe("GET /api/sessions", () => {
 
   it("returns 403 when user is not Pro", async () => {
     requireProApiUser.mockResolvedValue({
-      error: NextResponse.json(
-        { error: "Pro subscription required", code: "pro_required" },
-        { status: 403 }
-      ),
+      error: respondWithError("PRO_REQUIRED"),
     });
 
     const { GET } = await import("./route");

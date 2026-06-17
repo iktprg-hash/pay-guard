@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { validationError } from "@/lib/api/errors";
+import { respondWithValidationError } from "@/lib/errors";
 import { authErrorResponse, authProviderErrorResponse } from "@/lib/auth/errors";
 import { applyPublicAuthRateLimit, type AppRouteContext } from "@/lib/api/protected";
 import { createSessionRouteClient } from "@/lib/auth/supabase-route";
@@ -9,7 +9,7 @@ import { authLoginSchema } from "@/lib/validation/schemas";
 
 const handleLogin = async (request: NextRequest) => {
   const parsed = await parseJsonBody(request, authLoginSchema);
-  if (!parsed.ok) return validationError(parsed.error);
+  if (!parsed.ok) return respondWithValidationError(parsed.error);
 
   const limited = await applyPublicAuthRateLimit(
     request,

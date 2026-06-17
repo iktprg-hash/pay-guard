@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { validationError } from "@/lib/api/errors";
+import { respondWithValidationError } from "@/lib/errors";
 import { authErrorResponse, authProviderErrorResponse } from "@/lib/auth/errors";
 import { applyPublicAuthRateLimit, type AppRouteContext } from "@/lib/api/protected";
 import { isStrongPassword } from "@/lib/auth/password";
@@ -10,7 +10,7 @@ import { authResetPasswordSchema } from "@/lib/validation/schemas";
 
 const handleResetPassword = async (request: NextRequest) => {
   const parsed = await parseJsonBody(request, authResetPasswordSchema);
-  if (!parsed.ok) return validationError(parsed.error);
+  if (!parsed.ok) return respondWithValidationError(parsed.error);
 
   if (!isStrongPassword(parsed.data.password)) {
     return authErrorResponse(

@@ -4,7 +4,7 @@ import {
   setUserGrokConsent,
 } from "@/lib/auth/grok-consent";
 import { withAuth } from "@/lib/api/protected";
-import { validationError } from "@/lib/api/errors";
+import { respondWithError, respondWithValidationError } from "@/lib/errors";
 import { parseJsonBody, parseQueryParams } from "@/lib/api/parse-request";
 import {
   emptyQuerySchema,
@@ -15,7 +15,7 @@ import {
 export const GET = withAuth(
   async (request, { user }) => {
     const query = parseQueryParams(request, emptyQuerySchema);
-    if (!query.ok) return validationError(query.error);
+    if (!query.ok) return respondWithValidationError(query.error);
 
     const consented = await getUserGrokConsent(user.id);
     return NextResponse.json({ consented });
@@ -27,14 +27,13 @@ export const GET = withAuth(
 export const POST = withAuth(
   async (request, { user }) => {
     const parsed = await parseJsonBody(request, grokConsentPostSchema);
-    if (!parsed.ok) return validationError(parsed.error);
+    if (!parsed.ok) return respondWithValidationError(parsed.error);
 
     const ok = await setUserGrokConsent(user.id);
     if (!ok) {
-      return NextResponse.json(
-        { error: "Failed to record consent" },
-        { status: 500 }
-      );
+      return respondWithError("INTERNAL_ERROR", {
+        message: "Failed to record consent",
+      });
     }
 
     return NextResponse.json({ ok: true, consented: true });

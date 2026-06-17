@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { validationError } from "@/lib/api/errors";
+import { respondWithValidationError } from "@/lib/errors";
 import { authErrorResponse, authProviderErrorResponse } from "@/lib/auth/errors";
 import {
   canUseDevRegisterBypass,
@@ -16,7 +16,7 @@ import { authRegisterSchema } from "@/lib/validation/schemas";
 
 const handleRegister = async (request: NextRequest) => {
   const parsed = await parseJsonBody(request, authRegisterSchema);
-  if (!parsed.ok) return validationError(parsed.error);
+  if (!parsed.ok) return respondWithValidationError(parsed.error);
 
   if (!isStrongPassword(parsed.data.password)) {
     return authErrorResponse(

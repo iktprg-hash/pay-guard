@@ -169,4 +169,21 @@ export function respondWithError(
   return toApiResponse(createAppError(code, options));
 }
 
+/** Zod validation issues for API error details. */
+export function formatZodValidationDetails(error: ZodError) {
+  return error.issues.map((issue) => ({
+    path: issue.path.join("."),
+    message: issue.message,
+  }));
+}
+
+/** Validation failed — 400 with issue details. */
+export function respondWithValidationError(
+  error: ZodError
+): NextResponse<ApiErrorBody> {
+  return respondWithError("VALIDATION_ERROR", {
+    details: formatZodValidationDetails(error),
+  });
+}
+
 export { createAppError };

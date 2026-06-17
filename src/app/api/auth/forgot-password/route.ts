@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { serviceUnavailable, validationError } from "@/lib/api/errors";
+import { respondWithError, respondWithValidationError } from "@/lib/errors";
 import { authProviderErrorResponse } from "@/lib/auth/errors";
 import {
   applyPublicAuthRateLimit,
@@ -14,7 +14,7 @@ import { authForgotPasswordSchema } from "@/lib/validation/schemas";
 /** Odešle odkaz pro obnovení hesla */
 export async function POST(request: NextRequest, _context: AppRouteContext) {
   const parsed = await parseJsonBody(request, authForgotPasswordSchema);
-  if (!parsed.ok) return validationError(parsed.error);
+  if (!parsed.ok) return respondWithValidationError(parsed.error);
 
   const limited = await applyPublicAuthRateLimit(
     request,
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest, _context: AppRouteContext) {
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!url || !key || url.includes("your-project")) {
-    return serviceUnavailable("Supabase is not configured in .env.local");
+    return respondWithError("SERVICE_UNAVAILABLE", { message: "Supabase is not configured in .env.local" });
   }
 
   const locale = parsed.data.locale ?? "cs";

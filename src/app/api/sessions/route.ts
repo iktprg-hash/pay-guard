@@ -5,7 +5,11 @@ import {
 } from "@/lib/chat/persistence";
 import { withProProtection } from "@/lib/api/protected";
 import { createClient } from "@/lib/supabase/server";
-import { validationError } from "@/lib/api/errors";
+import {
+  createAppError,
+  respondWithValidationError,
+  toApiResponse,
+} from "@/lib/errors";
 import { parseJsonBody, parseQueryParams } from "@/lib/api/parse-request";
 import {
   emptyQuerySchema,
@@ -16,7 +20,7 @@ import {
 export const GET = withProProtection(
   async (request, { user }) => {
     const query = parseQueryParams(request, emptyQuerySchema);
-    if (!query.ok) return validationError(query.error);
+    if (!query.ok) return respondWithValidationError(query.error);
 
     const supabase = await createClient();
     const sessions = await listUserSessions(supabase, user.id);
@@ -30,7 +34,7 @@ export const POST = withProProtection(
   async (request, { user }) => {
     try {
       const parsed = await parseJsonBody(request, sessionCreateSchema);
-      if (!parsed.ok) return validationError(parsed.error);
+      if (!parsed.ok) return respondWithValidationError(parsed.error);
 
       const supabase = await createClient();
       const created = await createUserSession(
@@ -39,16 +43,19 @@ export const POST = withProProtection(
         parsed.data.locale
       );
       if (!created) {
-        return NextResponse.json(
-          { error: "Could not create session" },
-          { status: 500 }
+        return toApiResponse(
+          createAppError("INTERNAL_ERROR", {
+            message: "Could not create session",
+          })
         );
       }
 
       return NextResponse.json(created);
     } catch (error) {
       console.error("[api/sessions POST]", error);
-      return NextResponse.json({ error: "Server error" }, { status: 500 });
+      return toApiResponse(
+        createAppError("INTERNAL_ERROR", { message: "Server error", cause: error })
+      );
     }
   },
   { rateLimit: "sessions-write" }

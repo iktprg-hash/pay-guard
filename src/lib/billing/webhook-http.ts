@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { badRequest, serviceUnavailable } from "@/lib/api/errors";
+import { createAppError, respondWithError, toApiResponse } from "@/lib/errors";
 import { getStripeWebhookSecret } from "@/lib/billing/config";
 import {
   processStripeWebhookRequest,
@@ -14,12 +14,16 @@ export async function respondToStripeWebhook(
   const webhookSecret = getStripeWebhookSecret();
   if (!webhookSecret) {
     console.error("[stripe/webhook] missing webhook secret for current Stripe mode");
-    return serviceUnavailable("Webhook not configured");
+    return respondWithError("SERVICE_UNAVAILABLE", {
+      message: "Webhook not configured",
+    });
   }
 
   if (rawBody.length > STRIPE_WEBHOOK_MAX_BODY_BYTES) {
     console.warn("[stripe/webhook] body too large", { bytes: rawBody.length });
-    return badRequest("Request body too large");
+    return respondWithError("BAD_REQUEST", {
+      message: "Request body too large",
+    });
   }
 
   const result = await processStripeWebhookRequest(
@@ -33,7 +37,12 @@ export async function respondToStripeWebhook(
       status: result.status,
       error: result.error,
     });
-    return NextResponse.json({ error: result.error }, { status: result.status });
+    return toApiResponse(
+      createAppError(
+        result.status === 400 ? "BAD_REQUEST" : "INTERNAL_ERROR",
+        { message: result.error }
+      )
+    );
   }
 
   if (result.skipped) {

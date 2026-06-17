@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/protected";
 import { claimSessionForUser } from "@/lib/chat/persistence";
-import { validationError } from "@/lib/api/errors";
+import { respondWithError, respondWithValidationError } from "@/lib/errors";
 import { parseJsonBody } from "@/lib/api/parse-request";
 import { sessionClaimSchema } from "@/lib/validation/schemas";
 
@@ -9,7 +9,7 @@ import { sessionClaimSchema } from "@/lib/validation/schemas";
 export const POST = withAuth(
   async (request, { user }) => {
     const parsed = await parseJsonBody(request, sessionClaimSchema);
-    if (!parsed.ok) return validationError(parsed.error);
+    if (!parsed.ok) return respondWithValidationError(parsed.error);
 
     const ok = await claimSessionForUser(
       parsed.data.sessionId,
@@ -18,10 +18,7 @@ export const POST = withAuth(
     );
 
     if (!ok) {
-      return NextResponse.json(
-        { ok: false, error: "Session claim failed" },
-        { status: 409 }
-      );
+      return respondWithError("CONFLICT", { message: "Session claim failed" });
     }
 
     return NextResponse.json({ ok: true });

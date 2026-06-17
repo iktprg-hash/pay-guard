@@ -88,6 +88,22 @@ describe("getUserFriendlyMessage", () => {
   });
 });
 
+describe("respondWithValidationError", () => {
+  it("returns validation issue details", async () => {
+    const { respondWithValidationError } = await import("@/lib/errors/utils");
+    const { z } = await import("zod");
+    const schema = z.object({ id: z.string().uuid() });
+    const parsed = schema.safeParse({ id: "bad" });
+    if (parsed.success) throw new Error("expected failure");
+
+    const res = respondWithValidationError(parsed.error);
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { code: string; details: unknown[] };
+    expect(body.code).toBe("VALIDATION_ERROR");
+    expect(body.details).toHaveLength(1);
+  });
+});
+
 describe("normalizeToAppError", () => {
   it("wraps generic Error", () => {
     const normalized = normalizeToAppError(new Error("boom"));

@@ -8,10 +8,11 @@ import type { StoredMessage } from "@/lib/chat/storage";
 import { withProProtection } from "@/lib/api/protected";
 import { createClient } from "@/lib/supabase/server";
 import {
-  internalServerError,
-  unauthorizedError,
-  validationError,
-} from "@/lib/api/errors";
+  createAppError,
+  respondWithError,
+  respondWithValidationError,
+  toApiResponse,
+} from "@/lib/errors";
 import { parseJsonBody, parseQueryParams } from "@/lib/api/parse-request";
 import {
   historyGetLatestQuerySchema,
@@ -25,7 +26,7 @@ export const POST = withProProtection(
   async (request, { user }) => {
     try {
       const parsed = await parseJsonBody(request, historyPostSchema);
-      if (!parsed.ok) return validationError(parsed.error);
+      if (!parsed.ok) return respondWithValidationError(parsed.error);
 
       const { sessionId, sessionToken, messages, profile, locale } = parsed.data;
 
@@ -41,13 +42,18 @@ export const POST = withProProtection(
       );
 
       if (!saved) {
-        return unauthorizedError("Invalid session");
+        return respondWithError("UNAUTHORIZED", { message: "Invalid session" });
       }
 
       return NextResponse.json({ ok: true, persisted: saved });
     } catch (error) {
       console.error("[api/chat/history POST]", error);
-      return internalServerError("Failed to persist chat history");
+      return toApiResponse(
+        createAppError("INTERNAL_ERROR", {
+          message: "Failed to persist chat history",
+          cause: error,
+        })
+      );
     }
   },
   { rateLimit: "history-write" }
@@ -60,7 +66,7 @@ export const GET = withProProtection(
 
     if (latestParam === "1") {
       const latestQuery = parseQueryParams(request, historyGetLatestQuerySchema);
-      if (!latestQuery.ok) return validationError(latestQuery.error);
+      if (!latestQuery.ok) return respondWithValidationError(latestQuery.error);
 
       const supabase = await createClient();
       const bundle = await loadLatestUserSession(supabase, user.id);
@@ -76,7 +82,7 @@ export const GET = withProProtection(
     }
 
     const sessionQuery = parseQueryParams(request, historyGetSchema);
-    if (!sessionQuery.ok) return validationError(sessionQuery.error);
+    if (!sessionQuery.ok) return respondWithValidationError(sessionQuery.error);
 
     try {
       const supabase = await createClient();
@@ -87,13 +93,18 @@ export const GET = withProProtection(
       );
 
       if (messages === null) {
-        return unauthorizedError("Invalid session");
+        return respondWithError("UNAUTHORIZED", { message: "Invalid session" });
       }
 
       return NextResponse.json({ messages });
     } catch (error) {
       console.error("[api/chat/history GET]", error);
-      return internalServerError("Failed to load chat history");
+      return toApiResponse(
+        createAppError("INTERNAL_ERROR", {
+          message: "Failed to load chat history",
+          cause: error,
+        })
+      );
     }
   },
   { rateLimit: "history-read" }

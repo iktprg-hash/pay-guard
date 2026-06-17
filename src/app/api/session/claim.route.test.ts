@@ -72,8 +72,8 @@ describe("POST /api/session/claim", () => {
     );
 
     expect(res.status).toBe(409);
-    const body = (await res.json()) as { ok: boolean };
-    expect(body.ok).toBe(false);
+    const body = (await res.json()) as { code: string };
+    expect(body.code).toBe("CONFLICT");
   });
 
   it("returns ok on successful claim", async () => {

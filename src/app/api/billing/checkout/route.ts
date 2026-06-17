@@ -7,11 +7,11 @@ import {
 } from "@/lib/billing/config";
 import { getUserBillingRecord } from "@/lib/billing/profile-billing";
 import { resolveSiteOrigin } from "@/lib/site/url";
-import { validationError } from "@/lib/api/errors";
 import {
   appErrorFromStripeService,
   createAppError,
   respondWithError,
+  respondWithValidationError,
   toApiResponse,
 } from "@/lib/errors";
 import { parseJsonBody } from "@/lib/api/parse-request";
@@ -21,7 +21,7 @@ const handleCheckout = withAuth(
   async (request, { user }) => {
     try {
       const parsed = await parseJsonBody(request, billingLocaleBodySchema);
-      if (!parsed.ok) return validationError(parsed.error);
+      if (!parsed.ok) return respondWithValidationError(parsed.error);
 
       const { locale } = parsed.data;
       const origin = resolveSiteOrigin(request);

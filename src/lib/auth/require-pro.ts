@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
-import { proRequiredError } from "@/lib/api/errors";
+import { respondWithError } from "@/lib/errors";
 import { getServerUser, requireApiUser } from "@/lib/auth/session";
 import { userHasProAccess } from "@/lib/auth/subscription";
 import type { Locale } from "@/i18n/routing";
@@ -14,7 +14,7 @@ export async function requireProApiUser(): Promise<
 
   const pro = await userHasProAccess(auth.user.id);
   if (!pro) {
-    return { error: proRequiredError() };
+    return { error: respondWithError("PRO_REQUIRED") };
   }
 
   return { user: auth.user };

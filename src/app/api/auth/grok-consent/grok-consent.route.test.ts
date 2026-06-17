@@ -63,9 +63,11 @@ describe("/api/auth/grok-consent", () => {
   });
 
   it("returns 401 when unauthenticated", async () => {
-    const { unauthorizedError } = await import("@/lib/api/errors");
+    const { respondWithError } = await import("@/lib/errors");
     requireApiUser.mockResolvedValue({
-      error: unauthorizedError("Authentication required"),
+      error: respondWithError("UNAUTHORIZED", {
+        message: "Authentication required",
+      }),
     });
 
     const { GET } = await import("./route");

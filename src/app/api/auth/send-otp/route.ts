@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { validationError, serviceUnavailable } from "@/lib/api/errors";
+import { respondWithError, respondWithValidationError } from "@/lib/errors";
 import { authProviderErrorResponse, isOpaqueOtpSendError } from "@/lib/auth/errors";
 import { applyPublicAuthRateLimit, type AppRouteContext } from "@/lib/api/protected";
 import { parseJsonBody } from "@/lib/api/parse-request";
@@ -13,7 +13,7 @@ export async function POST(request: NextRequest, _context: AppRouteContext) {
   if (!ipLimited.ok) return ipLimited.response;
 
   const parsed = await parseJsonBody(request, authSendOtpSchema);
-  if (!parsed.ok) return validationError(parsed.error);
+  if (!parsed.ok) return respondWithValidationError(parsed.error);
 
   const limited = await applyPublicAuthRateLimit(
     request,
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest, _context: AppRouteContext) {
   const config = getSupabasePublicConfig();
 
   if (!config) {
-    return serviceUnavailable("Supabase is not configured in .env.local");
+    return respondWithError("SERVICE_UNAVAILABLE", { message: "Supabase is not configured in .env.local" });
   }
 
   const supabase = createClient(config.url, config.anonKey);

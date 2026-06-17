@@ -4,10 +4,10 @@ import { mergeProfileUpdate } from "@/lib/grok/prompts";
 import { assessRecommendationReadiness, hasMinimumRecommendationData } from "@/lib/grok/recommendation-readiness";
 import { withAuth } from "@/lib/api/protected";
 import { getUserGrokConsent } from "@/lib/auth/grok-consent";
-import { validationError } from "@/lib/api/errors";
 import {
   createAppError,
   respondWithError,
+  respondWithValidationError,
   toApiResponse,
 } from "@/lib/errors";
 import { parseJsonBody } from "@/lib/api/parse-request";
@@ -22,7 +22,7 @@ export const POST = withAuth(
   async (request, { user }) => {
     try {
       const parsed = await parseJsonBody(request, chatRequestSchema);
-      if (!parsed.ok) return validationError(parsed.error);
+      if (!parsed.ok) return respondWithValidationError(parsed.error);
 
       const { messages, profile, locale } = parsed.data;
 

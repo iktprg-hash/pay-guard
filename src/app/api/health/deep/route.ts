@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { Redis } from "@upstash/redis";
 import { NextRequest, NextResponse } from "next/server";
+import { respondWithError } from "@/lib/errors";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -46,13 +47,11 @@ function parseBearerToken(authorization: string | null): string | null {
  * When unset, the route stays open for local development only.
  */
 function unauthorizedHealthResponse(): NextResponse {
-  return NextResponse.json(
-    {
-      error: "Unauthorized",
-      message: "Invalid or missing health token",
-    },
-    { status: 401, headers: NO_STORE_HEADERS }
-  );
+  const response = respondWithError("UNAUTHORIZED", {
+    message: "Invalid or missing health token",
+  });
+  response.headers.set("Cache-Control", NO_STORE_HEADERS["Cache-Control"]);
+  return response;
 }
 
 /**

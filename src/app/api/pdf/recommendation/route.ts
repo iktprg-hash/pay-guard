@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { withProProtection } from "@/lib/api/protected";
-import { validationError } from "@/lib/api/errors";
 import {
   createAppError,
   respondWithError,
+  respondWithValidationError,
   toApiResponse,
 } from "@/lib/errors";
 import { parseJsonBody } from "@/lib/api/parse-request";
@@ -28,7 +28,7 @@ export const POST = withProProtection(
     }
 
     const parsed = await parseJsonBody(request, pdfRecommendationRequestSchema);
-    if (!parsed.ok) return validationError(parsed.error);
+    if (!parsed.ok) return respondWithValidationError(parsed.error);
 
     try {
       const { recommendation, profile, locale } = parsed.data;

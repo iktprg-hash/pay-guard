@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { NextRequest, NextResponse } from "next/server";
+import { respondWithError } from "@/lib/errors";
 
 const requireProApiUser = vi.fn();
 const saveSessionToSupabase = vi.fn();
@@ -18,8 +19,12 @@ vi.mock("@/lib/supabase/server", () => ({
   createClient: vi.fn().mockResolvedValue({}),
 }));
 
+vi.mock("@/lib/security/pro-rate-limit", () => ({
+  checkProRateLimit: vi.fn().mockResolvedValue({ allowed: true, remaining: 1, resetAt: 0 }),
+  PRO_RATE_LIMITS: { "history-write": 30, "history-read": 30 },
+}));
+
 vi.mock("@/lib/security/rateLimit", () => ({
-  checkRateLimit: vi.fn().mockResolvedValue({ allowed: true, remaining: 1, resetAt: 0 }),
   getClientIp: vi.fn().mockReturnValue("127.0.0.1"),
 }));
 
@@ -34,10 +39,7 @@ beforeEach(() => {
 describe("POST /api/chat/history", () => {
   it("returns 403 when user is not Pro", async () => {
     requireProApiUser.mockResolvedValue({
-      error: NextResponse.json(
-        { error: "Pro subscription required", code: "pro_required" },
-        { status: 403 }
-      ),
+      error: respondWithError("PRO_REQUIRED"),
     });
 
     const { POST } = await import("./route");

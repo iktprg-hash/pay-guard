@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { unauthorizedError } from "@/lib/api/errors";
+import { respondWithError } from "@/lib/errors";
 import type { User } from "@supabase/supabase-js";
 
 /** Vrátí přihlášeného uživatele nebo null */
@@ -23,7 +23,11 @@ export async function requireApiUser(): Promise<
 > {
   const user = await getServerUser();
   if (!user) {
-    return { error: unauthorizedError("Authentication required") };
+    return {
+      error: respondWithError("UNAUTHORIZED", {
+        message: "Authentication required",
+      }),
+    };
   }
   return { user };
 }
