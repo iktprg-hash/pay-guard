@@ -37,5 +37,5 @@ export function getProjectRef() {
 
 export function databaseUrlHint(ref) {
   if (!ref) return null;
-  return `postgresql://postgres.${ref}:[DB_PASSWORD]@aws-0-eu-central-1.pooler.supabase.com:6543/postgres`;
+  return `postgresql://postgres.${ref}:[DB_PASSWORD]@[COPY_POOLER_HOST_FROM_DASHBOARD]:6543/postgres`;
 }

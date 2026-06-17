@@ -1,8 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
   test as base,
   expect,
+  request as playwrightRequest,
   type APIRequestContext,
   type Page,
 } from "@playwright/test";
@@ -31,6 +33,164 @@ export function ensureAuthDir(): void {
   fs.mkdirSync(AUTH_DIR, { recursive: true });
 }
 
+function createE2eServiceClient(): SupabaseClient | null {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key || url.includes("your-project")) return null;
+
+  return createClient(url, key, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
+
+/** Paginate GoTrue admin users and match email exactly. */
+async function resolveTestUserId(email: string): Promise<string | null> {
+  const supabase = createE2eServiceClient();
+  if (!supabase) return null;
+
+  const normalizedEmail = email.trim().toLowerCase();
+
+  for (let page = 1; page <= 10; page += 1) {
+    const { data, error } = await supabase.auth.admin.listUsers({
+      page,
+      perPage: 200,
+    });
+    if (error) return null;
+
+    const match = data.users.find(
+      (user) => user.email?.trim().toLowerCase() === normalizedEmail
+    );
+    if (match?.id) return match.id;
+    if (data.users.length < 200) break;
+  }
+
+  return null;
+}
+
+function subscriptionPatchMatches(
+  profile: { subscription_tier: string; subscription_expires_at: string | null },
+  data: {
+    subscription_tier: "free" | "pro" | "pro_max";
+    subscription_expires_at: string | null;
+  }
+): boolean {
+  if (profile.subscription_tier !== data.subscription_tier) return false;
+  if (data.subscription_expires_at) {
+    return Boolean(profile.subscription_expires_at);
+  }
+  return profile.subscription_expires_at == null;
+}
+
+/** Fallback when PostgREST trigger guard blocks service-role REST updates. */
+async function patchProfileSubscriptionViaPg(
+  userId: string,
+  data: {
+    subscription_tier: "free" | "pro" | "pro_max";
+    subscription_expires_at: string | null;
+  }
+): Promise<{ subscription_tier: string; subscription_expires_at: string | null } | null> {
+  const databaseUrl = process.env.DATABASE_URL?.trim();
+  if (!databaseUrl || databaseUrl.includes("[PASSWORD]")) return null;
+
+  const { spawnSync } = await import("node:child_process");
+  const args = [
+    "scripts/e2e-patch-profile-subscription.mjs",
+    userId,
+    data.subscription_tier,
+    data.subscription_expires_at ?? "null",
+  ];
+  const result = spawnSync(process.execPath, args, {
+    cwd: process.cwd(),
+    encoding: "utf8",
+    env: process.env,
+  });
+
+  if (result.status !== 0) {
+    const stderr = result.stderr?.trim() ?? "";
+    const sslHint = stderr.includes("SELF_SIGNED_CERT_IN_CHAIN")
+      ? " Run `npm run db:apply:011` first (Supabase pooler SSL is auto-relaxed in scripts)."
+      : "";
+    throw new Error(
+      (stderr || `e2e-patch-profile-subscription exited with ${result.status ?? "unknown"}`) +
+        sslHint
+    );
+  }
+
+  try {
+    return JSON.parse(result.stdout.trim()) as {
+      subscription_tier: string;
+      subscription_expires_at: string | null;
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function patchProfileSubscription(
+  userId: string,
+  data: {
+    subscription_tier: "free" | "pro" | "pro_max";
+    subscription_expires_at: string | null;
+  }
+): Promise<{ subscription_tier: string; subscription_expires_at: string | null }> {
+  const supabase = createE2eServiceClient();
+  if (!supabase) {
+    throw new Error("Supabase service role is required to patch subscription tier");
+  }
+
+  const { data: updated, error } = await supabase
+    .from("profiles")
+    .update(data)
+    .eq("id", userId)
+    .select("subscription_tier, subscription_expires_at");
+
+  if (error) {
+    throw new Error(`profile subscription patch failed: ${error.message}`);
+  }
+
+  if (updated?.length) {
+    const row = updated[0] as {
+      subscription_tier: string;
+      subscription_expires_at: string | null;
+    };
+    if (subscriptionPatchMatches(row, data)) return row;
+  }
+
+  const { data: inserted, error: upsertError } = await supabase
+    .from("profiles")
+    .upsert({
+      id: userId,
+      locale: E2E_LOCALE,
+      ...data,
+    })
+    .select("subscription_tier, subscription_expires_at")
+    .single();
+
+  if (!upsertError && inserted) {
+    const row = inserted as {
+      subscription_tier: string;
+      subscription_expires_at: string | null;
+    };
+    if (subscriptionPatchMatches(row, data)) return row;
+  }
+
+  const pgRow = await patchProfileSubscriptionViaPg(userId, data);
+  if (pgRow && subscriptionPatchMatches(pgRow, data)) {
+    return pgRow;
+  }
+
+  const viaRest = updated?.[0] ?? inserted;
+  throw new Error(
+    `profile subscription patch blocked by guard trigger (got tier=${viaRest?.subscription_tier ?? "unknown"}). ` +
+      "Apply migration 011_fix_subscription_guard_service_role.sql (`npm run db:apply`) " +
+      "or set DATABASE_URL in .env.local for E2E pg fallback."
+  );
+}
+
+async function sleep(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function loginViaApi(
   request: APIRequestContext,
   baseURL: string,
@@ -42,6 +202,44 @@ async function loginViaApi(
       password: credentials.password,
     },
   });
+}
+
+async function loginViaApiWithRetry(
+  request: APIRequestContext,
+  baseURL: string,
+  credentials: TestCredentials,
+  attempts = 5
+) {
+  let lastRes = await loginViaApi(request, baseURL, credentials);
+
+  for (let attempt = 2; attempt <= attempts; attempt += 1) {
+    if (lastRes.ok() || lastRes.status() !== 429) {
+      return lastRes;
+    }
+    await sleep(Math.min(1000 * attempt, 5000));
+    lastRes = await loginViaApi(request, baseURL, credentials);
+  }
+
+  return lastRes;
+}
+
+async function tryReuseStorageState(
+  baseURL: string,
+  storagePath: string
+): Promise<boolean> {
+  if (!fs.existsSync(storagePath)) return false;
+
+  const context = await playwrightRequest.newContext({
+    baseURL,
+    storageState: storagePath,
+  });
+
+  try {
+    const res = await context.get("/api/auth/tier");
+    return res.ok();
+  } finally {
+    await context.dispose();
+  }
 }
 
 async function registerViaApi(
@@ -58,29 +256,43 @@ async function registerViaApi(
   });
 }
 
+async function hasAuthenticatedSession(
+  request: APIRequestContext,
+  baseURL: string
+): Promise<boolean> {
+  const tierRes = await request.get(`${baseURL}/api/auth/tier`);
+  return tierRes.ok();
+}
+
 /**
  * Idempotent test user bootstrap:
  * 1. Try login
- * 2. Register on failure, then login again
+ * 2. Register on failure, then login again (skip login if register already set session cookies)
  */
 export async function ensureTestUser(
   request: APIRequestContext,
   baseURL: string,
   credentials: TestCredentials = getTestUserCredentials()
 ): Promise<void> {
-  let loginRes = await loginViaApi(request, baseURL, credentials);
+  const existingUserId = await resolveTestUserId(credentials.email);
+  let loginRes = await loginViaApiWithRetry(request, baseURL, credentials);
 
   if (loginRes.ok()) {
     await ensureFreeSubscriptionTier(request, credentials);
     return;
   }
 
+  if (existingUserId) {
+    throw new Error(
+      `E2E login failed for existing user (${loginRes.status()}): ${await loginRes.text()}`
+    );
+  }
+
   const registerRes = await registerViaApi(request, baseURL, credentials);
 
   if (!registerRes.ok()) {
     const registerBody = await registerRes.text();
-    // User may already exist but password mismatch — surface clearly.
-    const retryLogin = await loginViaApi(request, baseURL, credentials);
+    const retryLogin = await loginViaApiWithRetry(request, baseURL, credentials);
     if (retryLogin.ok()) {
       await ensureFreeSubscriptionTier(request, credentials);
       return;
@@ -93,13 +305,20 @@ export async function ensureTestUser(
     );
   }
 
-  loginRes = await loginViaApi(request, baseURL, credentials);
+  if (await hasAuthenticatedSession(request, baseURL)) {
+    await ensureFreeSubscriptionTier(request, credentials);
+    return;
+  }
+
+  loginRes = await loginViaApiWithRetry(request, baseURL, credentials);
   if (!loginRes.ok()) {
     const loginBody = await loginRes.text();
     const hint =
       loginRes.status() === 503
         ? " Supabase is not configured — add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local and restart dev."
-        : "";
+        : loginRes.status() === 429
+          ? " Auth rate limit — rebuild (npm run build) and rerun ci-e2e so E2E_DISABLE_AUTH_RATE_LIMIT applies to start:prod."
+          : "";
     throw new Error(
       `E2E login after register failed (${loginRes.status()}): ${loginBody}.${hint}`
     );
@@ -110,46 +329,20 @@ export async function ensureTestUser(
 
 /** Reset E2E user to free tier when service role is available (PDF API checks DB). */
 export async function ensureFreeSubscriptionTier(
-  request: APIRequestContext,
+  _request: APIRequestContext,
   credentials: TestCredentials = getTestUserCredentials()
 ): Promise<void> {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!supabaseUrl || !serviceKey) return;
-
-  const usersRes = await request.get(
-    `${supabaseUrl}/auth/v1/admin/users?email=${encodeURIComponent(credentials.email)}`,
-    {
-      headers: {
-        Authorization: `Bearer ${serviceKey}`,
-        apikey: serviceKey,
-      },
-    }
-  );
-
-  if (!usersRes.ok()) return;
-
-  const usersBody = (await usersRes.json()) as {
-    users?: Array<{ id?: string }>;
-  };
-  const userId = usersBody.users?.[0]?.id;
+  const userId = await resolveTestUserId(credentials.email);
   if (!userId) return;
 
-  await request.patch(
-    `${supabaseUrl}/rest/v1/profiles?id=eq.${userId}`,
-    {
-      headers: {
-        Authorization: `Bearer ${serviceKey}`,
-        apikey: serviceKey,
-        "Content-Type": "application/json",
-        Prefer: "return=minimal",
-      },
-      data: {
-        subscription_tier: "free",
-        subscription_expires_at: null,
-      },
-    }
-  );
+  try {
+    await patchProfileSubscription(userId, {
+      subscription_tier: "free",
+      subscription_expires_at: null,
+    });
+  } catch {
+    // Best-effort reset when service role is misconfigured in local runs.
+  }
 }
 
 /** @deprecated Use {@link ensureTestUser} */
@@ -163,8 +356,90 @@ export async function saveAuthenticatedStorageState(
   storagePath: string = FREE_USER_STORAGE
 ): Promise<void> {
   ensureAuthDir();
+
+  if (await tryReuseStorageState(baseURL, storagePath)) {
+    await ensureFreeSubscriptionTier(request, credentials);
+    return;
+  }
+
   await ensureTestUser(request, baseURL, credentials);
   await request.storageState({ path: storagePath });
+}
+
+export const PRO_USER_STORAGE = path.join(AUTH_DIR, "pro-user.json");
+
+/** Elevate E2E user to Pro tier (requires SUPABASE_SERVICE_ROLE_KEY). */
+export async function ensureProSubscriptionTier(
+  _request: APIRequestContext,
+  credentials: TestCredentials = getTestUserCredentials()
+): Promise<void> {
+  if (!createE2eServiceClient()) return;
+
+  const userId = await resolveTestUserId(credentials.email);
+  if (!userId) {
+    throw new Error(
+      `ensureProSubscriptionTier: auth user not found for ${credentials.email}`
+    );
+  }
+
+  const expiresAt = new Date(
+    Date.now() + 365 * 24 * 60 * 60 * 1000
+  ).toISOString();
+
+  const profile = await patchProfileSubscription(userId, {
+    subscription_tier: "pro",
+    subscription_expires_at: expiresAt,
+  });
+
+  if (profile.subscription_tier !== "pro" || !profile.subscription_expires_at) {
+    throw new Error(
+      `ensureProSubscriptionTier did not persist Pro tier for ${credentials.email} (userId=${userId}, tier=${profile.subscription_tier ?? "unknown"})`
+    );
+  }
+}
+
+/** Save authenticated storage state for Pro user (same credentials, elevated tier). */
+export async function saveProStorageState(
+  request: APIRequestContext,
+  baseURL: string,
+  credentials: TestCredentials = getTestUserCredentials()
+): Promise<void> {
+  ensureAuthDir();
+
+  await ensureProSubscriptionTier(request, credentials);
+
+  if (fs.existsSync(FREE_USER_STORAGE)) {
+    fs.copyFileSync(FREE_USER_STORAGE, PRO_USER_STORAGE);
+  } else {
+    const loginRes = await loginViaApiWithRetry(request, baseURL, credentials);
+    if (!loginRes.ok()) {
+      throw new Error(
+        `Pro E2E login failed (${loginRes.status()}): ${await loginRes.text()}`
+      );
+    }
+    await request.storageState({ path: PRO_USER_STORAGE });
+  }
+
+  const context = await playwrightRequest.newContext({
+    baseURL,
+    storageState: PRO_USER_STORAGE,
+  });
+  try {
+    const tierRes = await context.get("/api/auth/tier");
+    if (!tierRes.ok()) {
+      throw new Error(
+        `Pro E2E tier check failed (${tierRes.status()}): ${await tierRes.text()}`
+      );
+    }
+    const tierBody = (await tierRes.json()) as { pro?: boolean; tier?: string };
+    if (!tierBody.pro) {
+      throw new Error(
+        `Pro E2E user is not Pro after elevation (tier=${tierBody.tier ?? "unknown"})`
+      );
+    }
+  } finally {
+    await context.dispose();
+  }
 }
 
 /** UI login with email/password (next-intl login form). */

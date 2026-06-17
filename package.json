@@ -27,6 +27,8 @@
     "db:apply:006": "node scripts/apply-migration.mjs 006",
     "db:apply:008": "node scripts/apply-migration.mjs 008",
     "db:apply:009": "node scripts/apply-migration.mjs 009",
+    "db:apply:011": "node scripts/apply-migration.mjs 011",
+    "db:sql": "node scripts/print-migration-sql.mjs",
     "db:apply:pro": "node scripts/apply-migration.mjs 20260615110800",
     "db:verify": "node scripts/verify-migrations.mjs",
     "db:migration-audit": "node scripts/db-migration-audit.mjs",

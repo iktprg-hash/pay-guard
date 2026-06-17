@@ -3,7 +3,7 @@
  * Must run in a single GitHub Actions step (background jobs die between steps).
  */
 import { spawn } from "node:child_process";
-import { createWriteStream } from "node:fs";
+import { createWriteStream, existsSync } from "node:fs";
 import { loadEnvLocal } from "./load-env-local.mjs";
 
 loadEnvLocal(process.cwd());
@@ -45,10 +45,22 @@ async function waitForHealth(attempts = 120) {
 }
 
 async function main() {
+  if (!existsSync(".next/BUILD_ID")) {
+    console.warn(
+      "E2E CI: .next/BUILD_ID missing — run `npm run build` first (building now)…"
+    );
+    await run("npm", ["run", "build"]);
+  }
+
   const log = createWriteStream("server.log", { flags: "a" });
   const server = spawn("npm", ["run", "start:prod"], {
     stdio: ["ignore", "pipe", "pipe"],
-    env: { ...process.env, NODE_ENV: "production" },
+    env: {
+      ...process.env,
+      NODE_ENV: "production",
+      E2E_DISABLE_AUTH_RATE_LIMIT: "1",
+      RATE_LIMIT_PREFIX: process.env.RATE_LIMIT_PREFIX ?? "payguard:e2e:ci",
+    },
   });
 
   server.stdout?.pipe(log);

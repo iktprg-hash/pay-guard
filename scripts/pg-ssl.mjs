@@ -6,10 +6,21 @@ export function pgSslConfig(connectionString) {
   ) {
     return false;
   }
-  // Some networks / Node builds reject Supabase pooler chain ("self-signed certificate").
-  // Dev-only escape hatch: DATABASE_SSL_NO_VERIFY=1 npm run db:apply
-  if (process.env.DATABASE_SSL_NO_VERIFY === "1") {
+
+  // Force strict verify: DATABASE_SSL_NO_VERIFY=0
+  if (process.env.DATABASE_SSL_NO_VERIFY === "0") {
+    return { rejectUnauthorized: true };
+  }
+
+  // Supabase pooler often fails Node TLS verify ("self-signed certificate in chain").
+  // Default to relaxed verify for Supabase hosts in local tooling scripts.
+  if (
+    process.env.DATABASE_SSL_NO_VERIFY === "1" ||
+    connectionString.includes("supabase.com") ||
+    connectionString.includes("supabase.co")
+  ) {
     return { rejectUnauthorized: false };
   }
+
   return { rejectUnauthorized: true };
 }

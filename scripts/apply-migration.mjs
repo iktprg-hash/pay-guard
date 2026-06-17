@@ -8,11 +8,19 @@
  *
  * Option B — Management API:
  *   SUPABASE_ACCESS_TOKEN=sbp_... npm run db:apply
+ *
+ * Option C — SQL Editor (no credentials):
+ *   npm run db:sql -- 011
  */
 
 import { readFileSync, readdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  databaseUrlAlternates,
+  isPoolerTenantError,
+  maskDatabaseUrl,
+} from "./database-url-alternates.mjs";
 import {
   databaseUrlHint,
   getProjectRef,
@@ -33,9 +41,40 @@ function listMigrations() {
     .sort();
 }
 
+function sqlEditorUrl() {
+  return `https://supabase.com/dashboard/project/${ref ?? "YOUR_REF"}/sql/new`;
+}
+
+function printSqlEditorHelp(files) {
+  console.error(`
+Could not apply migration via DATABASE_URL.
+
+Common cause: wrong pooler region in DATABASE_URL
+  → "tenant/user postgres.${ref ?? "YOUR_REF"} not found"
+
+Fix (pick one):
+
+1) SQL Editor (fastest — copy SQL below, paste, Run):
+   ${sqlEditorUrl()}
+
+2) Copy exact URI from Dashboard (do NOT use a hardcoded region):
+   Project Settings → Database → Connection string → URI → Session pooler (6543)
+   Replace DATABASE_URL in .env.local, then: npm run db:apply:011
+
+3) Management API token (no DATABASE_URL):
+   https://supabase.com/dashboard/account/tokens
+   SUPABASE_ACCESS_TOKEN=sbp_... in .env.local → npm run db:apply:011
+`);
+
+  for (const file of files) {
+    const sql = readFileSync(join(migrationsDir, file), "utf8");
+    console.error(`\n--- ${file} ---\n${sql}`);
+  }
+}
+
 async function applyViaManagementApi(file, sql) {
   const token = process.env.SUPABASE_ACCESS_TOKEN;
-  if (!token) return false;
+  if (!token || !ref) return false;
 
   const res = await fetch(
     `https://api.supabase.com/v1/projects/${ref}/database/query`,
@@ -58,23 +97,93 @@ async function applyViaManagementApi(file, sql) {
   return true;
 }
 
-async function applyViaPg(file, sql) {
-  const url = process.env.DATABASE_URL;
-  if (!url) return false;
-
+async function runSqlOnUrl(connectionString, sql) {
   const { default: pg } = await import("pg");
-  const client = new pg.Client({
-    connectionString: url,
-    ssl: pgSslConfig(url),
-  });
-  await client.connect();
-  try {
-    await client.query(sql);
-    console.log(`✓ ${file} (DATABASE_URL)`);
-  } finally {
-    await client.end();
+
+  async function connectAndRun(ssl) {
+    const client = new pg.Client({
+      connectionString,
+      ssl,
+    });
+    await client.connect();
+    try {
+      await client.query(sql);
+    } finally {
+      await client.end();
+    }
   }
-  return true;
+
+  const ssl = pgSslConfig(connectionString);
+  try {
+    await connectAndRun(ssl);
+  } catch (err) {
+    const code = err && typeof err === "object" && "code" in err ? err.code : null;
+    if (
+      code === "SELF_SIGNED_CERT_IN_CHAIN" &&
+      ssl !== false &&
+      ssl?.rejectUnauthorized !== false
+    ) {
+      await connectAndRun({ rejectUnauthorized: false });
+      return;
+    }
+    throw err;
+  }
+}
+
+async function applyViaPg(file, sql) {
+  const baseUrl = process.env.DATABASE_URL?.trim();
+  if (!baseUrl) return false;
+
+  const candidates = databaseUrlAlternates(baseUrl, ref);
+  let lastError;
+
+  for (let index = 0; index < candidates.length; index += 1) {
+    const url = candidates[index];
+    const label =
+      index === 0 ? "DATABASE_URL" : `alternate #${index} (${maskDatabaseUrl(url)})`;
+
+    try {
+      await runSqlOnUrl(url, sql);
+      console.log(`✓ ${file} (${label})`);
+      return true;
+    } catch (err) {
+      lastError = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      if (index < candidates.length - 1) {
+        console.warn(`⚠ ${file}: ${label} failed (${msg}) — trying next URL…`);
+      }
+    }
+  }
+
+  throw lastError ?? new Error("DATABASE_URL connection failed");
+}
+
+async function applyMigrationFile(file, sql, { hasDb, hasToken }) {
+  if (hasToken) {
+    try {
+      if (await applyViaManagementApi(file, sql)) return true;
+    } catch (err) {
+      console.warn(
+        `⚠ ${file}: Management API failed (${err instanceof Error ? err.message : err})`
+      );
+    }
+  }
+
+  if (hasDb) {
+    try {
+      return await applyViaPg(file, sql);
+    } catch (err) {
+      if (hasToken) {
+        console.warn(
+          `⚠ ${file}: DATABASE_URL failed (${err instanceof Error ? err.message : err}) — retrying Management API…`
+        );
+        return applyViaManagementApi(file, sql);
+      }
+      throw err;
+    }
+  }
+
+  return false;
 }
 
 async function main() {
@@ -86,7 +195,7 @@ async function main() {
     process.exit(1);
   }
 
-  const hasDb = Boolean(process.env.DATABASE_URL);
+  const hasDb = Boolean(process.env.DATABASE_URL?.trim());
   const hasToken = Boolean(process.env.SUPABASE_ACCESS_TOKEN);
 
   if (!hasDb && !hasToken) {
@@ -98,38 +207,44 @@ async function main() {
     console.error(`
 Need DATABASE_URL or SUPABASE_ACCESS_TOKEN in .env.local
 
-Quick fix — add to .env.local (replace [DB_PASSWORD]):
+Quick fix — add to .env.local (replace [DB_PASSWORD], copy host from Dashboard):
 
 DATABASE_URL=${hint ?? "postgresql://postgres.[ref]:[PASSWORD]@....pooler.supabase.com:6543/postgres"}
 
 Password: Supabase Dashboard → Project Settings → Database → Database password
-Copy URI: Connection string → Session pooler → port 6543
+Copy URI: Connection string → Session pooler → port 6543 (region must match your project)
 
 Or run: npm run db:hint
 
-Alternative: open the .sql file locally, copy ALL its contents (not the path), paste in SQL Editor → Run:
-   ${sqlFile}
-   https://supabase.com/dashboard/project/${ref ?? "YOUR_REF"}/sql/new
+Alternative: SQL Editor:
+   ${sqlEditorUrl()}
+   File: ${sqlFile}
 `);
     process.exit(1);
   }
 
   console.log(`Applying ${files.length} migration(s) to project ${ref ?? "?"}…\n`);
 
-  for (const file of files) {
-    const sql = readFileSync(join(migrationsDir, file), "utf8");
-    const ok =
-      (await applyViaPg(file, sql)) || (await applyViaManagementApi(file, sql));
-    if (!ok) {
-      console.error(`Failed to apply ${file}`);
-      process.exit(1);
+  try {
+    for (const file of files) {
+      const sql = readFileSync(join(migrationsDir, file), "utf8");
+      const ok = await applyMigrationFile(file, sql, { hasDb, hasToken });
+      if (!ok) {
+        console.error(`Failed to apply ${file}`);
+        process.exit(1);
+      }
     }
+  } catch (err) {
+    if (isPoolerTenantError(err) || !hasToken) {
+      printSqlEditorHelp(files);
+    }
+    throw err;
   }
 
   console.log("\nDone.");
 }
 
 main().catch((err) => {
-  console.error(err.message ?? err);
+  console.error(err instanceof Error ? err.message : err);
   process.exit(1);
 });

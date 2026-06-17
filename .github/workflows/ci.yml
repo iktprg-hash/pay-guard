@@ -38,6 +38,7 @@ jobs:
       # ── Upstash — required by assertUpstashOnStartup() in production
       UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
       UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+      RATE_LIMIT_PREFIX: payguard:e2e:ci
 
     steps:
       - name: Checkout
@@ -63,7 +64,7 @@ jobs:
 
       - name: E2E tests
         # ci-e2e.mjs: запускает start:prod, ждёт /api/health, preflight, playwright, останавливает сервер
-        run: node scripts/ci-e2e.mjs --project=chromium-authenticated
+        run: node scripts/ci-e2e.mjs --project=chromium-authenticated --project=chromium-pro
         # chromium-authenticated depends on "setup" → setup запускается автоматически
 
       - name: Upload Playwright report on failure

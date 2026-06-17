@@ -71,6 +71,20 @@ export default defineConfig({
         storageState: authFile,
       },
     },
+    {
+      name: "pro-setup",
+      testMatch: /pro\.setup\.ts/,
+      dependencies: ["setup", "chromium-authenticated"],
+    },
+    {
+      name: "chromium-pro",
+      dependencies: ["pro-setup"],
+      testMatch: /pro-features\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: path.join("playwright", ".auth", "pro-user.json"),
+      },
+    },
   ],
   ...(skipWebServer
     ? {}

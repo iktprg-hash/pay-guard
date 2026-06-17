@@ -7,6 +7,7 @@ type RateLimitRule = { limit: number; windowMs: number };
 const isDev = process.env.NODE_ENV === "development";
 const skipRateLimit =
   isDev && process.env.AUTH_SKIP_RATE_LIMIT === "1";
+const skipRateLimitForE2E = process.env.E2E_DISABLE_AUTH_RATE_LIMIT === "1";
 
 async function checkKeys(keys: string[], rule: RateLimitRule) {
   for (const key of keys) {
@@ -23,7 +24,7 @@ export async function enforceAuthRateLimit(
   email?: string,
   options?: { skipIp?: boolean }
 ) {
-  if (skipRateLimit) return null;
+  if (skipRateLimit || skipRateLimitForE2E) return null;
 
   const ip = getClientIp(request.headers);
   const ipKeys = [`${action}:ip:${ip}`];
