@@ -120,14 +120,14 @@ describe("POST /api/sessions", () => {
   });
 });
 
-describe("GET /api/sessions/[sessionId]", () => {
+describe("GET /api/sessions/[id]", () => {
   it("returns 404 when user cannot access session (IDOR)", async () => {
     loadUserSessionBundle.mockResolvedValue(null);
 
-    const { GET } = await import("./[sessionId]/route");
+    const { GET } = await import("./[id]/route");
     const res = await GET(
       new NextRequest(`http://127.0.0.1:3000/api/sessions/${sessionA}`),
-      { params: Promise.resolve({ sessionId: sessionA }) }
+      { params: Promise.resolve({ id: sessionA }) }
     );
 
     expect(res.status).toBe(404);
@@ -143,10 +143,10 @@ describe("GET /api/sessions/[sessionId]", () => {
       preview: "Test",
     });
 
-    const { GET } = await import("./[sessionId]/route");
+    const { GET } = await import("./[id]/route");
     const res = await GET(
       new NextRequest(`http://127.0.0.1:3000/api/sessions/${sessionA}`),
-      { params: Promise.resolve({ sessionId: sessionA }) }
+      { params: Promise.resolve({ id: sessionA }) }
     );
 
     expect(res.status).toBe(200);
@@ -157,11 +157,11 @@ describe("GET /api/sessions/[sessionId]", () => {
     expect(body.session).not.toHaveProperty("sessionToken");
   });
 
-  it("returns 400 for invalid sessionId UUID", async () => {
-    const { GET } = await import("./[sessionId]/route");
+  it("returns 400 for invalid session id UUID", async () => {
+    const { GET } = await import("./[id]/route");
     const res = await GET(
       new NextRequest("http://127.0.0.1:3000/api/sessions/not-a-valid-uuid"),
-      { params: Promise.resolve({ sessionId: "not-a-valid-uuid" }) }
+      { params: Promise.resolve({ id: "not-a-valid-uuid" }) }
     );
 
     expect(res.status).toBe(400);
