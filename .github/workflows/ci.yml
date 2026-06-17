@@ -40,6 +40,13 @@ jobs:
       UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
       RATE_LIMIT_PREFIX: payguard:e2e:ci
 
+      # ── Sentry — опционально (без DSN Sentry silent) ─────────────────────
+      SENTRY_DSN: ${{ secrets.SENTRY_DSN || '' }}
+      NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN || '' }}
+      SENTRY_ORG: ${{ secrets.SENTRY_ORG || '' }}
+      SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT || '' }}
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN || '' }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -98,9 +105,6 @@ jobs:
           done
           npm run lighthouse:ci
           kill "$SERVER_PID" 2>/dev/null || true
-        # Lighthouse — предупреждения не блокируют CI, только accessibility error
-        # Убрать continue-on-error когда LH scores стабилизируются
-        continue-on-error: true
 
       - name: Upload Lighthouse report
         if: always()
