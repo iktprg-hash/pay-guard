@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { withProProtection } from "@/lib/api/protected";
+import { withProtection } from "@/lib/api/with-protection";
 import {
   createAppError,
   respondWithError,
@@ -18,7 +18,7 @@ export const runtime = "nodejs";
 const PDF_MAX_BODY_BYTES = 512_000;
 
 /** Pro-only server PDF export for payment recommendations. */
-export const POST = withProProtection(
+export const POST = withProtection(
   async (request) => {
     const contentLength = Number(request.headers.get("content-length") ?? 0);
     if (contentLength > PDF_MAX_BODY_BYTES) {
@@ -58,5 +58,5 @@ export const POST = withProProtection(
       );
     }
   },
-  { rateLimit: "pdf" }
+  { requirePro: true, rateLimit: { scope: "pdf", limit: 10 } }
 );
