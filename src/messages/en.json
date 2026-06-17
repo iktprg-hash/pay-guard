@@ -119,7 +119,16 @@
     "untitled": "Consultation",
     "loading": "Loading consultations…",
     "loadError": "Could not load conversations. Please try again.",
-    "messages": "{count, plural, one {# message} other {# messages}}"
+    "messages": "{count, plural, one {# message} other {# messages}}",
+    "view": "View",
+    "back": "← Back to consultations",
+    "backLabel": "Back navigation",
+    "transcriptLabel": "Conversation transcript",
+    "openInChat": "Open in chat",
+    "you": "You",
+    "assistant": "Pay Guard",
+    "notFound": "Consultation not found",
+    "notFoundHint": "This consultation does not exist or has been deleted."
   },
   "recommendation": {
     "title": "Payment recommendations",

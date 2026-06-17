@@ -119,7 +119,16 @@
     "untitled": "Konzultace",
     "loading": "Načítám konzultace…",
     "loadError": "Konverzace se nepodařilo načíst. Zkuste to znovu.",
-    "messages": "{count, plural, one {# zpráva} few {# zprávy} other {# zpráv}}"
+    "messages": "{count, plural, one {# zpráva} few {# zprávy} other {# zpráv}}",
+    "view": "Zobrazit",
+    "back": "← Zpět na konzultace",
+    "backLabel": "Navigace zpět",
+    "transcriptLabel": "Přepis konverzace",
+    "openInChat": "Otevřít v chatu",
+    "you": "Vy",
+    "assistant": "Pay Guard",
+    "notFound": "Konzultace nenalezena",
+    "notFoundHint": "Konzultace neexistuje nebo byla smazána."
   },
   "recommendation": {
     "title": "Doporučení plateb",

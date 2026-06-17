@@ -56,7 +56,7 @@ export default defineConfig({
     {
       name: "chromium-authenticated",
       dependencies: ["setup"],
-      testMatch: /(checkout-flow|pro-gating)\.spec\.ts/,
+      testMatch: /(checkout-flow|pro-gating|consultations)\.spec\.ts/,
       use: {
         ...devices["Desktop Chrome"],
         storageState: authFile,

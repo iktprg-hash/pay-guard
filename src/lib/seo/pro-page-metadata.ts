@@ -41,3 +41,16 @@ export async function getConsultationsPageMetadata(
     description: t("subtitle"),
   };
 }
+
+/** Consultation detail page metadata. */
+export async function generateConsultationDetailMetadata(
+  locale: string
+): Promise<Metadata> {
+  const safe = resolveLocale(locale);
+  const t = await getTranslations({ locale: safe, namespace: "consultations" });
+
+  return {
+    title: `${t("title")} — ${t("untitled")}`,
+    description: t("subtitle"),
+  };
+}

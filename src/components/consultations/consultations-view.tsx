@@ -47,6 +47,7 @@ interface SessionCardProps {
   session: ConsultationSessionItem;
   locale: Locale;
   openLabel: string;
+  viewLabel: string;
   messagesLabel: string;
   hasRecommendationLabel: string;
   syncedLabel: string;
@@ -63,6 +64,7 @@ function SessionCard({
   session,
   locale,
   openLabel,
+  viewLabel,
   messagesLabel,
   hasRecommendationLabel,
   syncedLabel,
@@ -123,10 +125,15 @@ function SessionCard({
         {formatDate(session.updatedAt, locale)}
       </time>
 
-      <div className="mt-auto flex flex-col gap-2 pt-2 sm:flex-row">
+      <div className="mt-auto flex flex-col gap-2 pt-2 sm:flex-row sm:flex-wrap">
         <Button asChild size="sm" className="w-full sm:w-auto">
           <Link href={`/${locale}?session=${session.sessionId}`}>
             {openLabel}
+          </Link>
+        </Button>
+        <Button asChild variant="secondary" size="sm" className="w-full sm:w-auto">
+          <Link href={`/${locale}/consultations/${session.sessionId}`}>
+            {viewLabel}
           </Link>
         </Button>
         {session.hasRecommendation && isPro && (
@@ -285,6 +292,7 @@ export function ConsultationsView() {
                 session={session}
                 locale={locale}
                 openLabel={t("open")}
+                viewLabel={t("view")}
                 messagesLabel={messagesLabel(session.messageCount)}
                 hasRecommendationLabel={t("hasRecommendation")}
                 syncedLabel={t("synced")}
