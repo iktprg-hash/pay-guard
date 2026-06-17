@@ -20,6 +20,8 @@ vi.mock("@/lib/supabase/guard", () => ({
   assertSupabaseConfigured: () => null,
 }));
 
+const routeContext = { params: Promise.resolve({}) };
+
 beforeEach(() => {
   vi.clearAllMocks();
   enforceAuthRateLimit.mockResolvedValue(null);
@@ -35,7 +37,8 @@ describe("POST /api/auth/confirm OTP types", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token_hash: "hash", type: "recovery" }),
-      })
+      }),
+      routeContext
     );
 
     expect(res.status).toBe(200);
@@ -49,7 +52,8 @@ describe("POST /api/auth/confirm OTP types", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token_hash: "hash", type: "invite" }),
-      })
+      }),
+      routeContext
     );
 
     expect(res.status).toBe(400);

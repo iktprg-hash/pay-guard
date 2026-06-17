@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 const requireApiUser = vi.fn();
 const claimSessionForUser = vi.fn();
-const enforceAuthRateLimit = vi.fn();
+const checkAuthenticatedRateLimit = vi.fn();
 
 vi.mock("@/lib/auth/session", () => ({
   requireApiUser: () => requireApiUser(),
@@ -13,8 +13,14 @@ vi.mock("@/lib/chat/persistence", () => ({
   claimSessionForUser: (...args: unknown[]) => claimSessionForUser(...args),
 }));
 
-vi.mock("@/lib/auth/rate-limit", () => ({
-  enforceAuthRateLimit: (...args: unknown[]) => enforceAuthRateLimit(...args),
+vi.mock("@/lib/security/authenticated-rate-limit", () => ({
+  AUTHENTICATED_RATE_LIMITS: {},
+  checkAuthenticatedRateLimit: (...args: unknown[]) =>
+    checkAuthenticatedRateLimit(...args),
+}));
+
+vi.mock("@/lib/security/rateLimit", () => ({
+  getClientIp: vi.fn().mockReturnValue("127.0.0.1"),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -26,7 +32,11 @@ const sessionToken = "c".repeat(32);
 
 beforeEach(() => {
   vi.clearAllMocks();
-  enforceAuthRateLimit.mockResolvedValue(null);
+  checkAuthenticatedRateLimit.mockResolvedValue({
+    allowed: true,
+    remaining: 1,
+    resetAt: Date.now() + 60_000,
+  });
   requireApiUser.mockResolvedValue({ user: { id: "user-a" } });
 });
 
@@ -42,7 +52,8 @@ describe("POST /api/session/claim", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sessionId, sessionToken }),
-      })
+      }),
+      { params: Promise.resolve({}) }
     );
     expect(res.status).toBe(401);
   });
@@ -56,7 +67,8 @@ describe("POST /api/session/claim", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sessionId, sessionToken }),
-      })
+      }),
+      { params: Promise.resolve({}) }
     );
 
     expect(res.status).toBe(409);
@@ -73,7 +85,8 @@ describe("POST /api/session/claim", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sessionId, sessionToken }),
-      })
+      }),
+      { params: Promise.resolve({}) }
     );
 
     expect(res.status).toBe(200);
@@ -87,15 +100,18 @@ describe("POST /api/session/claim", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sessionId: "bad", sessionToken }),
-      })
+      }),
+      { params: Promise.resolve({}) }
     );
     expect(res.status).toBe(400);
   });
 
   it("returns 429 when rate limited", async () => {
-    enforceAuthRateLimit.mockResolvedValue(
-      NextResponse.json({ error: "Too many requests" }, { status: 429 })
-    );
+    checkAuthenticatedRateLimit.mockResolvedValue({
+      allowed: false,
+      remaining: 0,
+      resetAt: Date.now() + 60_000,
+    });
 
     const { POST } = await import("./claim/route");
     const res = await POST(
@@ -103,7 +119,8 @@ describe("POST /api/session/claim", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sessionId, sessionToken }),
-      })
+      }),
+      { params: Promise.resolve({}) }
     );
     expect(res.status).toBe(429);
   });

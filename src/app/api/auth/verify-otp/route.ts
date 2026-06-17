@@ -1,26 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validationError } from "@/lib/api/errors";
 import { authProviderErrorResponse } from "@/lib/auth/errors";
-import { enforceAuthRateLimit } from "@/lib/auth/rate-limit";
+import { applyPublicAuthRateLimit, type AppRouteContext } from "@/lib/api/protected";
 import { createSessionRouteClient } from "@/lib/auth/supabase-route";
 import { parseJsonBody } from "@/lib/api/parse-request";
 import { assertSupabaseConfigured } from "@/lib/supabase/guard";
 import { authVerifyOtpSchema } from "@/lib/validation/schemas";
 
-/** Ověření e-mailového kódu — bez PKCE redirectu */
-export async function POST(request: NextRequest) {
-  const supabaseGuard = assertSupabaseConfigured();
-  if (supabaseGuard) return supabaseGuard;
-
+const handleVerifyOtp = async (request: NextRequest) => {
   const parsed = await parseJsonBody(request, authVerifyOtpSchema);
   if (!parsed.ok) return validationError(parsed.error);
 
-  const limited = await enforceAuthRateLimit(
+  const limited = await applyPublicAuthRateLimit(
     request,
     "verify-otp",
     parsed.data.email
   );
-  if (limited) return limited;
+  if (!limited.ok) return limited.response;
 
   const response = NextResponse.json({ ok: true });
   const supabase = createSessionRouteClient(request, response);
@@ -36,4 +32,12 @@ export async function POST(request: NextRequest) {
   }
 
   return response;
+};
+
+/** Ověření e-mailového kódu — bez PKCE redirectu */
+export async function POST(request: NextRequest, _context: AppRouteContext) {
+  const supabaseGuard = assertSupabaseConfigured();
+  if (supabaseGuard) return supabaseGuard;
+
+  return handleVerifyOtp(request);
 }

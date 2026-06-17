@@ -2,26 +2,26 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { validationError, serviceUnavailable } from "@/lib/api/errors";
 import { authProviderErrorResponse, isOpaqueOtpSendError } from "@/lib/auth/errors";
-import { enforceAuthRateLimit } from "@/lib/auth/rate-limit";
+import { applyPublicAuthRateLimit, type AppRouteContext } from "@/lib/api/protected";
 import { parseJsonBody } from "@/lib/api/parse-request";
 import { getSupabasePublicConfig } from "@/lib/supabase/config";
 import { authSendOtpSchema } from "@/lib/validation/schemas";
 
 /** Odešle 6místný kód na e-mail — pouze existující účty (bez registrace heslem) */
-export async function POST(request: NextRequest) {
-  const ipLimited = await enforceAuthRateLimit(request, "send-otp");
-  if (ipLimited) return ipLimited;
+export async function POST(request: NextRequest, _context: AppRouteContext) {
+  const ipLimited = await applyPublicAuthRateLimit(request, "send-otp");
+  if (!ipLimited.ok) return ipLimited.response;
 
   const parsed = await parseJsonBody(request, authSendOtpSchema);
   if (!parsed.ok) return validationError(parsed.error);
 
-  const limited = await enforceAuthRateLimit(
+  const limited = await applyPublicAuthRateLimit(
     request,
     "send-otp",
     parsed.data.email,
     { skipIp: true }
   );
-  if (limited) return limited;
+  if (!limited.ok) return limited.response;
 
   const config = getSupabasePublicConfig();
 

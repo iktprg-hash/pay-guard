@@ -13,6 +13,7 @@ import {
   type ProRateLimitAction,
 } from "@/lib/security/pro-rate-limit";
 import { getClientIp } from "@/lib/security/rateLimit";
+import { enforceAuthRateLimit } from "@/lib/auth/rate-limit";
 
 /** Authenticated user available after successful route protection. */
 export interface ProtectedRouteContext {
@@ -198,6 +199,44 @@ export function withProProtection<RouteContext = AppRouteContext>(
   options: Omit<ProtectionOptions, "requirePro"> = {}
 ): (request: NextRequest, routeContext: RouteContext) => Promise<Response> {
   return createProtectedHandler({ ...options, requirePro: true }, handler);
+}
+
+export type PublicAuthRouteHandler = (
+  request: NextRequest,
+  routeContext: AppRouteContext
+) => Promise<Response> | Response;
+
+/**
+ * IP (+ optional email) rate limit for public auth endpoints.
+ * Returns a Response on 429, otherwise `{ ok: true }`.
+ */
+export async function applyPublicAuthRateLimit(
+  request: NextRequest,
+  action: string,
+  email?: string,
+  options?: { skipIp?: boolean }
+): Promise<ProtectionResult | { ok: true }> {
+  const limited = await enforceAuthRateLimit(request, action, email, options);
+  if (limited) return { ok: false, response: limited };
+  return { ok: true };
+}
+
+/** Public auth route with entry rate limit (logout, confirm, etc.). */
+export function withPublicAuthRateLimit(
+  action: string,
+  handler: PublicAuthRouteHandler,
+  options?: { skipIp?: boolean }
+): (request: NextRequest, routeContext: AppRouteContext) => Promise<Response> {
+  return async (request, routeContext) => {
+    const limited = await applyPublicAuthRateLimit(
+      request,
+      action,
+      undefined,
+      options
+    );
+    if (!limited.ok) return limited.response;
+    return handler(request, routeContext);
+  };
 }
 
 /**

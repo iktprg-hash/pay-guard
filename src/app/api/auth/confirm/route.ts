@@ -1,23 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validationError } from "@/lib/api/errors";
 import { authProviderErrorResponse } from "@/lib/auth/errors";
-import { enforceAuthRateLimit } from "@/lib/auth/rate-limit";
+import {
+  withPublicAuthRateLimit,
+  type AppRouteContext,
+} from "@/lib/api/protected";
 import { createSessionRouteClient } from "@/lib/auth/supabase-route";
-import { parseJsonBody } from "@/lib/api/parse-request";
 import {
   authConfirmCodeSchema,
   authConfirmTokenSchema,
 } from "@/lib/validation/schemas";
 import { assertSupabaseConfigured } from "@/lib/supabase/guard";
 
-/** Potvrzení e-mailu / PKCE — session cookies na serveru */
-export async function POST(request: NextRequest) {
-  const supabaseGuard = assertSupabaseConfigured();
-  if (supabaseGuard) return supabaseGuard;
-
-  const limited = await enforceAuthRateLimit(request, "confirm");
-  if (limited) return limited;
-
+const handleConfirm = withPublicAuthRateLimit("confirm", async (request) => {
   const body = await request.json().catch(() => null);
   const codeParsed = authConfirmCodeSchema.safeParse(body);
   const tokenParsed = authConfirmTokenSchema.safeParse(body);
@@ -46,4 +41,12 @@ export async function POST(request: NextRequest) {
   if (error) return authProviderErrorResponse(error.message, 401);
 
   return response;
+});
+
+/** Potvrzení e-mailu / PKCE — session cookies na serveru */
+export async function POST(request: NextRequest, context: AppRouteContext) {
+  const supabaseGuard = assertSupabaseConfigured();
+  if (supabaseGuard) return supabaseGuard;
+
+  return handleConfirm(request, context);
 }

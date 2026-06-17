@@ -14,8 +14,14 @@ vi.mock("@/lib/auth/grok-consent", () => ({
   setUserGrokConsent: (...args: unknown[]) => setUserGrokConsent(...args),
 }));
 
+vi.mock("@/lib/security/authenticated-rate-limit", () => ({
+  AUTHENTICATED_RATE_LIMITS: {},
+  checkAuthenticatedRateLimit: vi
+    .fn()
+    .mockResolvedValue({ allowed: true, remaining: 1, resetAt: 0 }),
+}));
+
 vi.mock("@/lib/security/rateLimit", () => ({
-  checkRateLimit: vi.fn().mockResolvedValue({ allowed: true, remaining: 1, resetAt: 0 }),
   getClientIp: vi.fn().mockReturnValue("127.0.0.1"),
 }));
 
@@ -30,7 +36,8 @@ describe("/api/auth/grok-consent", () => {
 
     const { GET } = await import("./route");
     const res = await GET(
-      new NextRequest("http://127.0.0.1:3000/api/auth/grok-consent")
+      new NextRequest("http://127.0.0.1:3000/api/auth/grok-consent"),
+      { params: Promise.resolve({}) }
     );
 
     expect(res.status).toBe(200);
@@ -47,7 +54,8 @@ describe("/api/auth/grok-consent", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
-      })
+      }),
+      { params: Promise.resolve({}) }
     );
 
     expect(res.status).toBe(200);
@@ -62,7 +70,8 @@ describe("/api/auth/grok-consent", () => {
 
     const { GET } = await import("./route");
     const res = await GET(
-      new NextRequest("http://127.0.0.1:3000/api/auth/grok-consent")
+      new NextRequest("http://127.0.0.1:3000/api/auth/grok-consent"),
+      { params: Promise.resolve({}) }
     );
 
     expect(res.status).toBe(401);

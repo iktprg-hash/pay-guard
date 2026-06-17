@@ -28,6 +28,8 @@ vi.mock("@supabase/supabase-js", () => ({
   }),
 }));
 
+const routeContext = { params: Promise.resolve({}) };
+
 function post(path: string, body: unknown) {
   return new NextRequest(`http://127.0.0.1:3000${path}`, {
     method: "POST",
@@ -60,7 +62,8 @@ describe("POST /api/auth/login", () => {
 
     const { POST } = await import("./login/route");
     const res = await POST(
-      post("/api/auth/login", { email: "a@b.cz", password: "secret" })
+      post("/api/auth/login", { email: "a@b.cz", password: "secret" }),
+      routeContext
     );
 
     expect(res.status).toBe(401);
@@ -73,7 +76,8 @@ describe("POST /api/auth/login", () => {
   it("returns 400 for invalid email", async () => {
     const { POST } = await import("./login/route");
     const res = await POST(
-      post("/api/auth/login", { email: "not-email", password: "x" })
+      post("/api/auth/login", { email: "not-email", password: "x" }),
+      routeContext
     );
     expect(res.status).toBe(400);
   });
@@ -85,7 +89,8 @@ describe("POST /api/auth/login", () => {
 
     const { POST } = await import("./login/route");
     const res = await POST(
-      post("/api/auth/login", { email: "a@b.cz", password: "secret" })
+      post("/api/auth/login", { email: "a@b.cz", password: "secret" }),
+      routeContext
     );
     expect(res.status).toBe(429);
   });
@@ -95,7 +100,8 @@ describe("POST /api/auth/login", () => {
 
     const { POST } = await import("./login/route");
     const res = await POST(
-      post("/api/auth/login", { email: "a@b.cz", password: "Heslo123" })
+      post("/api/auth/login", { email: "a@b.cz", password: "Heslo123" }),
+      routeContext
     );
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true });
@@ -109,7 +115,8 @@ describe("POST /api/auth/register", () => {
       post("/api/auth/register", {
         email: "new@b.cz",
         password: "NoDigitsHere",
-      })
+      }),
+      routeContext
     );
     expect(res.status).toBe(400);
     const body = (await res.json()) as { code?: string };
@@ -122,7 +129,8 @@ describe("POST /api/auth/register", () => {
       post("/api/auth/register", {
         email: "new@b.cz",
         password: "NoDigitsHere",
-      })
+      }),
+      routeContext
     );
     expect(res.status).toBe(400);
   });
@@ -137,7 +145,8 @@ describe("POST /api/auth/forgot-password", () => {
       post("/api/auth/forgot-password", {
         email: "user@b.cz",
         locale: "cs",
-      })
+      }),
+      routeContext
     );
 
     expect(res.status).toBe(200);
@@ -152,7 +161,8 @@ describe("POST /api/auth/forgot-password", () => {
   it("returns 400 for invalid email", async () => {
     const { POST } = await import("./forgot-password/route");
     const res = await POST(
-      post("/api/auth/forgot-password", { email: "bad", locale: "cs" })
+      post("/api/auth/forgot-password", { email: "bad", locale: "cs" }),
+      routeContext
     );
     expect(res.status).toBe(400);
   });
@@ -164,7 +174,8 @@ describe("POST /api/auth/reset-password", () => {
 
     const { POST } = await import("./reset-password/route");
     const res = await POST(
-      post("/api/auth/reset-password", { password: "Heslo123" })
+      post("/api/auth/reset-password", { password: "Heslo123" }),
+      routeContext
     );
     expect(res.status).toBe(401);
   });
@@ -177,7 +188,8 @@ describe("POST /api/auth/reset-password", () => {
 
     const { POST } = await import("./reset-password/route");
     const res = await POST(
-      post("/api/auth/reset-password", { password: "weak" })
+      post("/api/auth/reset-password", { password: "weak" }),
+      routeContext
     );
     expect(res.status).toBe(400);
   });
@@ -191,7 +203,8 @@ describe("POST /api/auth/reset-password", () => {
 
     const { POST } = await import("./reset-password/route");
     const res = await POST(
-      post("/api/auth/reset-password", { password: "Heslo123" })
+      post("/api/auth/reset-password", { password: "Heslo123" }),
+      routeContext
     );
     expect(res.status).toBe(200);
     expect(updateUser).toHaveBeenCalledWith({ password: "Heslo123" });

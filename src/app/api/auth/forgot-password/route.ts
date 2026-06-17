@@ -3,24 +3,25 @@ import { createClient } from "@supabase/supabase-js";
 import { serviceUnavailable, validationError } from "@/lib/api/errors";
 import { authProviderErrorResponse } from "@/lib/auth/errors";
 import {
-  enforceAuthRateLimit,
-  isSupabaseEmailRateLimit,
-} from "@/lib/auth/rate-limit";
+  applyPublicAuthRateLimit,
+  type AppRouteContext,
+} from "@/lib/api/protected";
+import { isSupabaseEmailRateLimit } from "@/lib/auth/rate-limit";
 import { authConfirmUrl } from "@/lib/site/url";
 import { parseJsonBody } from "@/lib/api/parse-request";
 import { authForgotPasswordSchema } from "@/lib/validation/schemas";
 
 /** Odešle odkaz pro obnovení hesla */
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest, _context: AppRouteContext) {
   const parsed = await parseJsonBody(request, authForgotPasswordSchema);
   if (!parsed.ok) return validationError(parsed.error);
 
-  const limited = await enforceAuthRateLimit(
+  const limited = await applyPublicAuthRateLimit(
     request,
     "forgot-password",
     parsed.data.email
   );
-  if (limited) return limited;
+  if (!limited.ok) return limited.response;
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;

@@ -12,8 +12,14 @@ vi.mock("@/lib/auth/profile", () => ({
   syncUserProfileLocale: (...args: unknown[]) => syncUserProfileLocale(...args),
 }));
 
+vi.mock("@/lib/security/authenticated-rate-limit", () => ({
+  AUTHENTICATED_RATE_LIMITS: {},
+  checkAuthenticatedRateLimit: vi
+    .fn()
+    .mockResolvedValue({ allowed: true, remaining: 1, resetAt: 0 }),
+}));
+
 vi.mock("@/lib/security/rateLimit", () => ({
-  checkRateLimit: vi.fn().mockResolvedValue({ allowed: true, remaining: 1, resetAt: 0 }),
   getClientIp: vi.fn().mockReturnValue("127.0.0.1"),
 }));
 
@@ -34,7 +40,8 @@ describe("POST /api/auth/sync-profile", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ locale: "ru" }),
-      })
+      }),
+      { params: Promise.resolve({}) }
     );
 
     expect(res.status).toBe(401);
@@ -47,7 +54,8 @@ describe("POST /api/auth/sync-profile", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: "not-json",
-      })
+      }),
+      { params: Promise.resolve({}) }
     );
 
     expect(res.status).toBe(400);
@@ -61,7 +69,8 @@ describe("POST /api/auth/sync-profile", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ locale: "ru" }),
-      })
+      }),
+      { params: Promise.resolve({}) }
     );
 
     expect(res.status).toBe(200);

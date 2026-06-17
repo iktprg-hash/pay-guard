@@ -13,6 +13,8 @@ vi.mock("@supabase/supabase-js", () => ({
   }),
 }));
 
+const routeContext = { params: Promise.resolve({}) };
+
 beforeEach(() => {
   vi.clearAllMocks();
   process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
@@ -28,7 +30,8 @@ describe("POST /api/auth/send-otp", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: "user@test.cz" }),
-      })
+      }),
+      routeContext
     );
 
     expect(res.status).toBe(200);
@@ -49,7 +52,8 @@ describe("POST /api/auth/send-otp", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: "missing@test.cz" }),
-      })
+      }),
+      routeContext
     );
 
     expect(res.status).toBe(200);

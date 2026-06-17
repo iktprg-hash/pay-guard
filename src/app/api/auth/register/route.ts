@@ -5,7 +5,7 @@ import {
   canUseDevRegisterBypass,
   devRegisterWithPassword,
 } from "@/lib/auth/dev-register";
-import { enforceAuthRateLimit } from "@/lib/auth/rate-limit";
+import { applyPublicAuthRateLimit, type AppRouteContext } from "@/lib/api/protected";
 import { isStrongPassword } from "@/lib/auth/password";
 import { createSessionRouteClient } from "@/lib/auth/supabase-route";
 import { authConfirmUrl } from "@/lib/site/url";
@@ -14,11 +14,7 @@ import { parseJsonBody } from "@/lib/api/parse-request";
 import { assertSupabaseConfigured } from "@/lib/supabase/guard";
 import { authRegisterSchema } from "@/lib/validation/schemas";
 
-/** Registrace heslem — session cookies nastaví server */
-export async function POST(request: NextRequest) {
-  const supabaseGuard = assertSupabaseConfigured();
-  if (supabaseGuard) return supabaseGuard;
-
+const handleRegister = async (request: NextRequest) => {
   const parsed = await parseJsonBody(request, authRegisterSchema);
   if (!parsed.ok) return validationError(parsed.error);
 
@@ -30,12 +26,12 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const limited = await enforceAuthRateLimit(
+  const limited = await applyPublicAuthRateLimit(
     request,
     "register",
     parsed.data.email
   );
-  if (limited) return limited;
+  if (!limited.ok) return limited.response;
 
   const locale = parsed.data.locale ?? "cs";
   const response = NextResponse.json({ ok: true, needsEmailConfirmation: false });
@@ -76,4 +72,12 @@ export async function POST(request: NextRequest) {
   }
 
   return response;
+};
+
+/** Registrace heslem — session cookies nastaví server */
+export async function POST(request: NextRequest, _context: AppRouteContext) {
+  const supabaseGuard = assertSupabaseConfigured();
+  if (supabaseGuard) return supabaseGuard;
+
+  return handleRegister(request);
 }
