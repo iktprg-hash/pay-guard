@@ -51,9 +51,14 @@ export function proPageHeading(page: Page, name: RegExp): Locator {
   return page.getByRole("heading", { level: 1, name });
 }
 
-/** Guest pricing CTA — waits until auth/tier loading finishes. */
+/** Guest pricing CTA (button — redirects to login when unauthenticated). */
+export function pricingGuestCheckoutButton(page: Page): Locator {
+  return page.getByRole("button", { name: UI.loginToUpgrade });
+}
+
+/** @deprecated Guest CTA is a button — use {@link pricingGuestCheckoutButton}. */
 export function pricingGuestUpgradeLink(page: Page): Locator {
-  return page.getByRole("link", { name: UI.loginToUpgrade });
+  return pricingGuestCheckoutButton(page);
 }
 
 /** Latest recommendation card (manual/chat may render multiple cards). */

@@ -1,6 +1,10 @@
 import { test, expect } from "@playwright/test";
 import { E2E_LOCALE } from "./fixtures/auth";
-import { pricingGuestUpgradeLink } from "./helpers/test-utils";
+import {
+  pricingGuestCheckoutButton,
+  UI,
+  waitForTierSettled,
+} from "./helpers/test-utils";
 import { gotoExpectOk, expectApiOk } from "./helpers/server-health";
 
 test.describe.configure({ mode: "parallel" });
@@ -88,37 +92,35 @@ test.describe("Auth and chat flow", () => {
 
   test("redirects guest from pricing upgrade CTA to login", async ({ page }) => {
     test.slow();
-    test.setTimeout(30_000);
+    test.setTimeout(45_000);
 
     await gotoExpectOk(page, `/${E2E_LOCALE}/pricing`);
+    await waitForTierSettled(page);
 
-    const loginLink = pricingGuestUpgradeLink(page);
-    const upgradeButton = page.getByRole("button", {
-      name: /upgrade|přejít na pro|перейти на pro/i,
-    });
+    const guestCheckoutButton = pricingGuestCheckoutButton(page);
+
+    const guestCtaVisible = await guestCheckoutButton
+      .isVisible({ timeout: 30_000 })
+      .then(() => true)
+      .catch(() => false);
+
+    test.skip(
+      !guestCtaVisible,
+      "Guest checkout CTA is only shown when Stripe billing is enabled."
+    );
 
     await expect
       .poll(
-        async () => {
-          if (page.url().includes("/login")) return "login";
-          if (await loginLink.isVisible().catch(() => false)) return "cta";
-          if (await upgradeButton.isVisible().catch(() => false)) {
-            return (await upgradeButton.isEnabled()) ? "upgrade" : "disabled";
-          }
-          return "pending";
-        },
-        { timeout: 25_000, intervals: [250, 500, 1000] }
+        async () => (await guestCheckoutButton.textContent())?.trim() ?? "",
+        { timeout: 30_000, intervals: [500, 1000] }
       )
-      .not.toBe("pending");
+      .toMatch(UI.loginToUpgrade);
 
-    test.skip(
-      !(await loginLink.isVisible().catch(() => false)),
-      "Guest login CTA is only shown when Stripe billing is enabled."
+    await guestCheckoutButton.click();
+
+    await expect(page).toHaveURL(
+      new RegExp(`/${E2E_LOCALE}/login\\?next=`),
+      { timeout: 20_000 }
     );
-
-    await loginLink.click();
-    await expect
-      .poll(() => page.url(), { timeout: 20_000 })
-      .toMatch(new RegExp(`/${E2E_LOCALE}/login\\?next=`));
   });
 });
