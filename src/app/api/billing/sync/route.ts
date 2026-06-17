@@ -1,43 +1,41 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { withAuth, type AppRouteContext } from "@/lib/api/protected";
 import { isStripeBillingConfigured } from "@/lib/billing/config";
-import { syncActiveSubscriptionByEmail, describeBillingSyncClientError } from "@/lib/billing/sync-checkout";
+import { syncActiveSubscriptionByEmail } from "@/lib/billing/sync-checkout";
 import { revalidateSubscriptionPages } from "@/lib/billing/revalidate-subscription";
 import { getSubscriptionStatus } from "@/lib/stripe";
-import { serviceUnavailable } from "@/lib/api/errors";
+import {
+  appErrorFromBillingSyncCode,
+  createAppError,
+  respondWithError,
+  toApiResponse,
+} from "@/lib/errors";
 
 const handleSync = withAuth(
   async (_request, { user }) => {
     if (!user.email) {
-      return NextResponse.json(
-        { error: "Account email required", code: "email_required" },
-        { status: 422 }
-      );
+      return respondWithError("BILLING_EMAIL_REQUIRED");
     }
 
     try {
       const result = await syncActiveSubscriptionByEmail(user.id, user.email);
 
       if (!result.ok) {
-        return NextResponse.json(
-          {
-            error: describeBillingSyncClientError(result.code),
-            code: result.code,
-          },
-          { status: 422 }
-        );
+        return toApiResponse(appErrorFromBillingSyncCode(result.code));
       }
 
       const status = await getSubscriptionStatus(user.id);
       revalidateSubscriptionPages();
-      return NextResponse.json({
+      return Response.json({
         pro: true,
         tier: status.tier,
         expiresAt: status.expiresAt,
       });
     } catch (error) {
       console.error("[api/billing/sync]", error);
-      return NextResponse.json({ error: "Sync failed" }, { status: 500 });
+      return toApiResponse(
+        createAppError("BILLING_SYNC_FAILED", { cause: error })
+      );
     }
   },
   { rateLimit: { scope: "billing-sync", limit: 10 } }
@@ -46,7 +44,7 @@ const handleSync = withAuth(
 /** Recover Pro from Stripe by account email (e.g. webhook missed). */
 export async function POST(request: NextRequest, context: AppRouteContext) {
   if (!isStripeBillingConfigured()) {
-    return serviceUnavailable("Billing is not configured");
+    return respondWithError("BILLING_NOT_CONFIGURED");
   }
 
   return handleSync(request, context);

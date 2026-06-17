@@ -1,19 +1,19 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { withAuth, type AppRouteContext } from "@/lib/api/protected";
-import {
-  createCheckoutSession,
-  StripeServiceError,
-} from "@/lib/stripe";
+import { createCheckoutSession, StripeServiceError } from "@/lib/stripe";
 import {
   describeStripeBillingIssue,
   getStripeBillingConfigStatus,
 } from "@/lib/billing/config";
 import { getUserBillingRecord } from "@/lib/billing/profile-billing";
 import { resolveSiteOrigin } from "@/lib/site/url";
+import { validationError } from "@/lib/api/errors";
 import {
-  serviceUnavailable,
-  validationError,
-} from "@/lib/api/errors";
+  appErrorFromStripeService,
+  createAppError,
+  respondWithError,
+  toApiResponse,
+} from "@/lib/errors";
 import { parseJsonBody } from "@/lib/api/parse-request";
 import { billingLocaleBodySchema } from "@/lib/validation/schemas";
 
@@ -34,37 +34,14 @@ const handleCheckout = withAuth(
         existingCustomerId: billing?.stripeCustomerId,
       });
 
-      return NextResponse.json({ url });
+      return Response.json({ url });
     } catch (error) {
       if (error instanceof StripeServiceError) {
-        if (error.code === "not_configured") {
-          return serviceUnavailable("Billing is not configured");
-        }
-        if (error.code === "already_pro") {
-          return NextResponse.json(
-            {
-              error: "You already have an active Pro subscription.",
-              code: "already_pro",
-            },
-            { status: 409 }
-          );
-        }
-        if (error.code === "email_required") {
-          return NextResponse.json(
-            {
-              error: "An email address is required to start a subscription.",
-              code: "email_required",
-            },
-            { status: 422 }
-          );
-        }
+        return toApiResponse(appErrorFromStripeService(error));
       }
 
       console.error("[api/billing/checkout]", error);
-      return NextResponse.json(
-        { error: "Checkout failed", code: "stripe_error" },
-        { status: 500 }
-      );
+      return respondWithError("BILLING_CHECKOUT_FAILED", { cause: error });
     }
   },
   { rateLimit: { scope: "billing-checkout", limit: 10 } }
@@ -80,10 +57,7 @@ export async function POST(request: NextRequest, context: AppRouteContext) {
         describeStripeBillingIssue(billing.checkoutBlocker)
       );
     }
-    return NextResponse.json(
-      { error: "Billing is not configured", code: "billing_not_configured" },
-      { status: 503 }
-    );
+    return respondWithError("BILLING_NOT_CONFIGURED");
   }
 
   return handleCheckout(request, context);

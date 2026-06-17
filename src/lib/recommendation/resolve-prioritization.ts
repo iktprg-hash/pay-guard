@@ -1,6 +1,7 @@
 import { runPriorityEngine } from "@/services/priorityEngine";
 import type { FinancialProfile, PrioritizationResult } from "@/lib/types/financial";
 import type { Locale } from "@/i18n/routing";
+import { appErrorFromResponse, getUserFriendlyMessage } from "@/lib/errors";
 
 export function isOfflineEnvironment(): boolean {
   return typeof navigator !== "undefined" && !navigator.onLine;
@@ -25,7 +26,8 @@ export async function resolvePrioritization(
   });
 
   if (!res.ok) {
-    throw new Error("Prioritize failed");
+    const appError = await appErrorFromResponse(res, locale);
+    throw new Error(getUserFriendlyMessage(appError, locale));
   }
 
   return res.json() as Promise<PrioritizationResult>;

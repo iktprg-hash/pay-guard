@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import type { User } from "@supabase/supabase-js";
-import { rateLimitError } from "@/lib/api/errors";
+import { respondWithError } from "@/lib/errors";
 import { requireProApiUser } from "@/lib/auth/require-pro";
 import { requireApiUser } from "@/lib/auth/session";
 import {
@@ -90,7 +90,12 @@ export async function applyRouteRateLimit(
     if (isProRateLimitAction(rateLimit)) {
       const result = await checkProRateLimit(rateLimit, userId, ip);
       if (!result.allowed) {
-        return { ok: false, response: rateLimitError(result.resetAt) };
+        return {
+          ok: false,
+          response: respondWithError("RATE_LIMITED", {
+            details: { resetAt: result.resetAt },
+          }),
+        };
       }
       return { ok: true };
     }
@@ -105,7 +110,12 @@ export async function applyRouteRateLimit(
         preset.windowMs
       );
       if (!result.allowed) {
-        return { ok: false, response: rateLimitError(result.resetAt) };
+        return {
+          ok: false,
+          response: respondWithError("RATE_LIMITED", {
+            details: { resetAt: result.resetAt },
+          }),
+        };
       }
       return { ok: true };
     }
@@ -120,7 +130,12 @@ export async function applyRouteRateLimit(
       rateLimit.windowMs ?? 60_000
     );
     if (!result.allowed) {
-      return { ok: false, response: rateLimitError(result.resetAt) };
+      return {
+        ok: false,
+        response: respondWithError("RATE_LIMITED", {
+          details: { resetAt: result.resetAt },
+        }),
+      };
     }
     return { ok: true };
   }

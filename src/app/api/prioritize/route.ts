@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { runPriorityEngine } from "@/services/priorityEngine";
 import { withAuth } from "@/lib/api/protected";
 import { validationError } from "@/lib/api/errors";
+import {
+  createAppError,
+  respondWithError,
+  toApiResponse,
+} from "@/lib/errors";
 import { parseJsonBody } from "@/lib/api/parse-request";
 import { hasMinimumRecommendationData } from "@/lib/grok/recommendation-readiness";
 import {
@@ -19,13 +24,7 @@ export const POST = withAuth(
       const normalizedProfile = normalizeProfile(profile);
 
       if (!hasMinimumRecommendationData(normalizedProfile)) {
-        return NextResponse.json(
-          {
-            error:
-              "Insufficient data for prioritization — need availableFunds > 0 and at least one debt with creditor and amount.",
-          },
-          { status: 422 }
-        );
+        return respondWithError("PRIORITIZATION_INSUFFICIENT_DATA");
       }
 
       const result = runPriorityEngine(normalizedProfile, locale);
@@ -33,9 +32,9 @@ export const POST = withAuth(
       return NextResponse.json(result);
     } catch (error) {
       console.error("[api/prioritize]", error);
-      return NextResponse.json(
-        { error: "Prioritization failed" },
-        { status: 500 }
+      return toApiResponse(
+        createAppError("PRIORITIZATION_FAILED", { cause: error }),
+        { locale: parsed.data.locale }
       );
     }
   },

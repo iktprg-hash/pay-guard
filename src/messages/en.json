@@ -33,7 +33,29 @@
     "retry": "Refresh page",
     "notFound": "Page not found",
     "notFoundHint": "This link does not exist or has moved.",
-    "backHome": "Back to Pay Guard"
+    "backHome": "Back to Pay Guard",
+    "api": {
+      "unauthorized": "Please sign in to continue.",
+      "forbidden": "You do not have permission to perform this action.",
+      "proRequired": "This feature requires a Pro subscription.",
+      "rateLimited": "Too many requests — please try again in a moment.",
+      "validationError": "Some fields are invalid. Please check your input.",
+      "badRequest": "The request could not be processed.",
+      "notFound": "The requested resource was not found.",
+      "conflict": "This action conflicts with the current state.",
+      "unprocessableEntity": "The request could not be processed.",
+      "chatConsentRequired": "Please accept AI data processing consent to use chat.",
+      "chatProcessingFailed": "Something went wrong with chat. Please try again.",
+      "chatServiceUnavailable": "AI chat is temporarily unavailable.",
+      "chatUpstreamError": "AI service returned an error. Please try again.",
+      "prioritizationInsufficientData": "Not enough data for a recommendation — add available funds and at least one debt.",
+      "prioritizationFailed": "Could not calculate prioritization. Please try again.",
+      "pdfGenerationFailed": "Could not generate PDF. Please try again.",
+      "stripeError": "Payment processing failed. Please try again.",
+      "billingNotConfigured": "Billing is not available right now.",
+      "serviceUnavailable": "Service is temporarily unavailable.",
+      "internalError": "Something went wrong. Please try again."
+    }
   },
   "nav": {
     "chat": "Chat",

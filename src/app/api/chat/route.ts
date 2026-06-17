@@ -4,11 +4,12 @@ import { mergeProfileUpdate } from "@/lib/grok/prompts";
 import { assessRecommendationReadiness, hasMinimumRecommendationData } from "@/lib/grok/recommendation-readiness";
 import { withAuth } from "@/lib/api/protected";
 import { getUserGrokConsent } from "@/lib/auth/grok-consent";
+import { validationError } from "@/lib/api/errors";
 import {
-  serviceUnavailable,
-  unauthorizedError,
-  validationError,
-} from "@/lib/api/errors";
+  createAppError,
+  respondWithError,
+  toApiResponse,
+} from "@/lib/errors";
 import { parseJsonBody } from "@/lib/api/parse-request";
 import {
   chatRequestSchema,
@@ -27,7 +28,7 @@ export const POST = withAuth(
 
       const hasConsent = await getUserGrokConsent(user.id);
       if (!hasConsent) {
-        return unauthorizedError("Grok data processing consent required");
+        return respondWithError("CHAT_CONSENT_REQUIRED");
       }
 
       const normalizedProfile = normalizeProfile(profile);
@@ -85,14 +86,19 @@ export const POST = withAuth(
       });
     } catch (error) {
       if (error instanceof GrokUnavailableError) {
-        return serviceUnavailable("Chat service is not configured");
+        return respondWithError("CHAT_SERVICE_UNAVAILABLE");
       }
       if (error instanceof GrokRequestError) {
         console.error("[api/chat] grok status:", error.status);
-        return NextResponse.json({ error: "Chat request failed" }, { status: 502 });
+        return respondWithError("CHAT_UPSTREAM_ERROR", {
+          details: { upstreamStatus: error.status },
+        });
       }
       console.error("[api/chat]", error);
-      return NextResponse.json({ error: "Chat request failed" }, { status: 500 });
+      return toApiResponse(
+        createAppError("CHAT_PROCESSING_FAILED", { cause: error }),
+        { locale: "cs" }
+      );
     }
   },
   { rateLimit: "chat" }

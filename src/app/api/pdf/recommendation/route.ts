@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { withProProtection } from "@/lib/api/protected";
-import { badRequest, validationError } from "@/lib/api/errors";
+import { validationError } from "@/lib/api/errors";
+import {
+  createAppError,
+  respondWithError,
+  toApiResponse,
+} from "@/lib/errors";
 import { parseJsonBody } from "@/lib/api/parse-request";
 import { renderRecommendationPdfBuffer } from "@/lib/pdf/renderRecommendationPdf";
 import { getRecommendationPdfFilename } from "@/lib/pdf/filename";
@@ -17,7 +22,9 @@ export const POST = withProProtection(
   async (request) => {
     const contentLength = Number(request.headers.get("content-length") ?? 0);
     if (contentLength > PDF_MAX_BODY_BYTES) {
-      return badRequest("Request body too large");
+      return respondWithError("BAD_REQUEST", {
+        message: "Request body too large",
+      });
     }
 
     const parsed = await parseJsonBody(request, pdfRecommendationRequestSchema);
@@ -46,9 +53,8 @@ export const POST = withProProtection(
       });
     } catch (error) {
       console.error("[api/pdf/recommendation]", error);
-      return NextResponse.json(
-        { error: "PDF generation failed" },
-        { status: 500 }
+      return toApiResponse(
+        createAppError("PDF_GENERATION_FAILED", { cause: error })
       );
     }
   },

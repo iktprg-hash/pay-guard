@@ -1,10 +1,16 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { withAuth, type AppRouteContext } from "@/lib/api/protected";
 import { isStripeBillingConfigured } from "@/lib/billing/config";
 import { revalidateSubscriptionPages } from "@/lib/billing/revalidate-subscription";
-import { syncCheckoutSessionForUser, describeBillingSyncClientError } from "@/lib/billing/sync-checkout";
+import { syncCheckoutSessionForUser } from "@/lib/billing/sync-checkout";
 import { getSubscriptionStatus } from "@/lib/stripe";
-import { serviceUnavailable, validationError } from "@/lib/api/errors";
+import { validationError } from "@/lib/api/errors";
+import {
+  appErrorFromBillingSyncCode,
+  createAppError,
+  respondWithError,
+  toApiResponse,
+} from "@/lib/errors";
 import { parseJsonBody } from "@/lib/api/parse-request";
 import { billingConfirmSchema } from "@/lib/validation/schemas";
 
@@ -20,25 +26,21 @@ const handleConfirm = withAuth(
       );
 
       if (!result.ok) {
-        return NextResponse.json(
-          {
-            error: describeBillingSyncClientError(result.code),
-            code: result.code,
-          },
-          { status: 422 }
-        );
+        return toApiResponse(appErrorFromBillingSyncCode(result.code));
       }
 
       const status = await getSubscriptionStatus(user.id);
       revalidateSubscriptionPages();
-      return NextResponse.json({
+      return Response.json({
         pro: true,
         tier: status.tier,
         expiresAt: status.expiresAt,
       });
     } catch (error) {
       console.error("[api/billing/confirm]", error);
-      return NextResponse.json({ error: "Confirm failed" }, { status: 500 });
+      return toApiResponse(
+        createAppError("BILLING_CONFIRM_FAILED", { cause: error })
+      );
     }
   },
   { rateLimit: { scope: "billing-confirm", limit: 20 } }
@@ -47,7 +49,7 @@ const handleConfirm = withAuth(
 /** Activate Pro from a completed Checkout session (fallback when webhook is delayed). */
 export async function POST(request: NextRequest, context: AppRouteContext) {
   if (!isStripeBillingConfigured()) {
-    return serviceUnavailable("Billing is not configured");
+    return respondWithError("BILLING_NOT_CONFIGURED");
   }
 
   return handleConfirm(request, context);

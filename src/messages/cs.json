@@ -33,7 +33,29 @@
     "retry": "Obnovit stránku",
     "notFound": "Stránka nenalezena",
     "notFoundHint": "Odkaz neexistuje nebo byl přesunut.",
-    "backHome": "Zpět na Pay Guard"
+    "backHome": "Zpět na Pay Guard",
+    "api": {
+      "unauthorized": "Pro pokračování se prosím přihlaste.",
+      "forbidden": "Nemáte oprávnění provést tuto akci.",
+      "proRequired": "Tato funkce vyžaduje předplatné Pro.",
+      "rateLimited": "Příliš mnoho požadavků — zkuste to za chvíli.",
+      "validationError": "Některá pole nejsou platná. Zkontrolujte zadání.",
+      "badRequest": "Požadavek nelze zpracovat.",
+      "notFound": "Požadovaný zdroj nebyl nalezen.",
+      "conflict": "Akce je v konfliktu s aktuálním stavem.",
+      "unprocessableEntity": "Požadavek nelze zpracovat.",
+      "chatConsentRequired": "Pro chat je potřeba souhlas se zpracováním dat AI.",
+      "chatProcessingFailed": "Něco se pokazilo v chatu. Zkuste to znovu.",
+      "chatServiceUnavailable": "AI chat je dočasně nedostupný.",
+      "chatUpstreamError": "Služba AI vrátila chybu. Zkuste to znovu.",
+      "prioritizationInsufficientData": "Nedostatek dat pro doporučení — doplňte volné prostředky a alespoň jeden dluh.",
+      "prioritizationFailed": "Prioritizaci se nepodařilo spočítat. Zkuste to znovu.",
+      "pdfGenerationFailed": "PDF se nepodařilo vygenerovat. Zkuste to znovu.",
+      "stripeError": "Platbu se nepodařilo zpracovat. Zkuste to znovu.",
+      "billingNotConfigured": "Fakturace momentálně není k dispozici.",
+      "serviceUnavailable": "Služba je dočasně nedostupná.",
+      "internalError": "Něco se pokazilo. Zkuste to znovu."
+    }
   },
   "nav": {
     "chat": "Chat",

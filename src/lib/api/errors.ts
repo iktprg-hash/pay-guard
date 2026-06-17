@@ -1,50 +1,44 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
+import { createAppError, toApiResponse } from "@/lib/errors";
 
+/** @deprecated Prefer `respondWithError` / `toApiResponse` from `@/lib/errors`. */
 export function validationError(error: ZodError) {
-  return NextResponse.json(
-    {
-      error: "Validation failed",
-      details: error.issues.map((i) => ({
-        path: i.path.join("."),
-        message: i.message,
+  return toApiResponse(
+    createAppError("VALIDATION_ERROR", {
+      details: error.issues.map((issue) => ({
+        path: issue.path.join("."),
+        message: issue.message,
       })),
-    },
-    { status: 400 }
+    })
   );
 }
 
 export function rateLimitError(resetAt: number) {
-  return NextResponse.json(
-    { error: "Too many requests. Please try again later." },
-    {
-      status: 429,
-      headers: {
-        "Retry-After": String(Math.ceil((resetAt - Date.now()) / 1000)),
-      },
-    }
+  return toApiResponse(
+    createAppError("RATE_LIMITED", { details: { resetAt } })
   );
 }
 
-export function unauthorizedError(message = "Unauthorized") {
-  return NextResponse.json({ error: message }, { status: 401 });
+export function unauthorizedError(message = "Authentication required") {
+  return toApiResponse(createAppError("UNAUTHORIZED", { message }));
 }
 
 export function badRequest(message: string) {
-  return NextResponse.json({ error: message }, { status: 400 });
+  return toApiResponse(createAppError("BAD_REQUEST", { message }));
 }
 
 export function serviceUnavailable(message: string) {
-  return NextResponse.json({ error: message }, { status: 503 });
+  return toApiResponse(createAppError("SERVICE_UNAVAILABLE", { message }));
 }
 
 export function proRequiredError() {
-  return NextResponse.json(
-    { error: "Pro subscription required", code: "PRO_REQUIRED" },
-    { status: 403 }
-  );
+  return toApiResponse(createAppError("PRO_REQUIRED"));
 }
 
 export function internalServerError(message = "Internal server error") {
-  return NextResponse.json({ error: message }, { status: 500 });
+  return toApiResponse(createAppError("INTERNAL_ERROR", { message }));
 }
+
+/** Re-export for routes migrating off legacy helpers. */
+export { toApiResponse, respondWithError, createAppError } from "@/lib/errors";

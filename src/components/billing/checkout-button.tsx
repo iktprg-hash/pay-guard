@@ -48,7 +48,10 @@ export function CheckoutButton({
       };
 
       if (!res.ok || !data.url) {
-        if (data.code === "already_pro") {
+        if (
+          data.code === "BILLING_ALREADY_PRO" ||
+          data.code === "already_pro"
+        ) {
           toast(t("alreadyPro"), "default");
           return;
         }
