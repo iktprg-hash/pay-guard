@@ -413,9 +413,16 @@
       "delete": "Удалить",
       "actions": "Действия",
       "confirmDelete": "Удалить эту запись?",
+      "confirmDeleteTitle": "Удалить запись?",
+      "confirmDeleteDescription": "Это действие нельзя отменить. Запись будет удалена навсегда.",
       "customCategory": "Своя категория…",
       "customCategoryName": "Название категории",
       "customCategoryPlaceholder": "например, питомцы, подработка"
+    },
+    "criticalAlert": {
+      "message": "У вас {count, plural, one {# критический долг} few {# критических долга} many {# критических долгов} other {# критического долга}} с просрочкой.",
+      "viewDashboard": "Открыть дашборд",
+      "dismiss": "Закрыть уведомление"
     },
     "dashboard": {
       "title": "Дашборд",

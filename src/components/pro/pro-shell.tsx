@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/components/ui/toast-provider";
 import { useProAccess } from "@/hooks/use-pro-access";
+import { ProCriticalAlert } from "@/components/pro/pro-critical-alert";
 import {
   ProFeatureGate,
 } from "@/components/pro/ProFeatureGate";
@@ -246,6 +247,7 @@ export function ProShell({ children }: { children: React.ReactNode }) {
           className="flex-1 overflow-y-auto pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-8"
           aria-busy={accessLoading || undefined}
         >
+          <ProCriticalAlert />
           <ProErrorBoundary>
             <div className="mx-auto w-full max-w-6xl px-4 py-6 md:px-8 md:py-8">
               <ProFeatureGate

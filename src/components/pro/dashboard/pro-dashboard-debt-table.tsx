@@ -44,6 +44,7 @@ export const ProDashboardDebtTable = memo(function ProDashboardDebtTable({
   }
 
   return (
+    <div className="overflow-x-auto">
     <Table>
       <TableHeader>
         <TableRow>
@@ -79,5 +80,6 @@ export const ProDashboardDebtTable = memo(function ProDashboardDebtTable({
         })}
       </TableBody>
     </Table>
+    </div>
   );
 });

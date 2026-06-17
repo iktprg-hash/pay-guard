@@ -15,6 +15,16 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Card,
   CardContent,
   CardDescription,
@@ -101,6 +111,7 @@ export function ProIncomesView() {
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editing, setEditing] = useState<RecurringIncome | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   const openCreate = () => {
     setEditing(null);
@@ -121,8 +132,8 @@ export function ProIncomesView() {
   };
 
   const handleDelete = async (incomeId: string) => {
-    if (!window.confirm(tForm("confirmDelete"))) return;
     await deleteIncomeAsync(incomeId);
+    setPendingDeleteId(null);
   };
 
   if (isLoading && incomes.length === 0) {
@@ -216,7 +227,8 @@ export function ProIncomesView() {
             <CardHeader>
               <CardTitle className="text-base">{t("listTitle")}</CardTitle>
             </CardHeader>
-            <CardContent className="overflow-x-auto">
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -261,7 +273,7 @@ export function ProIncomesView() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-destructive hover:text-destructive"
-                            onClick={() => void handleDelete(income.id)}
+                            onClick={() => setPendingDeleteId(income.id)}
                             disabled={isDeleting}
                             aria-label={tForm("delete")}
                           >
@@ -273,6 +285,7 @@ export function ProIncomesView() {
                   ))}
                 </TableBody>
               </Table>
+              </div>
             </CardContent>
           </Card>
         </>
@@ -285,6 +298,34 @@ export function ProIncomesView() {
         onSave={handleSave}
         saving={isSaving}
       />
+
+      <AlertDialog
+        open={pendingDeleteId !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDeleteId(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{tForm("confirmDeleteTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {tForm("confirmDeleteDescription")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{tForm("cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={isDeleting}
+              onClick={() => {
+                if (pendingDeleteId) void handleDelete(pendingDeleteId);
+              }}
+            >
+              {tForm("delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

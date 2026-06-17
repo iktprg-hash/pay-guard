@@ -413,9 +413,16 @@
       "delete": "Smazat",
       "actions": "Akce",
       "confirmDelete": "Smazat tuto položku?",
+      "confirmDeleteTitle": "Smazat položku?",
+      "confirmDeleteDescription": "Tuto akci nelze vrátit zpět. Položka bude trvale odstraněna.",
       "customCategory": "Vlastní kategorie…",
       "customCategoryName": "Název kategorie",
       "customCategoryPlaceholder": "např. domácí mazlíčci, brigáda"
+    },
+    "criticalAlert": {
+      "message": "Máte {count, plural, one {# kritický dluh} few {# kritické dluhy} other {# kritických dluhů}} po splatnosti.",
+      "viewDashboard": "Zobrazit přehled",
+      "dismiss": "Zavřít upozornění"
     },
     "dashboard": {
       "title": "Dashboard",

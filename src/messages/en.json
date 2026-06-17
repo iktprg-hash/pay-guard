@@ -413,9 +413,16 @@
       "delete": "Delete",
       "actions": "Actions",
       "confirmDelete": "Delete this item?",
+      "confirmDeleteTitle": "Delete item?",
+      "confirmDeleteDescription": "This action cannot be undone. The item will be permanently removed.",
       "customCategory": "Custom category…",
       "customCategoryName": "Your category name",
       "customCategoryPlaceholder": "e.g. Pet care, Side gig"
+    },
+    "criticalAlert": {
+      "message": "You have {count, plural, one {# critical debt} other {# critical debts}} past due.",
+      "viewDashboard": "View dashboard",
+      "dismiss": "Dismiss alert"
     },
     "dashboard": {
       "title": "Dashboard",
