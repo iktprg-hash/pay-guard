@@ -28,7 +28,10 @@ async function fetchServerSession(
     credentials: "include",
   });
   if (!res.ok) return null;
-  return (await res.json()) as ServerSessionBundle;
+  const data = (await res.json()) as {
+    session?: ServerSessionBundle;
+  } & Partial<ServerSessionBundle>;
+  return data.session ?? (data as ServerSessionBundle);
 }
 
 /** Po přihlášení — stáhne cloud relace a nahraje lokální na server */

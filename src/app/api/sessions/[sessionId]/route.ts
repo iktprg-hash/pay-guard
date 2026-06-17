@@ -28,8 +28,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const supabase = await createClient();
   const bundle = await loadUserSessionBundle(supabase, sessionId, guard.user.id);
   if (!bundle) {
-    return NextResponse.json({ error: "Session not found" }, { status: 404 });
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  return NextResponse.json(bundle);
+  return NextResponse.json({ session: bundle });
 }

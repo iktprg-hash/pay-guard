@@ -150,9 +150,11 @@ describe("GET /api/sessions/[sessionId]", () => {
     );
 
     expect(res.status).toBe(200);
-    const body = (await res.json()) as Record<string, unknown>;
-    expect(body.sessionId).toBe(sessionA);
-    expect(body).not.toHaveProperty("sessionToken");
+    const body = (await res.json()) as {
+      session: Record<string, unknown>;
+    };
+    expect(body.session.sessionId).toBe(sessionA);
+    expect(body.session).not.toHaveProperty("sessionToken");
   });
 
   it("returns 400 for invalid sessionId UUID", async () => {
