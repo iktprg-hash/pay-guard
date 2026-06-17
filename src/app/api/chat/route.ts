@@ -6,9 +6,9 @@ import { withAuth } from "@/lib/api/protected";
 import { getUserGrokConsent } from "@/lib/auth/grok-consent";
 import {
   createAppError,
+  handleApiError,
   respondWithError,
   respondWithValidationError,
-  toApiResponse,
 } from "@/lib/errors";
 import { parseJsonBody } from "@/lib/api/parse-request";
 import {
@@ -28,7 +28,7 @@ export const POST = withAuth(
 
       const hasConsent = await getUserGrokConsent(user.id);
       if (!hasConsent) {
-        return respondWithError("CHAT_CONSENT_REQUIRED");
+        return respondWithError("UNAUTHORIZED");
       }
 
       const normalizedProfile = normalizeProfile(profile);
@@ -86,17 +86,18 @@ export const POST = withAuth(
       });
     } catch (error) {
       if (error instanceof GrokUnavailableError) {
-        return respondWithError("CHAT_SERVICE_UNAVAILABLE");
+        return respondWithError("INTERNAL_ERROR", { statusCode: 503 });
       }
       if (error instanceof GrokRequestError) {
         console.error("[api/chat] grok status:", error.status);
-        return respondWithError("CHAT_UPSTREAM_ERROR", {
+        return respondWithError("CHAT_PROCESSING_FAILED", {
+          statusCode: 502,
           details: { upstreamStatus: error.status },
         });
       }
       console.error("[api/chat]", error);
-      return toApiResponse(
-        createAppError("CHAT_PROCESSING_FAILED", { cause: error }),
+      return handleApiError(
+        createAppError("CHAT_PROCESSING_FAILED", { details: error }),
         { locale: "cs" }
       );
     }

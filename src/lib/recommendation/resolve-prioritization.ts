@@ -1,7 +1,7 @@
-import { runPriorityEngine } from "@/services/priorityEngine";
+import { apiFetch } from "@/lib/api/client-fetch";
 import type { FinancialProfile, PrioritizationResult } from "@/lib/types/financial";
 import type { Locale } from "@/i18n/routing";
-import { appErrorFromResponse, getUserFriendlyMessage } from "@/lib/errors";
+import { runPriorityEngine } from "@/services/priorityEngine";
 
 export function isOfflineEnvironment(): boolean {
   return typeof navigator !== "undefined" && !navigator.onLine;
@@ -18,17 +18,11 @@ export async function resolvePrioritization(
     return runPriorityEngine(profile, locale);
   }
 
-  const res = await fetch("/api/prioritize", {
+  return apiFetch<PrioritizationResult>("/api/prioritize", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
     body: JSON.stringify({ profile, locale }),
+    locale,
   });
-
-  if (!res.ok) {
-    const appError = await appErrorFromResponse(res, locale);
-    throw new Error(getUserFriendlyMessage(appError, locale));
-  }
-
-  return res.json() as Promise<PrioritizationResult>;
 }

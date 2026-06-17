@@ -5,7 +5,7 @@ import { revalidateSubscriptionPages } from "@/lib/billing/revalidate-subscripti
 import { syncCheckoutSessionForUser } from "@/lib/billing/sync-checkout";
 import { getSubscriptionStatus } from "@/lib/stripe";
 import {
-  appErrorFromBillingSyncCode,
+  mapBillingSyncCodeToAppError,
   createAppError,
   respondWithError,
   respondWithValidationError,
@@ -26,7 +26,7 @@ const handleConfirm = withAuth(
       );
 
       if (!result.ok) {
-        return toApiResponse(appErrorFromBillingSyncCode(result.code));
+        return toApiResponse(mapBillingSyncCodeToAppError(result.code));
       }
 
       const status = await getSubscriptionStatus(user.id);
@@ -39,7 +39,7 @@ const handleConfirm = withAuth(
     } catch (error) {
       console.error("[api/billing/confirm]", error);
       return toApiResponse(
-        createAppError("BILLING_CONFIRM_FAILED", { cause: error })
+        createAppError("STRIPE_ERROR", { details: error })
       );
     }
   },
@@ -49,7 +49,7 @@ const handleConfirm = withAuth(
 /** Activate Pro from a completed Checkout session (fallback when webhook is delayed). */
 export async function POST(request: NextRequest, context: AppRouteContext) {
   if (!isStripeBillingConfigured()) {
-    return respondWithError("BILLING_NOT_CONFIGURED");
+    return respondWithError("STRIPE_ERROR", { statusCode: 503 });
   }
 
   return handleConfirm(request, context);

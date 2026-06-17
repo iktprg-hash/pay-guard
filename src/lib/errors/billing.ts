@@ -1,25 +1,37 @@
 import { StripeServiceError } from "@/lib/stripe";
-import { createAppError, type AppError } from "@/lib/errors/app-error";
 import { describeBillingSyncClientError } from "@/lib/billing/sync-checkout";
+import { createAppError } from "@/lib/errors/utils";
+import type { AppError } from "@/lib/errors/app-error";
 
-export function appErrorFromStripeService(error: StripeServiceError): AppError {
+/** Maps Stripe service failures to typed {@link AppError} instances. */
+export function mapStripeErrorToAppError(error: StripeServiceError): AppError {
   switch (error.code) {
     case "not_configured":
-      return createAppError("BILLING_NOT_CONFIGURED");
+      return createAppError("STRIPE_ERROR", { statusCode: 503 });
     case "already_pro":
-      return createAppError("BILLING_ALREADY_PRO");
+      return createAppError("STRIPE_ERROR", {
+        message: error.message,
+        details: { stripeCode: "already_pro" },
+      });
     case "email_required":
-      return createAppError("BILLING_EMAIL_REQUIRED");
+      return createAppError("VALIDATION_ERROR", { message: error.message });
     case "no_customer":
-      return createAppError("BILLING_NO_CUSTOMER");
+      return createAppError("STRIPE_ERROR", { message: error.message });
     default:
       return createAppError("STRIPE_ERROR", { message: error.message });
   }
 }
 
-export function appErrorFromBillingSyncCode(code: string): AppError {
-  return createAppError("UNPROCESSABLE_ENTITY", {
+/** Maps billing sync result codes to validation errors for the client. */
+export function mapBillingSyncCodeToAppError(code: string): AppError {
+  return createAppError("VALIDATION_ERROR", {
     message: describeBillingSyncClientError(code),
     details: { syncCode: code },
   });
 }
+
+/** @deprecated Use {@link mapStripeErrorToAppError}. */
+export const appErrorFromStripeService = mapStripeErrorToAppError;
+
+/** @deprecated Use {@link mapBillingSyncCodeToAppError}. */
+export const appErrorFromBillingSyncCode = mapBillingSyncCodeToAppError;

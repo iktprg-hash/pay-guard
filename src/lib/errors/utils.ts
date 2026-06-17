@@ -1,188 +1,136 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
+import { AppError } from "./app-error";
+import type { ErrorCode } from "./codes";
+import { getUserErrorMessage } from "./user-messages";
 import type { Locale } from "@/i18n/routing";
-import {
-  createAppError,
-  AppErrorImpl,
-  type AppError,
-  type CreateAppErrorOptions,
-} from "@/lib/errors/app-error";
-import {
-  getErrorDefinition,
-  isAppErrorCode,
-  type AppErrorCode,
-} from "@/lib/errors/codes";
-import { getUserErrorMessage, getUserErrorMessageFromError } from "@/lib/errors/user-messages";
 
+/** Standard JSON body for API error responses. */
 export interface ApiErrorBody {
-  error: string;
-  code: AppErrorCode;
-  userMessage?: string;
+  error: ErrorCode;
+  message: string;
+}
+
+export interface CreateAppErrorOptions {
+  message?: string;
+  statusCode?: number;
   details?: unknown;
 }
 
-export function isAppError(error: unknown): error is AppError {
-  return error instanceof AppErrorImpl;
+export interface ApiErrorOptions {
+  locale?: Locale;
 }
 
-/** User-facing message with locale fallback. */
-export function getUserFriendlyMessage(
-  error: AppError | AppErrorCode,
-  locale: Locale = "cs"
-): string {
-  if (typeof error === "string") {
-    return getUserErrorMessage(error, locale);
-  }
-  return getUserErrorMessageFromError(error, locale);
+export interface RespondWithErrorOptions extends CreateAppErrorOptions {
+  locale?: Locale;
 }
 
-function rateLimitResetAt(details: unknown): number | undefined {
-  if (
-    typeof details === "object" &&
-    details !== null &&
-    "resetAt" in details &&
-    typeof (details as { resetAt: unknown }).resetAt === "number"
-  ) {
-    return (details as { resetAt: number }).resetAt;
+/** Default HTTP status for each {@link ErrorCode}. */
+function getDefaultStatusCode(code: ErrorCode): number {
+  switch (code) {
+    case "UNAUTHORIZED":
+      return 401;
+    case "FORBIDDEN":
+    case "PRO_REQUIRED":
+      return 403;
+    case "RATE_LIMITED":
+      return 429;
+    case "VALIDATION_ERROR":
+      return 400;
+    default:
+      return 500;
   }
-  return undefined;
 }
 
-/** Serialize AppError (or unknown) to a JSON NextResponse. */
-export function toApiResponse(
-  error: unknown,
-  options?: { locale?: Locale }
-): NextResponse<ApiErrorBody> {
-  const appError = normalizeToAppError(error);
-  const locale = options?.locale ?? "cs";
-
-  const body: ApiErrorBody = {
-    error: appError.message,
-    code: appError.code,
-    userMessage: appError.userMessage ?? getUserFriendlyMessage(appError, locale),
-  };
-
-  if (appError.details !== undefined) {
-    body.details = appError.details;
-  }
-
-  const headers: HeadersInit = {};
-  if (appError.code === "RATE_LIMITED") {
-    const resetAt = rateLimitResetAt(appError.details);
-    if (resetAt !== undefined) {
-      headers["Retry-After"] = String(
-        Math.max(1, Math.ceil((resetAt - Date.now()) / 1000))
-      );
-    }
-  }
-
-  return NextResponse.json(body, {
-    status: appError.statusCode,
-    headers,
-  });
+/** Factory for typed application errors. */
+export function createAppError(
+  code: ErrorCode,
+  options?: CreateAppErrorOptions
+): AppError {
+  const statusCode = options?.statusCode ?? getDefaultStatusCode(code);
+  const message = options?.message ?? code;
+  return new AppError(code, message, statusCode, options?.details);
 }
 
-/** Coerce unknown thrown values into AppError. */
-export function normalizeToAppError(error: unknown): AppError {
-  if (isAppError(error)) return error;
+/** Coerce unknown thrown values into {@link AppError}. */
+function normalizeToAppError(error: unknown): AppError {
+  if (error instanceof AppError) return error;
 
   if (error instanceof ZodError) {
-    return createAppError("VALIDATION_ERROR", {
-      details: error.issues.map((issue) => ({
-        path: issue.path.join("."),
-        message: issue.message,
-      })),
-    });
+    return createAppError("VALIDATION_ERROR", { details: error.issues });
   }
 
   if (error instanceof Error) {
     return createAppError("INTERNAL_ERROR", {
       message: error.message,
-      cause: error,
+      details: error,
     });
   }
 
-  return createAppError("INTERNAL_ERROR", {
-    details: error,
-  });
+  return createAppError("INTERNAL_ERROR", { details: error });
 }
 
-function statusToFallbackCode(status: number): AppErrorCode {
-  switch (status) {
-    case 400:
-      return "BAD_REQUEST";
-    case 401:
-      return "UNAUTHORIZED";
-    case 403:
-      return "FORBIDDEN";
-    case 404:
-      return "NOT_FOUND";
-    case 409:
-      return "CONFLICT";
-    case 422:
-      return "UNPROCESSABLE_ENTITY";
-    case 429:
-      return "RATE_LIMITED";
-    case 502:
-    case 503:
-      return "SERVICE_UNAVAILABLE";
-    default:
-      return status >= 500 ? "INTERNAL_ERROR" : "BAD_REQUEST";
+/** Serialize any error to `{ error, message }` JSON with the correct HTTP status. */
+export function toApiResponse(
+  error: unknown,
+  options?: ApiErrorOptions
+): NextResponse<ApiErrorBody> {
+  const locale = options?.locale ?? "cs";
+  const appError = normalizeToAppError(error);
+
+  if (!(error instanceof AppError) && !(error instanceof ZodError)) {
+    console.error("Unhandled error:", error);
   }
+
+  return NextResponse.json(
+    {
+      error: appError.code,
+      message: getUserErrorMessage(appError.code, locale),
+    } satisfies ApiErrorBody,
+    { status: appError.statusCode }
+  );
 }
 
-/** Parse API error JSON from a failed fetch Response (client-safe). */
-export async function appErrorFromResponse(
-  response: Response,
+/** Universal catch-block handler for API routes. */
+export function handleApiError(
+  error: unknown,
+  options?: ApiErrorOptions
+): NextResponse<ApiErrorBody> {
+  return toApiResponse(error, options);
+}
+
+/** User-facing message from {@link AppError} or unknown failure (client-safe). */
+export function getUserErrorMessageFromError(
+  error: unknown,
   locale: Locale = "cs"
-): Promise<AppError> {
-  let body: Partial<ApiErrorBody> | null = null;
-
-  try {
-    body = (await response.json()) as Partial<ApiErrorBody>;
-  } catch {
-    body = null;
+): string {
+  if (error instanceof AppError) {
+    return getUserErrorMessage(error.code, locale);
   }
-
-  const code =
-    body?.code && isAppErrorCode(body.code)
-      ? body.code
-      : statusToFallbackCode(response.status);
-
-  const definition = getErrorDefinition(code);
-
-  return createAppError(code, {
-    message: body?.error ?? definition.message,
-    userMessage:
-      body?.userMessage ?? getUserErrorMessage(code, locale),
-    statusCode: response.status || definition.statusCode,
-    details: body?.details,
-  });
+  if (error instanceof Error && error.message === "OFFLINE") {
+    return getUserErrorMessage("NETWORK_ERROR", locale);
+  }
+  return getUserErrorMessage("UNKNOWN_ERROR", locale);
 }
 
-/** Shorthand for routes: throw-style helper that returns NextResponse. */
+/** Type guard for {@link AppError}. */
+export function isAppError(error: unknown): error is AppError {
+  return error instanceof AppError;
+}
+
+/** Shorthand for routes — returns a typed error {@link NextResponse}. */
 export function respondWithError(
-  code: AppErrorCode,
-  options?: CreateAppErrorOptions
+  code: ErrorCode,
+  options?: RespondWithErrorOptions
 ): NextResponse<ApiErrorBody> {
-  return toApiResponse(createAppError(code, options));
+  const { locale, ...errorOptions } = options ?? {};
+  return toApiResponse(createAppError(code, errorOptions), { locale });
 }
 
-/** Zod validation issues for API error details. */
-export function formatZodValidationDetails(error: ZodError) {
-  return error.issues.map((issue) => ({
-    path: issue.path.join("."),
-    message: issue.message,
-  }));
-}
-
-/** Validation failed — 400 with issue details. */
+/** Zod validation failure → 400 `VALIDATION_ERROR`. */
 export function respondWithValidationError(
-  error: ZodError
+  error: ZodError,
+  options?: ApiErrorOptions
 ): NextResponse<ApiErrorBody> {
-  return respondWithError("VALIDATION_ERROR", {
-    details: formatZodValidationDetails(error),
-  });
+  return toApiResponse(createAppError("VALIDATION_ERROR", { details: error.issues }), options);
 }
-
-export { createAppError };

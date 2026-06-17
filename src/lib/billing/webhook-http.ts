@@ -14,14 +14,15 @@ export async function respondToStripeWebhook(
   const webhookSecret = getStripeWebhookSecret();
   if (!webhookSecret) {
     console.error("[stripe/webhook] missing webhook secret for current Stripe mode");
-    return respondWithError("SERVICE_UNAVAILABLE", {
+    return respondWithError("INTERNAL_ERROR", {
+      statusCode: 503,
       message: "Webhook not configured",
     });
   }
 
   if (rawBody.length > STRIPE_WEBHOOK_MAX_BODY_BYTES) {
     console.warn("[stripe/webhook] body too large", { bytes: rawBody.length });
-    return respondWithError("BAD_REQUEST", {
+    return respondWithError("VALIDATION_ERROR", {
       message: "Request body too large",
     });
   }
@@ -39,7 +40,7 @@ export async function respondToStripeWebhook(
     });
     return toApiResponse(
       createAppError(
-        result.status === 400 ? "BAD_REQUEST" : "INTERNAL_ERROR",
+        result.status === 400 ? "VALIDATION_ERROR" : "INTERNAL_ERROR",
         { message: result.error }
       )
     );

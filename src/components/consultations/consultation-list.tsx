@@ -7,6 +7,8 @@ import { Loader2 } from "lucide-react";
 import { ConsultationCard } from "@/components/consultations/consultation-card";
 import { Button } from "@/components/ui/button";
 import { listLocalSessions } from "@/lib/chat/storage";
+import { apiFetch } from "@/lib/api/client-fetch";
+import { getUserErrorMessageFromError } from "@/lib/errors";
 import type { SessionSummary } from "@/lib/chat/persistence";
 import type { Locale } from "@/i18n/routing";
 
@@ -90,15 +92,13 @@ export function ConsultationList({ locale, isPro }: ConsultationListProps) {
 
       if (isPro) {
         try {
-          const res = await fetch("/api/sessions", { credentials: "include" });
-          if (!res.ok) {
-            setError(t("loadError"));
-          } else {
-            const data = (await res.json()) as { sessions?: SessionSummary[] };
-            cloud = data.sessions ?? [];
-          }
-        } catch {
-          setError(t("loadError"));
+          const data = await apiFetch<{ sessions?: SessionSummary[] }>(
+            "/api/sessions",
+            { locale }
+          );
+          cloud = data.sessions ?? [];
+        } catch (err) {
+          setError(getUserErrorMessageFromError(err, locale));
         }
       }
 

@@ -7,6 +7,19 @@ import { CreditCard, Loader2 } from "lucide-react";
 import { useAuth } from "@/components/providers/auth-provider";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast-provider";
+import { apiFetch } from "@/lib/api/client-fetch";
+import { AppError } from "@/lib/errors/app-error";
+import { getUserErrorMessageFromError } from "@/lib/errors";
+
+function isAlreadyProStripeError(error: unknown): boolean {
+  return (
+    error instanceof AppError &&
+    error.details !== null &&
+    typeof error.details === "object" &&
+    "stripeCode" in error.details &&
+    (error.details as { stripeCode?: string }).stripeCode === "already_pro"
+  );
+}
 import type { Locale } from "@/i18n/routing";
 
 interface CheckoutButtonProps {
@@ -21,7 +34,6 @@ export function CheckoutButton({
   className,
 }: CheckoutButtonProps) {
   const t = useTranslations("pricing");
-  const tToast = useTranslations("toast");
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -34,34 +46,20 @@ export function CheckoutButton({
 
     setLoading(true);
     try {
-      const res = await fetch("/api/billing/checkout", {
+      const data = await apiFetch<{ url: string }>("/api/billing/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({ locale }),
+        locale,
       });
 
-      const data = (await res.json()) as {
-        url?: string;
-        error?: string;
-        code?: string;
-      };
-
-      if (!res.ok || !data.url) {
-        if (
-          data.code === "BILLING_ALREADY_PRO" ||
-          data.code === "already_pro"
-        ) {
-          toast(t("alreadyPro"), "default");
-          return;
-        }
-        toast(tToast("checkoutFailed"), "error");
+      window.location.href = data.url;
+    } catch (err) {
+      if (isAlreadyProStripeError(err)) {
+        toast(t("alreadyPro"), "default");
         return;
       }
-
-      window.location.href = data.url;
-    } catch {
-      toast(tToast("checkoutFailed"), "error");
+      toast(getUserErrorMessageFromError(err, locale), "error");
     } finally {
       setLoading(false);
     }
@@ -91,26 +89,20 @@ export function ManageSubscriptionButton({
   className,
 }: ManageSubscriptionButtonProps) {
   const t = useTranslations("billing");
-  const tToast = useTranslations("toast");
   const [loading, setLoading] = useState(false);
 
   const openPortal = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/billing/portal", {
+      const data = await apiFetch<{ url: string }>("/api/billing/portal", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({ locale }),
+        locale,
       });
-      const data = (await res.json()) as { url?: string };
-      if (!res.ok || !data.url) {
-        toast(tToast("portalFailed"), "error");
-        return;
-      }
       window.location.href = data.url;
-    } catch {
-      toast(tToast("portalFailed"), "error");
+    } catch (err) {
+      toast(getUserErrorMessageFromError(err, locale), "error");
     } finally {
       setLoading(false);
     }

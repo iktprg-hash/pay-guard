@@ -4,26 +4,13 @@ import type {
   UserFinancialProfile,
 } from "@/lib/types/financial";
 import type { Locale } from "@/i18n/routing";
+import { apiFetchResponse } from "@/lib/api/client-fetch";
+import { AppError } from "@/lib/errors/app-error";
 import { getRecommendationPdfFilename } from "@/lib/pdf/filename";
 
-export const PDF_ERROR_PRO_REQUIRED = "PRO_REQUIRED";
-export const PDF_ERROR_RATE_LIMITED = "RATE_LIMITED";
-
-export class PdfDownloadError extends Error {
-  constructor(
-    message: string,
-    readonly code?: string
-  ) {
-    super(message);
-    this.name = "PdfDownloadError";
-  }
-}
-
+/** @deprecated Use {@link isAppError} with `code === "PRO_REQUIRED"`. */
 export function isPdfProRequiredError(error: unknown): boolean {
-  return (
-    error instanceof PdfDownloadError &&
-    error.code === PDF_ERROR_PRO_REQUIRED
-  );
+  return error instanceof AppError && error.code === "PRO_REQUIRED";
 }
 
 export interface DownloadRecommendationPdfOptions {
@@ -36,42 +23,18 @@ export interface DownloadRecommendationPdfOptions {
 export async function downloadRecommendationPdf(
   options: DownloadRecommendationPdfOptions
 ): Promise<void> {
-  const res = await fetch("/api/pdf/recommendation", {
+  const res = await apiFetchResponse("/api/pdf/recommendation", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    credentials: "include",
     body: JSON.stringify(options),
+    locale: options.locale,
   });
-
-  if (res.status === 403) {
-    const data = (await res.json().catch(() => ({}))) as { code?: string };
-    throw new PdfDownloadError(
-      "Pro subscription required for PDF export",
-      data.code ?? PDF_ERROR_PRO_REQUIRED
-    );
-  }
-
-  if (res.status === 429) {
-    const retryAfter = res.headers.get("Retry-After");
-    throw new PdfDownloadError(
-      retryAfter
-        ? `Too many PDF requests. Retry in ${retryAfter}s.`
-        : "Too many PDF requests. Please try again later.",
-      PDF_ERROR_RATE_LIMITED
-    );
-  }
-
-  if (!res.ok) {
-    const data = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new PdfDownloadError(data.error ?? "PDF generation failed");
-  }
 
   const blob = await res.blob();
   const disposition = res.headers.get("Content-Disposition");
   const headerMatch = disposition?.match(/filename="([^"]+)"/);
   const filename =
-    headerMatch?.[1] ??
-    getRecommendationPdfFilename(options.locale);
+    headerMatch?.[1] ?? getRecommendationPdfFilename(options.locale);
 
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");

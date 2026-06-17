@@ -26,10 +26,8 @@ import { ChatSkeleton } from "@/components/ui/page-loader";
 import type { ChatMessage, PrioritizationResult } from "@/lib/types/financial";
 import type { Locale } from "@/i18n/routing";
 import { getIntlLocale } from "@/lib/utils";
-import {
-  appErrorFromResponse,
-  getUserErrorMessageFromError,
-} from "@/lib/errors";
+import { apiFetch } from "@/lib/api/client-fetch";
+import { getUserErrorMessageFromError } from "@/lib/errors";
 
 function generateId() {
   return crypto.randomUUID();
@@ -175,23 +173,23 @@ export function Chat() {
           content: m.content,
         }));
 
-        const res = await fetch("/api/chat", {
+        const data = await apiFetch<{
+          message: string;
+          profileUpdate?: Record<string, unknown> | null;
+          profile?: typeof profileRef.current;
+          readyForRecommendation?: boolean;
+          recommendation?: PrioritizationResult | null;
+          stage?: string;
+        }>("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          credentials: "include",
           body: JSON.stringify({
             messages: history,
             profile: profileRef.current,
             locale,
           }),
+          locale,
         });
-
-        if (!res.ok) {
-          const appError = await appErrorFromResponse(res, locale);
-          throw appError;
-        }
-
-        const data = await res.json();
 
         const merged = data.profileUpdate
           ? mergeProfileUpdate(profileRef.current, data.profileUpdate)
@@ -290,13 +288,13 @@ export function Chat() {
         profile: profileRef.current,
       });
       setCanRecommend(false);
-    } catch {
+    } catch (err) {
       setMessages((prev) => [
         ...prev,
         {
           id: generateId(),
           role: "assistant",
-          content: t("error"),
+          content: getUserErrorMessageFromError(err, locale),
           timestamp: new Date(),
         },
       ]);

@@ -5,6 +5,10 @@ import { getToastCopy, pickBrowserLocale } from "@/lib/pwa/static-messages";
 import type { FinancialProfile } from "@/lib/types/financial";
 import { serializeMessages, type StoredMessage } from "@/lib/chat/storage";
 import type { ChatMessage } from "@/lib/types/financial";
+import { apiFetchResponse } from "@/lib/api/client-fetch";
+import { AppError } from "@/lib/errors/app-error";
+import { getUserErrorMessageFromError, isAppError } from "@/lib/errors";
+import type { Locale } from "@/i18n/routing";
 
 export interface PushHistoryPayload {
   sessionId: string;
@@ -31,25 +35,30 @@ export async function pushChatHistoryToServer(
 ): Promise<Response | null> {
   if (typeof navigator !== "undefined" && !navigator.onLine) return null;
 
-  const res = await fetch("/api/chat/history", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify({
-      sessionId: payload.sessionId,
-      ...(payload.sessionToken ? { sessionToken: payload.sessionToken } : {}),
-      locale: payload.locale,
-      messages: normalizeMessages(payload.messages),
-      profile: payload.profile,
-    }),
-  });
+  const locale = (payload.locale === "ru" || payload.locale === "en"
+    ? payload.locale
+    : "cs") as Locale;
 
-  if (res.status === 403) {
-    const copy = getToastCopy(pickBrowserLocale());
-    toast(copy.cloudHistoryProOnly, "default");
-  } else if (res.status === 429) {
-    toast("Too many requests. Please try again later.", "error");
+  try {
+    return await apiFetchResponse("/api/chat/history", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId: payload.sessionId,
+        ...(payload.sessionToken ? { sessionToken: payload.sessionToken } : {}),
+        locale: payload.locale,
+        messages: normalizeMessages(payload.messages),
+        profile: payload.profile,
+      }),
+      locale,
+    });
+  } catch (error) {
+    if (isAppError(error) && error.code === "PRO_REQUIRED") {
+      const copy = getToastCopy(pickBrowserLocale());
+      toast(copy.cloudHistoryProOnly, "default");
+    } else {
+      toast(getUserErrorMessageFromError(error, locale), "error");
+    }
+    return null;
   }
-
-  return res;
 }

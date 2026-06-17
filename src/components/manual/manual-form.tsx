@@ -12,6 +12,7 @@ import { OfflineRecommendationCard } from "@/components/pwa/OfflineRecommendatio
 import { Spinner } from "@/components/ui/page-loader";
 import { persistChatRecommendation } from "@/lib/chat/persist-recommendation";
 import { resolvePrioritization } from "@/lib/recommendation/resolve-prioritization";
+import { getUserErrorMessageFromError } from "@/lib/errors";
 import { useProAccess } from "@/hooks/use-pro-access";
 import { useCreateFinancialSession, useDebts } from "@/hooks/useProFinancial";
 import type { Debt, DebtCategory, FinancialProfile, PrioritizationResult } from "@/lib/types/financial";
@@ -97,8 +98,8 @@ export function ManualForm() {
           : undefined,
       });
       setResult(data);
-    } catch {
-      setError(t("error"));
+    } catch (err) {
+      setError(getUserErrorMessageFromError(err, locale));
     } finally {
       setLoading(false);
     }

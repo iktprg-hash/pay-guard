@@ -25,7 +25,7 @@ export const GET = withProProtection<RouteContext>(
     );
 
     if (!bundle) {
-      return respondWithError("NOT_FOUND");
+      return respondWithError("FORBIDDEN", { statusCode: 404 });
     }
 
     return NextResponse.json({ session: bundle });

@@ -27,7 +27,10 @@ export async function POST(request: NextRequest, _context: AppRouteContext) {
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!url || !key || url.includes("your-project")) {
-    return respondWithError("SERVICE_UNAVAILABLE", { message: "Supabase is not configured in .env.local" });
+    return respondWithError("INTERNAL_ERROR", {
+      statusCode: 503,
+      message: "Supabase is not configured in .env.local",
+    });
   }
 
   const locale = parsed.data.locale ?? "cs";

@@ -24,7 +24,7 @@ export const POST = withAuth(
       const normalizedProfile = normalizeProfile(profile);
 
       if (!hasMinimumRecommendationData(normalizedProfile)) {
-        return respondWithError("PRIORITIZATION_INSUFFICIENT_DATA");
+        return respondWithError("VALIDATION_ERROR");
       }
 
       const result = runPriorityEngine(normalizedProfile, locale);
@@ -33,7 +33,7 @@ export const POST = withAuth(
     } catch (error) {
       console.error("[api/prioritize]", error);
       return toApiResponse(
-        createAppError("PRIORITIZATION_FAILED", { cause: error }),
+        createAppError("PRIORITIZATION_FAILED", { details: error }),
         { locale: parsed.data.locale }
       );
     }

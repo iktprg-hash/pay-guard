@@ -54,7 +54,7 @@ export const POST = withProProtection(
     } catch (error) {
       console.error("[api/sessions POST]", error);
       return toApiResponse(
-        createAppError("INTERNAL_ERROR", { message: "Server error", cause: error })
+        createAppError("INTERNAL_ERROR", { message: "Server error", details: error })
       );
     }
   },

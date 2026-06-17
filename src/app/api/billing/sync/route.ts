@@ -5,7 +5,7 @@ import { syncActiveSubscriptionByEmail } from "@/lib/billing/sync-checkout";
 import { revalidateSubscriptionPages } from "@/lib/billing/revalidate-subscription";
 import { getSubscriptionStatus } from "@/lib/stripe";
 import {
-  appErrorFromBillingSyncCode,
+  mapBillingSyncCodeToAppError,
   createAppError,
   respondWithError,
   toApiResponse,
@@ -14,14 +14,14 @@ import {
 const handleSync = withAuth(
   async (_request, { user }) => {
     if (!user.email) {
-      return respondWithError("BILLING_EMAIL_REQUIRED");
+      return respondWithError("VALIDATION_ERROR");
     }
 
     try {
       const result = await syncActiveSubscriptionByEmail(user.id, user.email);
 
       if (!result.ok) {
-        return toApiResponse(appErrorFromBillingSyncCode(result.code));
+        return toApiResponse(mapBillingSyncCodeToAppError(result.code));
       }
 
       const status = await getSubscriptionStatus(user.id);
@@ -34,7 +34,7 @@ const handleSync = withAuth(
     } catch (error) {
       console.error("[api/billing/sync]", error);
       return toApiResponse(
-        createAppError("BILLING_SYNC_FAILED", { cause: error })
+        createAppError("STRIPE_ERROR", { details: error })
       );
     }
   },
@@ -44,7 +44,7 @@ const handleSync = withAuth(
 /** Recover Pro from Stripe by account email (e.g. webhook missed). */
 export async function POST(request: NextRequest, context: AppRouteContext) {
   if (!isStripeBillingConfigured()) {
-    return respondWithError("BILLING_NOT_CONFIGURED");
+    return respondWithError("STRIPE_ERROR", { statusCode: 503 });
   }
 
   return handleSync(request, context);

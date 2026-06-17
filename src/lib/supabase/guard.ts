@@ -6,7 +6,8 @@ import {
 
 /** Standard 503 when Supabase env is missing — use at the top of auth routes. */
 export function supabaseNotConfiguredResponse() {
-  return respondWithError("SERVICE_UNAVAILABLE", {
+  return respondWithError("INTERNAL_ERROR", {
+    statusCode: 503,
     message: `Supabase is not configured. ${SUPABASE_ENV_HINT}`,
   });
 }

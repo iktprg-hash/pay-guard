@@ -7,7 +7,7 @@ import {
 import { isStripeBillingConfigured } from "@/lib/billing/config";
 import { resolveSiteOrigin } from "@/lib/site/url";
 import {
-  appErrorFromStripeService,
+  mapStripeErrorToAppError,
   createAppError,
   respondWithError,
   respondWithValidationError,
@@ -32,14 +32,14 @@ const handlePortal = withAuth(
       return Response.json({ url });
     } catch (error) {
       if (error instanceof StripeServiceError) {
-        return toApiResponse(appErrorFromStripeService(error));
+        return toApiResponse(mapStripeErrorToAppError(error));
       }
 
       console.error("[api/billing/portal]", error);
       return toApiResponse(
         createAppError("STRIPE_ERROR", {
           message: "Portal failed",
-          cause: error,
+          details: error,
         })
       );
     }
@@ -50,7 +50,7 @@ const handlePortal = withAuth(
 /** Stripe Customer Portal — manage / cancel subscription. */
 export async function POST(request: NextRequest, context: AppRouteContext) {
   if (!isStripeBillingConfigured()) {
-    return respondWithError("BILLING_NOT_CONFIGURED");
+    return respondWithError("STRIPE_ERROR", { statusCode: 503 });
   }
 
   return handlePortal(request, context);

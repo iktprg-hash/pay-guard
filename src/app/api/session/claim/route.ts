@@ -18,7 +18,10 @@ export const POST = withAuth(
     );
 
     if (!ok) {
-      return respondWithError("CONFLICT", { message: "Session claim failed" });
+      return respondWithError("VALIDATION_ERROR", {
+        message: "Session claim failed",
+        statusCode: 409,
+      });
     }
 
     return NextResponse.json({ ok: true });

@@ -22,7 +22,7 @@ export const POST = withProProtection(
   async (request) => {
     const contentLength = Number(request.headers.get("content-length") ?? 0);
     if (contentLength > PDF_MAX_BODY_BYTES) {
-      return respondWithError("BAD_REQUEST", {
+      return respondWithError("VALIDATION_ERROR", {
         message: "Request body too large",
       });
     }
@@ -54,7 +54,7 @@ export const POST = withProProtection(
     } catch (error) {
       console.error("[api/pdf/recommendation]", error);
       return toApiResponse(
-        createAppError("PDF_GENERATION_FAILED", { cause: error })
+        createAppError("PDF_GENERATION_FAILED", { details: error })
       );
     }
   },

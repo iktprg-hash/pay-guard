@@ -9,6 +9,8 @@ import {
 import { downloadPriorityReport } from "@/lib/export/pdfReport";
 import { toast } from "@/components/ui/toast-provider";
 import { useProAccess } from "@/hooks/use-pro-access";
+import { AppError } from "@/lib/errors/app-error";
+import { getUserErrorMessageFromError } from "@/lib/errors";
 import type {
   FinancialProfile,
   PrioritizationResult,
@@ -79,10 +81,13 @@ export function useRecommendationPdfDownload() {
         return true;
       } catch (error) {
         console.error("[pdf] download failed", error);
-        if (isPdfProRequiredError(error)) {
+        if (
+          isPdfProRequiredError(error) ||
+          (error instanceof AppError && error.code === "PRO_REQUIRED")
+        ) {
           showProRequiredToast();
         } else {
-          toast(t("pdfFailed"), "error");
+          toast(getUserErrorMessageFromError(error, locale), "error");
         }
         return false;
       } finally {

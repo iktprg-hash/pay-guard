@@ -51,7 +51,7 @@ export const POST = withProProtection(
       return toApiResponse(
         createAppError("INTERNAL_ERROR", {
           message: "Failed to persist chat history",
-          cause: error,
+          details: error,
         })
       );
     }
@@ -102,7 +102,7 @@ export const GET = withProProtection(
       return toApiResponse(
         createAppError("INTERNAL_ERROR", {
           message: "Failed to load chat history",
-          cause: error,
+          details: error,
         })
       );
     }

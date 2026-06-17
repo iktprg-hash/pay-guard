@@ -8,7 +8,7 @@ import {
 import { getUserBillingRecord } from "@/lib/billing/profile-billing";
 import { resolveSiteOrigin } from "@/lib/site/url";
 import {
-  appErrorFromStripeService,
+  mapStripeErrorToAppError,
   createAppError,
   respondWithError,
   respondWithValidationError,
@@ -37,11 +37,11 @@ const handleCheckout = withAuth(
       return Response.json({ url });
     } catch (error) {
       if (error instanceof StripeServiceError) {
-        return toApiResponse(appErrorFromStripeService(error));
+        return toApiResponse(mapStripeErrorToAppError(error));
       }
 
       console.error("[api/billing/checkout]", error);
-      return respondWithError("BILLING_CHECKOUT_FAILED", { cause: error });
+      return respondWithError("STRIPE_ERROR", { details: error });
     }
   },
   { rateLimit: { scope: "billing-checkout", limit: 10 } }
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest, context: AppRouteContext) {
         describeStripeBillingIssue(billing.checkoutBlocker)
       );
     }
-    return respondWithError("BILLING_NOT_CONFIGURED");
+    return respondWithError("STRIPE_ERROR", { statusCode: 503 });
   }
 
   return handleCheckout(request, context);
