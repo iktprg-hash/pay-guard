@@ -23,9 +23,13 @@ test.describe("Consultations — free authenticated user", () => {
     page,
   }) => {
     await page.goto(`/${L}/consultations`);
-    // Loading spinner has role="status" — wait for it to resolve
-    // It may never appear if load is instant; toBeHidden handles both cases
-    await expect(page.getByRole("status")).toBeHidden({ timeout: 10_000 });
+    await expect(page.locator("h1")).toBeVisible();
+
+    // ConsultationList loader only — not AppShell PageLoader or toast status regions
+    const listLoader = page.getByRole("status", {
+      name: /Načítám konzultace|Loading consultations|Загрузка консультаций/i,
+    });
+    await expect(listLoader).toBeHidden({ timeout: 10_000 });
   });
 
   test("empty state or list is rendered after load", async ({ page }) => {
