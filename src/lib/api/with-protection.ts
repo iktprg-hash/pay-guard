@@ -43,22 +43,18 @@ export function withProtection(
         const { scope, limit } = options.rateLimit;
         const ip = getClientIp(req.headers);
 
-        let rateLimitResult;
-
-        if (options.requirePro) {
-          rateLimitResult = await checkProRateLimit(
-            scope as import("@/lib/security/pro-rate-limit").ProRateLimitAction,
-            user.id,
-            ip
-          );
-        } else {
-          rateLimitResult = await checkAuthenticatedRateLimit(
-            scope,
-            user.id,
-            ip,
-            limit
-          );
-        }
+        const rateLimitResult = options.requirePro
+          ? await checkProRateLimit(
+              scope as import("@/lib/security/pro-rate-limit").ProRateLimitAction,
+              user.id,
+              ip
+            )
+          : await checkAuthenticatedRateLimit(
+              scope,
+              user.id,
+              ip,
+              limit
+            );
 
         if (!rateLimitResult.allowed) {
           return respondWithError("RATE_LIMITED");
